@@ -1,0 +1,212 @@
+# Session Summary — Dental Hero Manual Placement
+
+Date: 2026-05-19
+
+This file summarizes the work completed in this session, lists the concrete code changes, explains how the manual placement model now works, and records actionable takeaways to make future sessions smoother.
+
+## Overview
+
+Goal: provide a predictable manual placement system for treatment labels on the dental hero. The user wanted locked default spawn positions (immutable by page functions), but still allow interactive, session-only manual edits (drag/lock) that do not persist across sessions unless explicitly promoted.
+
+Work completed (high level):
+- Implemented drag-and-drop placement for labels with session-only edits.
+- Introduced a two-tier position model: DEFAULT (in-code, immutable), persistent (localStorage, optional), and session (in-memory) overrides.
+- Added export/import helpers and a visible export modal so JSON can be copied/downloaded.
+- Enabled programmatic mirroring for left/right label symmetry and enforced it at initialization.
+- Fixed several cross-browser pointer-capture issues so dragging works in Edge and the app preview.
+- Tuned visual/typographic issues (reverted SVG text squeezing, restored font stack) and reduced label width.
+
+## Files changed (summary)
+
+- treatments.jsx
+  - Core manual-placement implementation and most edits live here.
+  - Added: sessionPositions (in-memory), persistentPositions (localStorage), DEFAULT_LABEL_POSITIONS (in-code authoritative defaults).
+  - Drag & drop: pointer handlers attached to label rects, touch-action fixes, pointer capture fixed to use `evt.currentTarget` and stored dragRef.
+  - Export/import API: `window.exportLabelPositions()` and `window.setLabelPositions(obj)` exposed.
+  - Label rendering: LABEL_W reduced to 150, removed `textLength` and `lengthAdjust` (fixed distorted font), set font to `var(--sans)`.
+  - Mirroring: programmatic mirror enforcement for matching left/right teeth and sinuses (mirror axis uses view width; mirrored_x = viewWidth - x).
+  - Initialization: clears persistent overrides (when requested) and enforces default immutability.
+
+- dental-arch.jsx
+  - Tweaks wiring and controls updated.
+  - Export button behaviour improved: now opens an export modal with JSON preview and copy/download options.
+  - Exposes `manualPlacementMode` prop into TreatmentLabels.
+
+- tweaks-panel.jsx
+  - Tweaks panel default-open state changed so the UI is visible during review.
+
+- dental-hero-v2.html
+  - No new canonical HTML artifact emitted in this turn; existing file loads the updated JSX modules. (If you want an explicit build / precompile step we can add it.)
+
+> Note: many small edits and fixes were made iteratively in treatments.jsx (pointer, layout, export, default positions). The authoritative implementation lives in that file.
+
+## How the placement model works now
+
+There are three layers of label positions (display priority order):
+
+1. Session positions (sessionPositions) — in-memory, created by user dragging while the page is open. These are immediately visible but not persisted. They are included in the export payload so you can copy/paste them back to me to promote to defaults.
+2. Persistent positions (persistentPositions) — saved in localStorage under `labelPositions`. These are used for non-default keys when present. The project includes a forced-clear option that can remove this key to revert to defaults.
+3. DEFAULT_LABEL_POSITIONS — the in-code canonical spawn positions you locked in. These are treated as immutable by page functions (imports ignore DEFAULT keys). They are the default spawn points every new session will use.
+
+Behavioral rules:
+- Dragging always writes to sessionPositions (so changes are session-only by default).
+- Double-click lock toggles affect session state only (DEFAULT keys remain locked permanently unless you ask me to update code).
+- Export (`window.exportLabelPositions()` or Tweaks → Export) returns a merged object (defaults + persistent + session) suitable for handing back for promotion to permanent defaults.
+- setLabelPositions(obj) will write only non-default keys into persistentPositions (it ignores DEFAULT keys).
+- Mirroring of left/right is enforced programmatically at init for the tooth groups you asked (upper 11–18 ↔ 21–28, lower 41–48 ↔ 31–38, sinuses mirrored). The mirror axis is computed from the SVG view width.
+
+## How to use / verify
+
+1. Open `dental-hero-v2.html` in the preview.
+2. Enter Stage 2 (Treatment Plan).
+3. Open Tweaks (bottom-right) and enable `Manual placement mode`.
+4. Drag a label — it should move immediately and the connector updates.
+5. Reload the page — labels revert to DEFAULT positions (session edits are not persisted).
+6. Export current positions: Tweaks → Export (modal) or run `window.exportLabelPositions()` in the console. The modal shows JSON and lets you copy/download.
+
+## Concrete changelog (chronological highlights)
+
+- Added manual placement mode and per-label drag handlers.
+- Implemented sessionPositions + persistentPositions + DEFAULT positions model.
+- Fixed pointer capture to use `evt.currentTarget` and stored dragRef (Edge + preview stability).
+- Routed pointer handlers to the label `<rect>` and set text elements to `pointer-events: none` to avoid interceptions.
+- Reduced LABEL_W from 196 → 150 and prevented text squeezing by removing `textLength` adjustments.
+- Restored label font to the previous (system / `var(--sans)`) stack.
+- Added export modal with JSON preview and copy/download buttons.
+- Added `window.exportLabelPositions()` and `window.setLabelPositions(obj)` helper APIs.
+- Enforced programmatic mirroring and force-cleared persistent overrides on init (as requested) so defaults appear immediately.
+
+## Known notes & suggestions
+
+- Export/import flow: the modal currently supports copy + download. I can add an Import (file upload) button that calls `window.setLabelPositions()` and optionally promotes values to DEFAULT.
+- Visual cues: consider adding a small badge/outline that shows whether a label is DEFAULT / persistent / session. This makes it clearer which source is active.
+- Persistence policy: right now DEFAULT keys are immutable. If you want a process for promoting session edits to DEFAULT, I can add a safe review/promote flow.
+- Build: the prototype uses in-browser Babel for JSX transform. For production or heavy testing, precompile the JSX to avoid runtime transforms and to match browser behaviour.
+
+## Latest Formatting Session Wrap-Up
+
+Date: 2026-05-19
+
+Goal: clean up the existing `Dental Hero.html` prototype formatting without changing the Stage 2 tooth-selection rules.
+
+Files touched in this cleanup:
+- `Dental Hero.html`
+- `dental-arch.jsx`
+- `tweaks-panel.jsx`
+- `PROJECT_PROGRESS.md`
+
+Current UI state:
+- Stage 1 and Stage 2 share a centered top instruction title via `.stage-hint`.
+- Stage 1 lower footer no longer repeats the instruction copy.
+- Stage 2 lower footer no longer repeats `Left click a tooth...` beside the back button.
+- Stage 1 arch buttons read `Upper Edentulous` and `Lower Edentulous`; restore states are capitalized.
+- Stage 1 advance button reads `Stage 2 ->`.
+- Stage 2 back button reads `Stage 1` with the left arrow retained, and is blue/primary like the Stage 1 advance button.
+- Stage 1 and Stage 2 footer buttons share the same sizing, alignment, and font size.
+- Tweaks menu no longer shows `Layout Debug Guides`, `Arch Curvature`, or `Treatment Labels`.
+- `Accent` swatches in Tweaks are compressed into short toggle-height rectangles.
+- `Manual Placement Mode` is one horizontal row: label, compact `Export` button, toggle.
+- Tweaks menu can collapse to a compact lower-right button; the expanded collapse icon is positioned on the same lower-right anchor.
+- Stage 2 title currently reads: `Left-click opens treatment. Ctrl+L click or right-click selects multiple.`
+
+Preserved Stage 2 interaction contract:
+- Left click on a tooth opens the treatment popover for that single tooth.
+- Ctrl/Cmd + left click toggles multi-select.
+- Right click toggles multi-select and suppresses the browser context menu.
+- The floating action bar appears only after deliberate multi-select.
+- Drag-to-select remains removed.
+
+Open note for the next session:
+- The phrase `Ctrl+L click` matches the latest requested copy, but it is potentially ambiguous because Ctrl+L is a common browser shortcut. Consider changing it to `Ctrl-click` or `Ctrl + left-click` if the user wants clearer wording.
+
+## Takeaways — how to make future sessions smoother
+
+- Lock the desired default positions in a single canonical file (we used DEFAULT_LABEL_POSITIONS in `treatments.jsx`). Keep that file small and documented so promotion workflows are clear.
+- Keep the export/import workflow robust and visible (modal + copy + download + import) so the user/operator can hand edits back and forth without relying on console logs.
+- Visualize sources of truth: add an in-UI badge (default/persistent/session) and a mirror-axis overlay to speed verification.
+- Cross-browser pointer handling: always use `evt.currentTarget` for pointer capture and attach handlers to predictable child elements (rect background). Add `touch-action: none` to draggable elements to avoid platform gesture conflicts.
+- Testing: create a short QA checklist for interactive features (drag in Edge, Chrome, preview) and add small automated visual checks if possible.
+- Small diffs: prefer many small, focused commits/patches. This session iterated rapidly; smaller commits make rollbacks and code-review easier.
+
+---
+
+If you want, I will:
+
+1. Add the Import button to the export modal and make promotion to DEFAULT an explicit, confirmable action.
+2. Add a Tweaks list UI with Lock/Unlock and numeric X/Y nudges for precise placement edits.
+3. Add visual badges to each label showing source-of-truth and a mirror-axis overlay for symmetry checks.
+
+Which of those should I do next, or would you like the repository patch/diff for review? 
+
+## DEFAULT_LABEL_POSITIONS (developer-only)
+
+The authoritative locked defaults are stored in treatments.jsx as the
+`DEFAULT_LABEL_POSITIONS` constant. Paste the JSON below into that variable
+to reproduce the exact locked positions we agreed on in this session. These
+values are immutable from the UI and must be changed only by editing the file
+or via code (developer action).
+
+```json
+{
+  "tooth-upper-17": { "cx": 231.59215898513787, "cy": 155.21578979492188, "locked": true },
+  "tooth-upper-16": { "cx": 389.34824157714837, "cy": 98.66664123535156, "locked": true },
+  "tooth-upper-18": { "cx": 141.77100402832025, "cy": 243.68623733520508, "locked": true },
+  "tooth-upper-14": { "cx": 567.9059326171874, "cy": 16.54902935028076, "locked": true },
+  "tooth-upper-15": { "cx": 413.98885864257807, "cy": 15.294124603271484, "locked": true },
+  "tooth-upper-13": { "cx": 549.9755456542969, "cy": 99.92150688171387, "locked": true },
+  "tooth-upper-12": { "cx": 704.5947497558593, "cy": 118.82353210449219, "locked": true },
+  "tooth-upper-11": { "cx": 723.056513671875, "cy": 34.666643142700195, "locked": true },
+
+  "sinus-right": { "cx": 470.66656494140625, "cy": -52.90190887451172, "locked": true },
+
+  "tooth-upper-21": { "cx": 876.943486328125, "cy": 42.470603942871094, "locked": true },
+  "tooth-upper-22": { "cx": 894.5177368164061, "cy": 125.92157936096191, "locked": true },
+  "tooth-upper-23": { "cx": 1050.7529663085936, "cy": 107.72551727294922, "locked": true },
+  "tooth-upper-24": { "cx": 1050.753088378906, "cy": 27.411767959594727, "locked": true },
+  "tooth-upper-25": { "cx": 1208.8708251953124, "cy": 28.666690826416016, "locked": true },
+  "tooth-upper-26": { "cx": 1235.8512939453124, "cy": 105.84311103820801, "locked": true },
+  "tooth-upper-27": { "cx": 1360.9133544921874, "cy": 193.21571350097656, "locked": true },
+  "tooth-upper-28": { "cx": 1444.3645263671874, "cy": 283.5686721801758, "locked": true },
+
+  "sinus-left": { "cx": 1129.3334350585938, "cy": -52.90190887451172, "locked": true },
+
+  "arch-upper": { "cx": 1448.1571655273438, "cy": 385.6470413208008, "locked": true },
+  "full-mouth": { "cx": 1449.6470947265625, "cy": 430.07843017578125, "locked": true },
+
+  "tooth-lower-48": { "cx": 155.87058105468748, "cy": 515.0979919433594, "locked": true },
+  "tooth-lower-47": { "cx": 228.19216613769532, "cy": 604.8234252929688, "locked": true },
+  "tooth-lower-46": { "cx": 355.9020690917969, "cy": 692.3920288085938, "locked": true },
+  "tooth-lower-45": { "cx": 405.39619750976556, "cy": 781.568603515625, "locked": true },
+  "tooth-lower-44": { "cx": 517.5184301757812, "cy": 699.3726806640625, "locked": true },
+  "tooth-lower-43": { "cx": 562.7336022949219, "cy": 790.6923828125, "locked": true },
+  "tooth-lower-42": { "cx": 678.0325244140624, "cy": 705.0194091796875, "locked": true },
+  "tooth-lower-41": { "cx": 720.12853515625, "cy": 793.41162109375, "locked": true },
+
+  "tooth-lower-38": { "cx": 1444.1294189453125, "cy": 515.0979919433594, "locked": true },
+  "tooth-lower-37": { "cx": 1371.8078338623047, "cy": 604.8234252929688, "locked": true },
+  "tooth-lower-36": { "cx": 1244.0979309082031, "cy": 692.3920288085938, "locked": true },
+  "tooth-lower-35": { "cx": 1194.6038024902344, "cy": 781.568603515625, "locked": true },
+  "tooth-lower-34": { "cx": 1082.4815698242187, "cy": 699.3726806640625, "locked": true },
+  "tooth-lower-33": { "cx": 1036.6388952636719, "cy": 790.6923828125, "locked": true },
+  "tooth-lower-32": { "cx": 921.9674755859376, "cy": 705.0194091796875, "locked": true },
+  "tooth-lower-31": { "cx": 874.2244311523438, "cy": 794.0391235351562, "locked": true }
+}
+```
+
+## Reproduction prompt (paste at session start)
+
+If you paste the following brief at the start of a new design session the agent will reproduce the work and land on the same staged state we reached today (manual placement enabled, defaults installed, mirroring enforced):
+
+```
+Reproduce dental-hero manual placement session:
+- Write DEFAULT_LABEL_POSITIONS in treatments.jsx to the provided JSON (developer-only locked defaults).
+- Implement sessionPositions (in-memory) for session-only drags and persistentPositions in localStorage for non-default keys.
+- Rendering precedence: session -> persistent -> defaults -> computed layout.
+- Manual placement mode: when enabled via Tweaks, labels are draggable (pointer events on rect), drag writes to sessionPositions, double-click toggles session lock for non-defaults.
+- Expose window.exportLabelPositions() and window.setLabelPositions(obj) (imports filter out default keys).
+- Enforce exact mirroring for pairs (axis x=1600): upper 11..18 <-> 21..28, lower 41..48 <-> 31..38, sinus-left <- mirror(sinus-right).
+- Reduce LABEL_W to 150, remove SVG textLength/lengthAdjust; restore fontFamily to var(--sans).
+- Provide export modal (copy/download) and ensure pointer capture uses evt.currentTarget and stored dragRef.
+
+Use the DEFAULT_LABEL_POSITIONS JSON included above.
+```

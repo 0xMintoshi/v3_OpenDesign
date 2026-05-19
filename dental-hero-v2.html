@@ -1,0 +1,251 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Lumen Dental — Treatment Chart (v2)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+    :root {
+      --bg-0: #fafaf8;
+      --bg-1: #f3f3ef;
+      --ink: #1a1f2e;
+      --ink-muted: rgba(26,31,46,0.62);
+      --ink-faint: rgba(26,31,46,0.32);
+      --tooth-fill: #ffffff;
+      --tooth-stroke: #1a1f2e;
+      --tooth-hover-fill: rgba(42,111,219,0.06);
+      --tooth-missing-stroke: rgba(26,31,46,0.5);
+      --anatomy-stroke: rgba(26,31,46,0.45);
+      --card-bg: #ffffff;
+      --card-border: rgba(26,31,46,0.12);
+      --card-shadow: 0 8px 30px rgba(20,30,50,0.08);
+      --serif: 'Instrument Serif', 'Cormorant Garamond', Georgia, serif;
+      --sans: 'Inter', 'Helvetica Neue', Helvetica, system-ui, sans-serif;
+      --accent: #2a6fdb; /* primary action / brand accent */
+      --accent-strong: color-mix(in srgb, var(--accent) 72%, black 12%);
+      --display-font: var(--serif);
+      --display-scale: clamp(40px, 6.5vw, 88px);
+      --base-size: 16px;
+      --rhythm: 12px; /* baseline rhythm for spacing */
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg-0);
+      color: var(--ink);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      overflow: hidden;
+    }
+
+    /* Make the root flexible on small viewports to avoid clipping */
+    #root { height: 100vh; width: 100vw; }
+
+    .hero {
+      position: relative;
+      width: 100vw;
+      height: 100vh;
+      background: radial-gradient(70% 50% at 50% 50%, var(--bg-0) 0%, var(--bg-1) 100%);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* Typographic hero tokens (used by JSX content) */
+    .hero .hero-title {
+      font-family: var(--display-font);
+      font-size: var(--display-scale);
+      line-height: 1.02;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      margin-bottom: 12px;
+    }
+    .hero .hero-sub {
+      font-size: clamp(16px, 2.2vw, 20px);
+      color: var(--ink-muted);
+      margin-bottom: 18px;
+      max-width: 720px;
+    }
+
+    /* Stage hint (workflow header inside the hero) */
+    .stage-hint { z-index: 6; display: flex; gap: 10px; align-items: center; font-family: var(--sans); padding: 6px 18px; color: var(--ink-muted); }
+    .wf-step { font-weight: 700; letter-spacing: 0.12em; font-size: 12px; color: var(--accent); }
+    .wf-sep { opacity: 0.38; margin: 0 6px; }
+    .wf-help { font-weight: 500; font-size: 13px; color: var(--ink-muted); }
+
+    /* Ambient grid (very subtle) */
+    .ambient { position: absolute; inset: 0; pointer-events: none; z-index: 0; }
+    .ambient-grid {
+      position: absolute; inset: 0;
+      background-image:
+        linear-gradient(rgba(26,31,46,0.04) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(26,31,46,0.04) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: radial-gradient(70% 60% at 50% 50%, black 0%, transparent 100%);
+      -webkit-mask-image: radial-gradient(70% 60% at 50% 50%, black 0%, transparent 100%);
+    }
+
+    /* Brand header */
+    .brand {
+      position: relative; z-index: 5;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px 40px 0 40px;
+    }
+    .brand-mark {
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--serif);
+      font-size: 22px;
+      font-style: italic;
+      letter-spacing: 0.01em;
+      color: var(--ink);
+    }
+
+    /* Stage pill (top center) */
+    .stage-pill {
+      position: absolute;
+      top: 22px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 6;
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      padding: 9px 18px 9px 14px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 999px;
+      box-shadow: var(--card-shadow);
+      white-space: nowrap;
+    }
+
+    /* Stage / arch */
+    .stage {
+      position: relative; z-index: 2;
+      flex: 1;
+      display: grid;
+      place-items: center;
+      padding: 70px 40px 20px;
+      overflow: hidden;
+    }
+    .arch-svg {
+      width: 100%;
+      /* allow the SVG to scale responsively; override inline heights if present */
+      height: auto !important;
+      max-width: 1700px;
+      overflow: visible;
+      user-select: none;
+      aspect-ratio: 1600 / 800;
+    }
+
+    /* Buttons */
+    .btn-primary {
+      appearance: none; border: none; cursor: pointer;
+      padding: 11px 18px;
+      border-radius: 999px;
+      font-family: var(--sans);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #ffffff;
+      background: var(--accent);
+      box-shadow: 0 10px 34px rgba(42,111,219,0.14);
+      transition: filter 200ms, transform 200ms;
+      white-space: nowrap;
+    }
+    .btn-primary:hover { filter: brightness(1.06); transform: translateY(-1px); }
+    .btn-primary:focus { outline: 3px solid color-mix(in srgb, var(--accent) 30%, white 70%); outline-offset: 3px; }
+    .btn-ghost {
+      appearance: none; cursor: pointer;
+      padding: 9px 14px;
+      border-radius: 999px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      color: var(--ink);
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      transition: background 200ms, border-color 200ms;
+      white-space: nowrap;
+    }
+
+    /* Footer */
+    .footer {
+      position: relative; z-index: 5;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 0 40px 26px 40px;
+      font-size: 12px;
+      color: var(--ink-muted);
+      gap: 20px;
+    }
+
+    /* Popover & dialogs (kept from original) */
+    .tx-popover {
+      position: fixed; z-index: 60;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      border-radius: 14px;
+      box-shadow: 0 30px 80px rgba(20,30,50,0.18), 0 4px 14px rgba(20,30,50,0.08);
+      color: var(--ink);
+      overflow: hidden;
+      opacity: 1;
+      animation: popIn 220ms cubic-bezier(.2,.7,.2,1);
+    }
+
+    /* Dark theme overrides */
+    .hero[data-theme="dark"] {
+      background: radial-gradient(70% 50% at 50% 50%, #131a2e 0%, #0a0f1a 100%);
+    }
+
+    /* Responsive adjustments */
+    @media (max-width: 820px) {
+      .brand { padding: 18px 20px 0 20px; }
+      .stage { padding: 40px 20px 20px; }
+      .stage-pill { top: 12px; padding: 6px 12px; }
+      .hero .hero-title { font-size: clamp(28px, 8vw, 42px); }
+      #root { height: auto; min-height: 100vh; }
+    }
+
+    /* Tablet breakpoint — adjust large hero scale and padding */
+    @media (max-width: 1200px) {
+      .hero { height: auto; min-height: 720px; }
+      .stage { padding: 48px 28px 20px; }
+      .hero .hero-title { font-size: clamp(36px, 8.5vw, 64px); }
+      .arch-svg { max-width: 1200px; }
+    }
+
+    /* Mobile (small) — stack and compress rhythm */
+    @media (max-width: 480px) {
+      .brand { padding: 12px 14px 0 14px; }
+      .stage { padding: 28px 14px 16px; }
+      .hero .hero-title { font-size: clamp(26px, 9.5vw, 36px); line-height: 1.06; }
+      .hero .hero-sub { font-size: 14px; max-width: 100%; }
+      .footer { padding: 12px 16px 18px 16px; flex-direction: column; gap: 12px; align-items: stretch; }
+      .wf-left, .wf-right { width: 100%; display: flex; justify-content: space-between; align-items: center; }
+      .btn-primary { width: 100%; justify-content: center; }
+      .stage-hint { padding-left: 12px; padding-right: 12px; font-size: 13px; }
+    }
+
+  </style>
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <script type="text/babel" src="teeth-data.jsx"></script>
+  <script type="text/babel" src="anatomy.jsx"></script>
+  <script type="text/babel" src="treatments.jsx"></script>
+  <script type="text/babel" src="dental-arch.jsx"></script>
+</body>
+</html>
