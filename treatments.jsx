@@ -50,14 +50,26 @@ const ARCH_GROUPS = [
     label: 'Orthodontics · full mouth',
     scope: 'full-mouth',
     items: [
-      { id: 'ortho-brackets', label: 'Brackets + Archwire', hint: 'fixed appliance, both arches' },
-      { id: 'ortho-aligners', label: 'Clear Aligners',      hint: 'removable shells, both arches' },
+      { id: 'ortho-brackets', label: 'Brackets + Archwire', hint: 'fixed appliance, both arches',
+        requires: 'dentate-patient' },
+      { id: 'ortho-aligners', label: 'Clear Aligners',      hint: 'removable shells, both arches',
+        requires: 'dentate-patient' },
     ],
   },
 ];
 
 const TX_LABEL = {};
+const MISSING_TOOTH_REQUIRED = new Set([
+  'implant-crown',
+  'implant-only',
+  'socket-preservation',
+  'simultaneous-graft',
+  'gbr',
+]);
 [...TX_GROUPS, SINUS_GROUP, ...ARCH_GROUPS].forEach(g => g.items.forEach(i => TX_LABEL[i.id] = i.label));
+TX_GROUPS.forEach(g => g.items.forEach(i => {
+  if (MISSING_TOOTH_REQUIRED.has(i.id)) i.requires = 'missing-tooth';
+}));
 
 // ============================================================================
 // Implant overlay — flat schematic
@@ -612,7 +624,8 @@ function TreatmentLabels({ treatments, allTeeth, upperBiteY, lowerBiteY, accent,
 
     "sinus-left": { "cx": 1129.3334350585938, "cy": -52.90190887451172, "locked": true },
 
-    "arch-upper": { "cx": 1448.1571655273438, "cy": 385.6470413208008, "locked": true },
+    "arch-upper": { "cx": 1509.6471557617188, "cy": 353.6470413208008, "locked": true },
+    "arch-lower": { "cx": 1509.6469116210938, "cy": 459.56858825683594, "locked": true },
     "full-mouth": { "cx": 1449.6470947265625, "cy": 430.07843017578125, "locked": true },
 
     "tooth-lower-48": { "cx": 155.87058105468748, "cy": 515.0979919433594, "locked": true },
@@ -1407,7 +1420,7 @@ function TreatmentLabels({ treatments, allTeeth, upperBiteY, lowerBiteY, accent,
 // Treatment popover — anchored in screen space, with conditional availability
 // ============================================================================
 
-function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPresent, onApply, onClose }) {
+function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPresent, allMissing, fullyEdentulous, onApply, onClose }) {
   if (!open) return null;
 
   let groups = [];
@@ -1447,12 +1460,20 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
     if (item.requires === 'present-tooth') {
       return allPresent === true;
     }
+    if (item.requires === 'missing-tooth') {
+      return allMissing === true;
+    }
+    if (item.requires === 'dentate-patient') {
+      return fullyEdentulous !== true;
+    }
     return true;
   };
 
   const unavailableHint = (item) => {
     if (item.requires === 'edentulous-arch') return 'requires edentulous arch';
     if (item.requires === 'present-tooth') return 'requires present teeth only';
+    if (item.requires === 'missing-tooth') return 'requires missing or extracted teeth';
+    if (item.requires === 'dentate-patient') return 'requires at least one present tooth';
     return 'not available for this selection';
   };
 
@@ -1476,13 +1497,11 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
                 return (
                   <button key={item.id}
                           className={`tx-item ${avail ? '' : 'disabled'}`}
+                          title={avail ? '' : unavailableHint(item)}
                           disabled={!avail}
                           onClick={() => avail && onApply(item.id, group.scope)}>
                     <div className="tx-item-main">
                       <span className="tx-item-label">{item.label}</span>
-                      <span className="tx-item-hint">
-                        {avail ? item.hint : unavailableHint(item)}
-                      </span>
                     </div>
                     <span className="tx-item-arrow">{avail ? '→' : '—'}</span>
                   </button>

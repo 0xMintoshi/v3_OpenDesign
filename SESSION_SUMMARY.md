@@ -1,8 +1,53 @@
 # Session Summary — Dental Hero Manual Placement
 
-Date: 2026-05-19
+Latest update: 2026-05-21
 
-This file summarizes the work completed in this session, lists the concrete code changes, explains how the manual placement model now works, and records actionable takeaways to make future sessions smoother.
+Scope: manual placement, treatment logic, and visual-treatment drawing handoff.
+
+This file summarizes the active dental hero handoff. It keeps the manual placement details and adds the latest treatment-logic and visual-treatment decisions for future sessions.
+
+## Latest Visual-Treatment Session Wrap-Up
+
+Date: 2026-05-21
+
+Goal: establish how visual treatments should connect to a future backend treatment database, then explore implant and implant+crown redraws in the current hero style.
+
+Files touched or created in this visual pass:
+- `treatments.jsx`
+- `crown-visual-drafts.html`
+- `implant-visual-drafts.html`
+- `implant-hero-fit-preview.html`
+- `README.md`
+- `PROJECT_PROGRESS.md`
+- `SESSION_SUMMARY.md`
+
+Backend/design model decision:
+- Keep the backend treatment database as the clinical/product source of truth.
+- Map many database treatments to a smaller set of reusable hero visual types.
+- Keep the hero visual layer focused on display and target selection, not as the treatment database.
+- Some future database treatments should have `visualType: null` and appear only in search/final forms, not as arch overlays.
+
+Current user-requested visual backlog:
+- `crown`: draw on an existing tooth or an implant site.
+- `bridge`: model as a span. Example `11-13` draws crown units on 11, 12, and 13, even if 12 is missing.
+- `partial denture`: multi-select teeth and draw a removable partial denture visual.
+- `clear aligners`: current `ortho-aligners` exists but needs visual refinement.
+- `extraction`: current red X is disliked and should be redrawn.
+
+Implant decision and revert:
+- The user rejected realistic/gradient/metal implant drafts.
+- The preferred style still follows the existing hero language: blue outline, white interior, minimal detail.
+- A promoted implant redraw failed in real hero context: the implant+crown position was wrong, the implant became too small, and the generated crown looked like a bowl.
+- The failed promoted redraw was reverted. Production `treatments.jsx` is back to the earlier `ImplantOverlay({ x, y, w, h, jaw, withCrown, accent })` implementation.
+- Do not treat `implant-visual-drafts.html` or `implant-hero-fit-preview.html` as approved production source.
+- The next pass should solve `implant-crown` first by using the natural tooth crown size, position, and angulation as the reference structure. Then derive `implant-only` from the same fixture/collar anchor with the crown hidden.
+
+Practical habit for future visual work:
+- Start with a draft board, then a hero-fit preview on real tooth positions, then production source.
+- Do not promote a standalone SVG until it has been checked in the actual `Dental Hero.html` hero context and explicitly approved there.
+- Keep new treatment visuals as reusable per-tooth or per-span overlays driven by `cx`, `w`, `h`, `jaw`, `yOffset`, and when relevant `tilt`/natural tooth paths.
+- Avoid realistic shading unless the user explicitly reverses this direction.
+- Avoid generating separate cartoon crown caps; natural tooth geometry is the reference.
 
 ## Overview
 
@@ -35,8 +80,8 @@ Work completed (high level):
 - tweaks-panel.jsx
   - Tweaks panel default-open state changed so the UI is visible during review.
 
-- dental-hero-v2.html
-  - No new canonical HTML artifact emitted in this turn; existing file loads the updated JSX modules. (If you want an explicit build / precompile step we can add it.)
+- Dental Hero.html
+  - Canonical HTML artifact for the active prototype; existing file loads the updated JSX modules. (If you want an explicit build / precompile step we can add it.)
 
 > Note: many small edits and fixes were made iteratively in treatments.jsx (pointer, layout, export, default positions). The authoritative implementation lives in that file.
 
@@ -57,7 +102,7 @@ Behavioral rules:
 
 ## How to use / verify
 
-1. Open `dental-hero-v2.html` in the preview.
+1. Open `Dental Hero.html` in the preview.
 2. Enter Stage 2 (Treatment Plan).
 3. Open Tweaks (bottom-right) and enable `Manual placement mode`.
 4. Drag a label — it should move immediately and the connector updates.
@@ -107,7 +152,7 @@ Current UI state:
 - `Accent` swatches in Tweaks are compressed into short toggle-height rectangles.
 - `Manual Placement Mode` is one horizontal row: label, compact `Export` button, toggle.
 - Tweaks menu can collapse to a compact lower-right button; the expanded collapse icon is positioned on the same lower-right anchor.
-- Stage 2 title currently reads: `Left-click opens treatment. Ctrl+L click or right-click selects multiple.`
+- Stage 2 title currently reads: `Left-click opens treatment. Ctrl+L-click or right-click selects multiple.`
 
 Preserved Stage 2 interaction contract:
 - Left click on a tooth opens the treatment popover for that single tooth.
@@ -117,7 +162,50 @@ Preserved Stage 2 interaction contract:
 - Drag-to-select remains removed.
 
 Open note for the next session:
-- The phrase `Ctrl+L click` matches the latest requested copy, but it is potentially ambiguous because Ctrl+L is a common browser shortcut. Consider changing it to `Ctrl-click` or `Ctrl + left-click` if the user wants clearer wording.
+- The phrase `Ctrl+L-click` matches the latest requested copy, but it is potentially ambiguous because Ctrl+L is a common browser shortcut. Consider changing it to `Ctrl-click` or `Ctrl + left-click` if the user wants clearer wording.
+
+## Latest Treatment Logic Session Wrap-Up
+
+Date: 2026-05-20
+
+Goal: update Stage 2 treatment-addition logic to match the user's clinical model, then preserve the decisions for the next session.
+
+Files touched in this session:
+- `Dental Hero.html`
+- `dental-arch.jsx`
+- `treatments.jsx`
+- `tweaks-panel.jsx`
+- `README.md`
+- `SESSION_SUMMARY.md`
+- `PROJECT_PROGRESS.md`
+
+Treatment logic now:
+- `extraction` is available for present teeth and, when applied in Stage 2, marks the selected teeth missing.
+- Removing an `extraction` label from a tooth restores that tooth to present.
+- `implant-only`, `implant-crown`, `socket-preservation`, `gbr`, and `simultaneous-graft` require selected teeth to already be missing/extracted.
+- `implant-only` and `implant-crown` remain mutually exclusive per tooth.
+- Bone graft treatments are not mutually exclusive. `socket-preservation`, `gbr`, and `simultaneous-graft` may stack on the same tooth.
+- Existing same-treatment rows still merge target teeth instead of creating duplicate rows.
+- `alveolectomy` and `complete-denture` are not mutually exclusive. Both can exist on an edentulous arch.
+- `alveolectomy` and `complete-denture` require an edentulous arch, whether it started edentulous or became edentulous through extractions.
+- `ortho-brackets` and `ortho-aligners` require at least one present tooth. They cannot be added when the patient is fully edentulous.
+- Full-mouth ortho treatments remain mutually exclusive with each other.
+
+Popover and control updates:
+- Treatment item subtitle lines were removed from the popover for more compact cards.
+- Disabled treatment explanations are kept as hover titles instead of always-visible subtitles.
+- Stage 2 helper copy is intentionally `Left-click opens treatment. Ctrl+L-click or right-click selects multiple.`
+- The Tweaks menu uses a shared lower-right anchor for the expanded panel, the collapse chevron, and the collapsed `Tweaks` reopen button.
+
+Default label positions updated:
+- `arch-upper` is locked at `{ "cx": 1509.6471557617188, "cy": 353.6470413208008, "locked": true }`.
+- `arch-lower` is locked at `{ "cx": 1509.6469116210938, "cy": 459.56858825683594, "locked": true }`.
+
+Removal behavior:
+- Tooth label cards remove one treatment from one tooth target.
+- Non-tooth labels remove one sinus or arch target from the treatment row.
+- Full-mouth treatment removal deletes the whole full-mouth treatment row because its only target is `both`.
+- The only removal that currently changes tooth presence is extraction removal, which restores the tooth to present.
 
 ## Takeaways — how to make future sessions smoother
 
@@ -127,16 +215,6 @@ Open note for the next session:
 - Cross-browser pointer handling: always use `evt.currentTarget` for pointer capture and attach handlers to predictable child elements (rect background). Add `touch-action: none` to draggable elements to avoid platform gesture conflicts.
 - Testing: create a short QA checklist for interactive features (drag in Edge, Chrome, preview) and add small automated visual checks if possible.
 - Small diffs: prefer many small, focused commits/patches. This session iterated rapidly; smaller commits make rollbacks and code-review easier.
-
----
-
-If you want, I will:
-
-1. Add the Import button to the export modal and make promotion to DEFAULT an explicit, confirmable action.
-2. Add a Tweaks list UI with Lock/Unlock and numeric X/Y nudges for precise placement edits.
-3. Add visual badges to each label showing source-of-truth and a mirror-axis overlay for symmetry checks.
-
-Which of those should I do next, or would you like the repository patch/diff for review? 
 
 ## DEFAULT_LABEL_POSITIONS (developer-only)
 
@@ -170,7 +248,8 @@ or via code (developer action).
 
   "sinus-left": { "cx": 1129.3334350585938, "cy": -52.90190887451172, "locked": true },
 
-  "arch-upper": { "cx": 1448.1571655273438, "cy": 385.6470413208008, "locked": true },
+  "arch-upper": { "cx": 1509.6471557617188, "cy": 353.6470413208008, "locked": true },
+  "arch-lower": { "cx": 1509.6469116210938, "cy": 459.56858825683594, "locked": true },
   "full-mouth": { "cx": 1449.6470947265625, "cy": 430.07843017578125, "locked": true },
 
   "tooth-lower-48": { "cx": 155.87058105468748, "cy": 515.0979919433594, "locked": true },

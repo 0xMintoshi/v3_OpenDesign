@@ -342,7 +342,8 @@
     display: flex; justify-content: space-between; align-items: center;
     gap: 12px;
     width: 100%;
-    padding: 10px 12px;
+    min-height: 34px;
+    padding: 7px 12px;
     background: transparent;
     border: 1px solid transparent;
     border-radius: 10px;
@@ -360,9 +361,8 @@
     cursor: not-allowed;
     opacity: 0.45;
   }
-  .tx-item-main { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .tx-item-main { display: flex; align-items: center; min-width: 0; }
   .tx-item-label { font-size: 13px; font-weight: 500; }
-  .tx-item-hint  { font-size: 11px; color: var(--ink-muted); }
   .tx-item-arrow { color: var(--ink-faint); font-size: 14px; }
   .tx-item:hover:not(.disabled) .tx-item-arrow { color: var(--ink); }
 

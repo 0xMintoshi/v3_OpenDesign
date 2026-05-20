@@ -239,7 +239,9 @@ function TweaksPanel({ title = 'Tweaks', noDeckControls = false, children }) {
     setRailVisible(on);
     window.postMessage({ type: '__deck_rail_visible', on }, '*');
   };
-  const offsetRef = React.useRef({ x: 40, y: 78 });
+  const TWEAK_ANCHOR = { x: 40, y: 78 };
+  const COLLAPSED_ANCHOR_NUDGE = 8;
+  const offsetRef = React.useRef({ ...TWEAK_ANCHOR });
   const PAD = 16;
 
   const clampToViewport = React.useCallback(() => {
@@ -311,6 +313,10 @@ function TweaksPanel({ title = 'Tweaks', noDeckControls = false, children }) {
       <>
         <style>{__TWEAKS_STYLE}</style>
         <button type="button" className="twk-mini" data-noncommentable=""
+                style={{
+                  right: offsetRef.current.x,
+                  bottom: offsetRef.current.y + COLLAPSED_ANCHOR_NUDGE
+                }}
                 aria-label="Open Tweaks" onClick={() => setOpen(true)}>
           Tweaks
         </button>

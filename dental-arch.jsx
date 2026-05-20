@@ -431,6 +431,7 @@ function DentalHero() {
     upper: scaledUpper.every((x) => presence[x.id] === 'missing'),
     lower: scaledLower.every((x) => presence[x.id] === 'missing')
   }), [presence]);
+  const fullyEdentulous = archEdentulous.upper && archEdentulous.lower;
 
   const treatedTeeth = useMemo(() => {
     const s = new Set();
@@ -546,7 +547,13 @@ function DentalHero() {
 
   // ---- Apply treatment ----
   const handleApplyTreatment = useCallback((txId, scope) => {
-    const autoMissing = ['implant-only', 'implant-crown', 'socket-preservation'];
+    const orthoIds = ['ortho-brackets', 'ortho-aligners'];
+    if (scope === 'full-mouth' && orthoIds.includes(txId) && fullyEdentulous) {
+      setPopover(null);
+      setSelection([]);
+      return;
+    }
+    const autoMissing = ['extraction'];
     if (autoMissing.includes(txId) && popover.mode === 'tooth') {
       setPresence((p) => {
         const next = { ...p };
@@ -560,8 +567,6 @@ function DentalHero() {
         const targets = popover.target.map((t) => t.id);
         const exclusive = txId === 'implant-only' || txId === 'implant-crown' ?
         ['implant-only', 'implant-crown'] :
-        txId === 'socket-preservation' || txId === 'simultaneous-graft' || txId === 'gbr' ?
-        ['socket-preservation', 'simultaneous-graft', 'gbr'] :
         [txId];
         next = next.map((tx) => {
           if (tx.scope !== 'tooth' || !exclusive.includes(tx.id)) return tx;
@@ -586,17 +591,9 @@ function DentalHero() {
       } else if (popover.mode === 'arch') {
         const arch = popover.target.arch;
         if (scope === 'full-mouth') {
-          const orthoIds = ['ortho-brackets', 'ortho-aligners'];
           next = next.filter((tx) => !orthoIds.includes(tx.id));
           next.push({ id: txId, scope: 'full-mouth', targets: ['both'] });
         } else {
-          const exclusive = ['alveolectomy', 'complete-denture'];
-          if (exclusive.includes(txId)) {
-            next = next.map((tx) => {
-              if (!exclusive.includes(tx.id)) return tx;
-              return { ...tx, targets: tx.targets.filter((a) => a !== arch) };
-            }).filter((tx) => tx.targets.length > 0);
-          }
           const idx = next.findIndex((tx) => tx.id === txId && tx.scope === 'arch');
           if (idx >= 0) {
             const merged = new Set([...next[idx].targets, arch]);
@@ -610,7 +607,7 @@ function DentalHero() {
     });
     setPopover(null);
     setSelection([]);
-  }, [popover]);
+  }, [popover, fullyEdentulous]);
 
   // ---- Remove a single treatment (used by label cards) ----
   const removeTreatmentForTooth = (toothId, txId) => {
@@ -618,6 +615,13 @@ function DentalHero() {
       if (tx.scope !== 'tooth' || tx.id !== txId) return tx;
       return { ...tx, targets: tx.targets.filter((id) => id !== toothId) };
     }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0));
+    if (txId === 'extraction') {
+      setPresence((prev) => {
+        const next = { ...prev };
+        delete next[toothId];
+        return next;
+      });
+    }
   };
   const removeNonToothTreatment = (txId, target) => {
     setTreatments((prev) => prev.map((tx) => {
@@ -715,7 +719,7 @@ function DentalHero() {
           <>
             <span className="wf-step">STAGE 2</span>
             <span className="wf-sep">/</span>
-            <span className="wf-help">Left-click opens treatment. Ctrl+L click or right-click selects multiple.</span>
+            <span className="wf-help">Left-click opens treatment. Ctrl+L-click or right-click selects multiple.</span>
           </>
         )}
       </div>
@@ -871,6 +875,10 @@ function DentalHero() {
         allPresent={popover && popover.mode === 'tooth'
           ? popover.target.every(t => presence[t.id] !== 'missing')
           : false}
+        allMissing={popover && popover.mode === 'tooth'
+          ? popover.target.every(t => presence[t.id] === 'missing')
+          : false}
+        fullyEdentulous={fullyEdentulous}
         onApply={handleApplyTreatment}
         onClose={() => {setPopover(null);setSelection([]);}} />
       
