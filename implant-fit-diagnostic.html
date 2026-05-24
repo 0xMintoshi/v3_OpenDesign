@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Implant Fit Diagnostic</title>
+  <style>
+    :root {
+      --bg-0: #fafaf8;
+      --bg-1: #f3f3ef;
+      --panel: #ffffff;
+      --ink: #1a1f2e;
+      --muted: rgba(26,31,46,0.62);
+      --line: rgba(26,31,46,0.14);
+      --tooth-fill: #ffffff;
+      --tooth-stroke: #1a1f2e;
+      --missing-stroke: rgba(26,31,46,0.36);
+      --accent: #2A6FDB;
+      --guide-green: #2f9e69;
+      --guide-orange: #d97757;
+      --guide-violet: #7c5cff;
+      --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+      --serif: "Instrument Serif", Georgia, serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(70% 50% at 50% 10%, var(--bg-0) 0%, var(--bg-1) 100%);
+      color: var(--ink);
+      font-family: var(--sans);
+    }
+
+    main {
+      width: min(1480px, calc(100vw - 32px));
+      margin: 0 auto;
+      padding: 24px 0 40px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 24px;
+      margin-bottom: 14px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-family: var(--serif);
+      font-size: 34px;
+      font-style: italic;
+      font-weight: 400;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0;
+      max-width: 720px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 8px;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      min-height: 28px;
+      padding: 5px 10px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: rgba(255,255,255,0.72);
+      white-space: nowrap;
+    }
+
+    .swatch {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .swatch.axis { background: var(--guide-green); }
+    .swatch.collar { background: var(--guide-orange); }
+    .swatch.bounds { background: var(--guide-violet); }
+
+    .board {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--panel);
+      overflow: hidden;
+      box-shadow: 0 18px 50px rgba(20,30,50,0.08);
+    }
+
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      background:
+        linear-gradient(90deg, rgba(26,31,46,0.035) 1px, transparent 1px),
+        linear-gradient(0deg, rgba(26,31,46,0.035) 1px, transparent 1px),
+        #fbfcff;
+      background-size: 80px 80px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      fill: var(--muted);
+    }
+
+    .panel-label {
+      font-size: 12px;
+      font-weight: 700;
+      fill: var(--ink);
+      text-anchor: middle;
+    }
+
+    .panel-meta {
+      font-size: 10px;
+      fill: var(--muted);
+      text-anchor: middle;
+    }
+
+    .bite-line {
+      stroke: rgba(26,31,46,0.28);
+      stroke-width: 0.8;
+      stroke-dasharray: 3 6;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .tooth-outline {
+      fill: var(--tooth-fill);
+      stroke: var(--tooth-stroke);
+      stroke-width: 1.4;
+      stroke-linejoin: round;
+      stroke-linecap: round;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .tooth-cervical {
+      fill: none;
+      stroke: rgba(26,31,46,0.45);
+      stroke-width: 1;
+      stroke-linecap: round;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .tooth-missing .tooth-outline {
+      fill: rgba(42,111,219,0.035);
+      stroke: var(--missing-stroke);
+      stroke-dasharray: 4 4;
+    }
+
+    .ghost .tooth-outline {
+      fill: rgba(255,255,255,0.36);
+      stroke: rgba(26,31,46,0.22);
+      stroke-dasharray: 4 4;
+    }
+
+    .ghost .tooth-cervical {
+      stroke: rgba(26,31,46,0.26);
+      stroke-dasharray: 3 4;
+    }
+
+    .implant-crown,
+    .implant-body,
+    .implant-collar {
+      fill: var(--tooth-fill);
+      stroke: var(--accent);
+      stroke-width: 1.6;
+      stroke-linejoin: round;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .implant-detail {
+      fill: none;
+      stroke: var(--accent);
+      stroke-width: 0.95;
+      stroke-linecap: round;
+      opacity: 0.78;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .guide-axis {
+      stroke: var(--guide-green);
+      stroke-width: 1.1;
+      stroke-dasharray: 6 5;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .guide-collar {
+      stroke: var(--guide-orange);
+      stroke-width: 1.2;
+      stroke-dasharray: 2 4;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .guide-bounds {
+      fill: none;
+      stroke: var(--guide-violet);
+      stroke-width: 1;
+      stroke-dasharray: 5 5;
+      opacity: 0.82;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .guide-crown {
+      fill: rgba(42,111,219,0.04);
+      stroke: rgba(42,111,219,0.48);
+      stroke-width: 1;
+      stroke-dasharray: 3 4;
+      vector-effect: non-scaling-stroke;
+    }
+
+    .ratio-text {
+      font-size: 9px;
+      fill: var(--muted);
+      text-anchor: middle;
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Implant fit diagnostic</h1>
+        <p>Measurement pass only. The implant group is drawn in the same transformed tooth coordinate system as the hero: arch bite translation, tooth y-offset, jaw flip, and tooth tilt. Production files are untouched.</p>
+      </div>
+      <div class="legend" aria-label="Guide legend">
+        <span class="chip"><span class="swatch"></span>implant outline</span>
+        <span class="chip"><span class="swatch axis"></span>tooth axis</span>
+        <span class="chip"><span class="swatch collar"></span>collar/cervical line</span>
+        <span class="chip"><span class="swatch bounds"></span>fixture bounds</span>
+      </div>
+    </header>
+    <section class="board">
+      <svg id="diagnostic" viewBox="0 0 1600 1220" role="img" aria-label="Implant fit diagnostic board"></svg>
+    </section>
+  </main>
+
+  <script>
+    const svg = document.getElementById('diagnostic');
+    const NS = 'http://www.w3.org/2000/svg';
+    const accent = '#2A6FDB';
+
+    const hero = {
+      centerX: 800,
+      scale: 2.2,
+      biteCenter: 410,
+      archGap: 50,
+      archDepth: 0,
+    };
+
+    hero.upperBiteY = hero.biteCenter - hero.archGap / 2;
+    hero.lowerBiteY = hero.biteCenter + hero.archGap / 2;
+
+    const testIds = [
+      'upper-11', 'upper-13', 'upper-14', 'upper-16', 'upper-18',
+      'lower-31', 'lower-33', 'lower-34', 'lower-36', 'lower-38',
+    ];
+
+    const crownIds = new Set(['upper-11', 'upper-14', 'upper-16', 'lower-31', 'lower-34', 'lower-36']);
+
+    function el(name, attrs = {}, children = []) {
+      const node = document.createElementNS(NS, name);
+      Object.entries(attrs).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) node.setAttribute(key, value);
+      });
+      children.forEach(child => node.appendChild(child));
+      return node;
+    }
+
+    function text(value, attrs) {
+      const node = el('text', attrs);
+      node.textContent = value;
+      return node;
+    }
+
+    function path(className, d, attrs = {}) {
+      return el('path', { class: className, d, ...attrs });
+    }
+
+    function chRatioFor(type) {
+      if (type === 'wisdomU' || type === 'wisdomL') return 0.46;
+      if (type === 'molarU' || type === 'molarL') return 0.40;
+      if (type === 'premolar' || type === 'premolar1') return 0.36;
+      return 0.34;
+    }
+
+    function classRatios(tooth) {
+      const type = tooth.type;
+      if (type === 'molarU' || type === 'molarL') {
+        return { fixtureW: 0.52, fixtureH: 0.54, collarW: 0.66, threadCount: 7 };
+      }
+      if (type === 'wisdomU' || type === 'wisdomL') {
+        return { fixtureW: 0.50, fixtureH: 0.52, collarW: 0.64, threadCount: 6 };
+      }
+      if (type === 'premolar' || type === 'premolar1') {
+        return { fixtureW: 0.50, fixtureH: 0.58, collarW: 0.64, threadCount: 6 };
+      }
+      if (type === 'canine') {
+        return { fixtureW: 0.44, fixtureH: 0.62, collarW: 0.60, threadCount: 6 };
+      }
+      return { fixtureW: 0.46, fixtureH: 0.60, collarW: 0.60, threadCount: 6 };
+    }
+
+    function localTransform(tooth) {
+      const flipY = tooth.jaw === 'lower' ? -1 : 1;
+      return `translate(${tooth.cx}, ${(tooth.yOffset || 0) * flipY}) scale(1, ${flipY}) rotate(${tooth.tilt || 0})`;
+    }
+
+    function archTransform(tooth) {
+      return `translate(0, ${tooth.jaw === 'upper' ? hero.upperBiteY : hero.lowerBiteY})`;
+    }
+
+    function toothShape(tooth, className = '') {
+      const paths = window.toothPaths(tooth.type, tooth.w, tooth.h);
+      const g = el('g', { class: className, transform: localTransform(tooth) });
+      g.append(path('tooth-outline', paths.outline));
+      g.append(path('tooth-cervical', paths.cervical));
+      return g;
+    }
+
+    function crownPath(tooth, crownH) {
+      const w = tooth.w;
+      const half = w * 0.50;
+      const shoulder = w * 0.43;
+      const top = w * 0.30;
+      const bottomX = half * 0.82;
+      const bottomY = 1.5;
+      const bottomBulge = crownH * 0.055;
+      const y1 = -crownH;
+      return `M 0 ${bottomBulge}
+        C ${-w * 0.26} ${bottomBulge + 1.2}, ${-bottomX * 0.94} ${bottomY + 1.0}, ${-bottomX} ${bottomY}
+        C ${-half * 0.99} ${-crownH * 0.07}, ${-half * 0.99} ${-crownH * 0.17}, ${-half * 0.96} ${-crownH * 0.30}
+        C ${-half * 0.92} ${-crownH * 0.47}, ${-shoulder * 1.03} ${-crownH * 0.70}, ${-top} ${y1 + crownH * 0.05}
+        C ${-w * 0.22} ${y1 - crownH * 0.06}, ${-w * 0.08} ${y1 - crownH * 0.08}, 0 ${y1 - crownH * 0.05}
+        C ${w * 0.08} ${y1 - crownH * 0.08}, ${w * 0.22} ${y1 - crownH * 0.06}, ${top} ${y1 + crownH * 0.05}
+        C ${shoulder * 1.03} ${-crownH * 0.70}, ${half * 0.92} ${-crownH * 0.47}, ${half * 0.96} ${-crownH * 0.30}
+        C ${half * 0.99} ${-crownH * 0.17}, ${half * 0.99} ${-crownH * 0.07}, ${bottomX} ${bottomY}
+        C ${bottomX * 0.94} ${bottomY + 1.0}, ${w * 0.26} ${bottomBulge + 1.2}, 0 ${bottomBulge} Z`;
+    }
+
+    function implantGeometry(tooth) {
+      const crownH = tooth.h * chRatioFor(tooth.type);
+      const r = classRatios(tooth);
+      const fixtureW = tooth.w * r.fixtureW;
+      const fixtureH = tooth.h * r.fixtureH;
+      const collarY = -crownH - 1.5;
+      const topY = collarY - 2;
+      const bottomY = topY - fixtureH;
+      const tipW = fixtureW * 0.56;
+      const collarW = tooth.w * r.collarW;
+      return { crownH, fixtureW, fixtureH, collarY, topY, bottomY, tipW, collarW, threadCount: r.threadCount };
+    }
+
+    function implantShape(tooth, withCrown, showGuides = true) {
+      const geo = implantGeometry(tooth);
+      const g = el('g', { transform: localTransform(tooth), style: 'pointer-events:none' });
+
+      if (showGuides) {
+        g.append(el('rect', {
+          class: 'guide-crown',
+          x: -tooth.w * 0.5,
+          y: -geo.crownH,
+          width: tooth.w,
+          height: geo.crownH,
+        }));
+        g.append(el('line', { class: 'guide-axis', x1: 0, y1: 12, x2: 0, y2: geo.bottomY - 10 }));
+        g.append(el('line', { class: 'guide-collar', x1: -tooth.w * 0.58, y1: -geo.crownH, x2: tooth.w * 0.58, y2: -geo.crownH }));
+        g.append(el('rect', {
+          class: 'guide-bounds',
+          x: -geo.fixtureW / 2,
+          y: geo.bottomY,
+          width: geo.fixtureW,
+          height: geo.topY - geo.bottomY,
+        }));
+      }
+
+      if (withCrown) {
+        g.append(path('implant-crown', crownPath(tooth, geo.crownH)));
+      }
+
+      g.append(el('rect', {
+        class: 'implant-collar',
+        x: -geo.collarW / 2,
+        y: geo.collarY - 3,
+        width: geo.collarW,
+        height: 6,
+        rx: 1.4,
+      }));
+
+      const bodyD = `M ${-geo.fixtureW / 2} ${geo.topY}
+        L ${-geo.tipW / 2} ${geo.bottomY + geo.fixtureW * 0.20}
+        Q ${-geo.tipW / 2} ${geo.bottomY}, 0 ${geo.bottomY}
+        Q ${geo.tipW / 2} ${geo.bottomY}, ${geo.tipW / 2} ${geo.bottomY + geo.fixtureW * 0.20}
+        L ${geo.fixtureW / 2} ${geo.topY} Z`;
+      g.append(path('implant-body', bodyD));
+
+      for (let i = 0; i < geo.threadCount; i += 1) {
+        const t = (i + 1) / (geo.threadCount + 1);
+        const yy = geo.topY + (geo.bottomY - geo.topY) * t;
+        const taper = 1 - t * 0.30;
+        const half = Math.max(4, (geo.fixtureW / 2) * taper - 1.6);
+        g.append(path('implant-detail', `M ${-half} ${yy} Q 0 ${yy - 2.1}, ${half} ${yy}`));
+      }
+      return g;
+    }
+
+    function renderHeroContext(allTeeth) {
+      const group = el('g');
+      group.append(text('Actual hero-context fit', { class: 'section-title', x: 60, y: 48 }));
+      group.append(el('line', { class: 'bite-line', x1: 190, y1: hero.biteCenter, x2: 1410, y2: hero.biteCenter }));
+
+      ['upper', 'lower'].forEach(jaw => {
+        const archGroup = el('g', { transform: `translate(0, ${jaw === 'upper' ? hero.upperBiteY : hero.lowerBiteY})` });
+        allTeeth.filter(t => t.jaw === jaw).forEach(tooth => {
+          const active = testIds.includes(tooth.id);
+          archGroup.append(toothShape(tooth, active ? 'tooth-missing' : 'ghost'));
+        });
+        group.append(archGroup);
+      });
+
+      testIds.forEach(id => {
+        const tooth = allTeeth.find(t => t.id === id);
+        const archGroup = el('g', { transform: archTransform(tooth) });
+        archGroup.append(implantShape(tooth, crownIds.has(id), false));
+        group.append(archGroup);
+      });
+      return group;
+    }
+
+    function renderFitCell(tooth, index) {
+      const col = index % 5;
+      const row = Math.floor(index / 5);
+      const x = 150 + col * 320;
+      const y = 660 + row * 255;
+      const withCrown = crownIds.has(tooth.id);
+      const g = el('g', { transform: `translate(${x}, ${y})` });
+      const localTooth = { ...tooth, cx: 0, yOffset: 0 };
+      const geo = implantGeometry(localTooth);
+      const inner = el('g', { transform: 'scale(0.62)' });
+
+      g.append(el('rect', {
+        x: -118,
+        y: -154,
+        width: 236,
+        height: 242,
+        rx: 10,
+        fill: 'rgba(255,255,255,0.64)',
+        stroke: 'rgba(26,31,46,0.12)',
+      }));
+      g.append(el('line', { class: 'bite-line', x1: -92, y1: 0, x2: 92, y2: 0 }));
+      inner.append(toothShape(localTooth, 'ghost'));
+      inner.append(implantShape(localTooth, withCrown, true));
+      g.append(inner);
+      g.append(text(`${tooth.fdi} / ${tooth.name}`, { class: 'panel-label', x: 0, y: 112 }));
+      g.append(text(`${tooth.type} | tilt ${Number(tooth.tilt || 0).toFixed(1)}deg | crown ${Math.round(geo.crownH)}px`, { class: 'panel-meta', x: 0, y: 130 }));
+      g.append(text(withCrown ? 'implant + crown' : 'implant only, same collar anchor', { class: 'ratio-text', x: 0, y: 146 }));
+      return g;
+    }
+
+    function render(allTeeth) {
+      svg.innerHTML = '';
+      svg.append(renderHeroContext(allTeeth));
+      svg.append(text('Per-tooth fit panels with guides', { class: 'section-title', x: 60, y: 578 }));
+      testIds.forEach((id, index) => {
+        const tooth = allTeeth.find(t => t.id === id);
+        if (tooth) svg.append(renderFitCell(tooth, index));
+      });
+    }
+
+    fetch('teeth-data.jsx')
+      .then(response => response.text())
+      .then(source => {
+        (0, eval)(source);
+        const upper = window.layoutArch(window.UPPER, hero.centerX, hero.scale, { archDepth: hero.archDepth });
+        const lower = window.layoutArch(window.LOWER, hero.centerX, hero.scale, { archDepth: hero.archDepth });
+        const scaledUpper = upper.map(t => ({ ...t, w: t.w * hero.scale, h: t.h * hero.scale }));
+        const scaledLower = lower.map(t => ({ ...t, w: t.w * hero.scale, h: t.h * hero.scale }));
+        render([...scaledUpper, ...scaledLower]);
+      })
+      .catch(error => {
+        svg.innerHTML = '';
+        svg.append(text(`Could not load teeth-data.jsx: ${error.message}`, {
+          x: 800,
+          y: 610,
+          'text-anchor': 'middle',
+          fill: '#b42318',
+          'font-size': 22,
+          'font-weight': 700,
+        }));
+      });
+  </script>
+</body>
+</html>

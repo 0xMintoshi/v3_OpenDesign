@@ -1,12 +1,33 @@
 # Project Progress
 
+> **Note (2026-05-24):** Phase-level planning has moved to [ROADMAP.md](ROADMAP.md). This file remains the authoritative record of implementation decisions and known-good behavior for the current in-browser-Babel prototype. Continue reading it for regression watchlists, treatment logic, and geometry decisions.
+
+
+
 ## Current State
 
 The project is an interactive dental hero prototype centered on `Dental Hero.html` and the JSX modules it loads. The active flow includes Stage 1/Stage 2 dental arch interaction, treatment popovers, treatment labels, and a manual placement system for label coordinates.
 
-Latest continuation preserved the Stage 2 gesture contract and moved into visual-treatment design. An attempted implant/implant+crown redraw was promoted, judged unacceptable in the real hero, and then reverted. Production `treatments.jsx` is back to the earlier schematic `ImplantOverlay` implementation.
+Latest continuation made focused live geometry polish edits in `dental-arch.jsx`: FDI number placement now follows each tooth's angulated centerline, lower FDI placement is corrected for the mandibular flip, sinus `L/R` labels are removed, lower sinus corners are rounded, and the maxilla bone level now uses a scalloped cervical contour like the mandible.
 
-Current session wrap-up: the active prototype is in a stable treatment-logic and formatting state for the next session, but implant/crown visual redesign is unresolved. `Dental Hero.html` is the canonical entry file. `dental-hero-v2.html` is an older/responsive experiment and should not be edited unless the user asks to switch to it.
+Current session wrap-up: the active prototype is in a stable treatment-logic and formatting state; implant/crown visual redesign is live; upper molar roots, maxilla outline, sinus shapes, FDI label anchoring, and maxilla bone-level scalloping are now accepted live behavior. `Dental Hero.html` is the canonical entry file. `dental-hero-v2.html` is an older/responsive experiment and should not be edited unless the user asks to switch to it.
+
+Latest live geometry polish:
+
+- `dental-arch.jsx`: FDI label anchors are positioned on each tooth's local angled centerline, then counter-rotated/flipped so text stays readable.
+- `dental-arch.jsx`: mandibular FDI offsets account for the lower jaw flipped coordinate system; lower labels should remain below the lower arch.
+- `dental-arch.jsx`: sinus zones no longer display `MS · L/R` text labels.
+- `dental-arch.jsx`: lower left/right sinus corners are rounded while keeping the same overall sinus footprint.
+- `dental-arch.jsx`: the upper/maxilla bone level now follows a per-tooth scalloped cervical contour instead of a straight/broad line.
+
+Previous geometry promotion:
+
+- `teeth-data.jsx`: upper first/second molars (`molarUOutline`, teeth 16/17/26/27) now use the accepted root/furcation form.
+- The molar root source vocabulary came from existing 18/28 upper wisdom roots, then added a palatal root from the furcation.
+- Accepted molar traits: broad mesial/distal bases, smooth single-point furcation close to the crown, palatal root emerging from that point, palatal root slightly shorter/rounder than mesial/distal roots, no jagged inner transitions.
+- `dental-arch.jsx`: maxilla outline is smoother/simple-outline-only.
+- `dental-arch.jsx`: sinus shapes are more rectangular and wider/raised at the top corners while the floor still follows the live cervical baseline logic.
+- Mandible and IDN were intentionally not promoted. Do not treat any diagnostic mandible draft as approved.
 
 The latest treatment logic pass changed Stage 2 clinical rules:
 
@@ -35,9 +56,64 @@ The core Stage 2 selection contract is still:
 
 ## Latest Session Summary
 
+Date: 2026-05-23
+
+Goal: apply focused live polish to FDI label placement, sinus labeling/shape, and the maxilla bone-level contour.
+
+Outcome:
+
+- Kept the edits narrow and limited to `dental-arch.jsx`.
+- Changed FDI number placement so labels follow the tooth angulation line while text remains upright.
+- Corrected lower FDI label placement by using the correct local-Y offset under mandibular jaw flip.
+- Removed visible sinus `MS · L/R` labels without removing sinus interaction.
+- Rounded the lower left/right corners of both sinus shapes.
+- Changed maxilla bone level to use the same scalloped cervical contour language as the mandible.
+
+Stable geometry behavior after this session:
+
+- Upper and lower FDI labels should feel centered to each tooth's own tilt.
+- Lower FDI labels must stay on the lower arch; this is a regression check for any future transform edits.
+- Sinus zones remain visible/interactive but unlabeled.
+- Maxilla and mandible bone-level edges now both avoid a straight-line read.
+- Maxilla/sinus style remains schematic and simple: no extra internal detail.
+
+Process takeaways:
+
+- This session worked well because each request was solved as one small local edit, then visually judged before moving on.
+- For transform issues, first identify the coordinate system and transform order; avoid compensating with arbitrary screen-space offsets.
+- For SVG anatomy polish, edit the smallest path segment that carries the visual problem.
+- Keep saying which exact behavior is being preserved before editing: readable text, jaw orientation, sinus interaction, outer footprint, or previous accepted geometry.
+
+## Previous Dental Geometry Summary
+
+Date: 2026-05-22
+
+Goal: redesign the dental illustration geometry by drafting in the real hero context first, then promote only the accepted geometry while leaving mandible untouched.
+
+Outcome:
+
+- Created and iterated `dental-geometry-fit-diagnostic.html` without touching live files first.
+- Rebuilt the diagnostic from the current hero diagram instead of isolated tooth/anatomy sketches.
+- Accepted the sinus direction: more rectangular, wider/raised top corners, lower sinus floor tied to the live baseline.
+- Accepted the maxilla direction for now: simple smoother outline only.
+- Explored mandible drafts but did not promote them; mandible remains a future task.
+- Upper molar roots were iterated heavily. The accepted direction copied 18/28 (`wisdomUOutline`) root language onto 16/17/26/27, then added a smoother palatal root from a single-point furcation.
+- Promoted only `molarUOutline`, upper maxilla `bonePath`, and `buildSinus`.
+- Left treatment logic, props, exports, interactions, layout, colors, mandible, IDN, and `anatomy.jsx` untouched.
+
+Stable geometry behavior after promotion:
+
+- Upper molars keep current hero crown style but have redesigned roots/furcation.
+- Mesial/distal roots should remain broad at the cervical base and tapered toward the apex.
+- Palatal root should emerge from the furcation, not appear as a thin stick or bulb-ended appendage.
+- Maxilla and sinus are simple outline/zone shapes only; no internal anatomy details.
+- Mandible is still the live pre-existing outline.
+
+## Previous Visual-Treatment Summary
+
 Date: 2026-05-21
 
-Goal: start the visual-treatment drawing workflow, explore implant/implant+crown visuals, and record what did and did not work for future sessions.
+Goal: start the visual-treatment drawing workflow, recover from the failed implant redraw, and establish a safer diagnostic-to-production workflow for future visual upgrades.
 
 Outcome:
 
@@ -47,16 +123,19 @@ Outcome:
 - Created draft/preview files for visual exploration: `crown-visual-drafts.html`, `implant-visual-drafts.html`, and `implant-hero-fit-preview.html`.
 - User rejected realistic implant drafts and clarified the style rule: match the current hero language with blue outline and white interior.
 - A blue-outline candidate was promoted into `treatments.jsx`, then rejected after real-hero review because crown size/position/angulation were wrong and the implant became too small.
-- The promoted implant redraw was reverted. Production is back to the prior `ImplantOverlay` signature and schematic drawing.
+- The next pass created `implant-fit-diagnostic.html` as a measurement board using the real tooth data, real arch transforms, tooth ghost outlines, crown envelope guides, implant axis, collar line, and fixture bounds.
+- The diagnostic pass exposed the root cause: the old production implant only received simplified `x`, `y`, `w`, `h`, and `jaw` values, while the real teeth also use `cx`, `yOffset`, `tilt`, jaw flip, tooth type, and natural tooth path geometry.
+- The crown silhouette was tuned in the diagnostic first: rounded crown corners, removed the internal curved "SS" detail lines, and softened the occlusal shoulder with a simpler continuous Bezier path.
+- After user approval in the diagnostic, the fitted renderer was promoted into `treatments.jsx`.
 
-Stable implant behavior after revert:
+Stable implant behavior after promotion:
 
 - `implant-only` and `implant-crown` still use existing treatment IDs.
-- Both route through `ImplantOverlay` in `treatments.jsx`.
-- Production `ImplantOverlay` currently takes `x`, `y`, `w`, `h`, `jaw`, `withCrown`, and `accent`; it does not currently take `toothYOffset`, `toothType`, or `tilt`.
-- The desired style is still not realistic rendering: no gradients, no metal fills, no cream crown fill.
-- The next implant+crown pass must use the natural tooth crown as the reference structure: match crown size by tooth class, crown position, and angulation before placing the fixture.
-- Implant-only should reuse the implant fixture position solved from implant+crown, with the crown hidden.
+- Both now route through `FittedImplantOverlay` in `treatments.jsx`.
+- `FittedImplantOverlay` receives the full `tooth` object plus `biteY`, `withCrown`, and `accent`, so it can use tooth type, width, height, `cx`, `yOffset`, `jaw`, and `tilt`.
+- Implant placement now mirrors the real tooth coordinate model: arch bite translation first, then tooth-level translate/flip/rotate.
+- The desired style remains non-realistic: blue outline, white interior, minimal detail, no gradients, no metal fills, no cream crown fill.
+- Implant+crown is solved first from the natural tooth crown envelope; implant-only reuses the same fixture/collar anchor with the crown hidden.
 
 ## Previous Treatment Logic Summary
 
@@ -139,8 +218,15 @@ Check these before and after future edits:
 - Missing-only treatments (`implant-only`, `implant-crown`, `socket-preservation`, `gbr`, `simultaneous-graft`) are disabled for present teeth.
 - Fully edentulous patients cannot receive `ortho-brackets` or `ortho-aligners`.
 - `alveolectomy` and `complete-denture` can coexist on the same edentulous arch.
-- Implant-only and implant+crown render through the reverted schematic blue-outline/white-fill overlay.
-- Upper/lower implant direction must be rechecked visually after any future transform change.
+- Implant-only and implant+crown render through `FittedImplantOverlay`, promoted from `implant-fit-diagnostic.html`.
+- Upper/lower implant direction must still be rechecked visually after any future transform change.
+- Upper 16/17/26/27 molars use the accepted live `molarUOutline` root/furcation geometry.
+- Sinus shapes are rectangular/wider at the top, with the lower floor still anchored from the live cervical baseline.
+- Sinus zones remain interactive but do not show `MS`, `L`, or `R` text labels.
+- FDI numbers stay readable while following each tooth's tilt; lower FDI numbers stay below the mandibular arch.
+- Maxilla bone level is scalloped along the cervical line, matching the mandible's non-straight contour language.
+- Maxilla is a smooth simple outline only.
+- Mandible and IDN remain unchanged from before the geometry session.
 
 ## Open Questions / Next Ideas
 
@@ -152,7 +238,6 @@ Check these before and after future edits:
 - Should we add a QA checklist file for Stage 1, Stage 2, popovers, and manual placement?
 - Should the Stage 2 title say `Ctrl-click` instead of `Ctrl+L-click`? The current copy matches the latest request, but `Ctrl+L` can be read as a browser shortcut rather than "Ctrl + left click".
 - Should visual-treatment drafts stay as separate HTML boards or be cleaned up once each visual is promoted?
-- Should implant+crown be solved first by tracing/reusing the natural tooth crown geometry instead of generating a separate cap?
 - Should crown be implemented next as a new visual type for existing teeth and implant sites?
 - Should bridge be modeled as a span treatment instead of selected individual tooth treatments?
 
@@ -165,8 +250,13 @@ Check these before and after future edits:
 - Duplicated instructional copy should be removed from footers once the centered top instruction exists.
 - Honest constraints are better than fake polish; if a treatment is not eligible, disable it clearly.
 - For treatment visuals, the user prefers the current hero SVG language: blue outline, white interior, minimal detail, clear fit on each tooth.
+- For base dental illustration geometry, the user strongly prefers editing from the current hero style instead of drawing isolated anatomy icons.
+- Use nearby accepted teeth as reference before inventing a new tooth silhouette. For upper molars, 18/28 (`wisdomUOutline`) was the accepted reference vocabulary.
+- The user wants diagnostic drafts in the real hero context so proportions can be judged realistically.
 - Prototype visual drafts separately and show fit on actual hero tooth positions before editing production source.
 - User strongly rejects visuals that look like generic icons, bowls, or disconnected caps. Match the natural tooth first.
+- For difficult SVG treatment visuals, separate fit from style: first build a diagnostic board with geometry guides, then tune the drawing, then promote the approved renderer.
+- The successful implant workflow was: inspect old plan and current production geometry, identify missing transform inputs, build `implant-fit-diagnostic.html`, tune crown silhouette there, then promote only the approved fitted renderer into `treatments.jsx`.
 - Keep future interaction changes small and testable because `dental-arch.jsx` carries several shared behaviors.
 
 ## Regression Watchlist
@@ -179,13 +269,20 @@ Check these before and after future edits:
 - Extraction is the only treatment removal that currently reverses tooth presence.
 - Full-mouth ortho has both a UI availability gate and an apply-handler guard; keep both to avoid stale-popover bugs.
 - Manual placement state in `treatments.jsx` should not be broken by arch interaction changes.
-- Implant/crown fit can look correct in a standalone draft but fail in the arch. Always test in the actual hero context, not only a preview board.
+- Implant/crown fit can look correct in a standalone draft but fail in the arch. Always test visual overlays against real tooth geometry and actual arch transforms before production promotion.
+- Tooth/anatomy geometry can also look acceptable in isolation but fail in the hero. Build diagnostics on top of the current hero diagram before production promotion.
+- Do not promote mandible geometry from `dental-geometry-fit-diagnostic.html`; the user has not approved a mandible outline yet.
+- If mandible is changed later, recheck IDN containment inside the new mandibular boundary.
+- Avoid jagged inner root transitions when editing upper molars; keep smooth Bezier continuity around the furcation and palatal-root emergence.
+- FDI label transforms are order-sensitive. Preserve local centerline placement, tooth-tilt counter-rotation, and lower-jaw flip compensation.
+- Do not re-add sinus text labels while adjusting sinus hover/selection behavior.
+- Maxilla bone-level scallops should remain smooth; avoid replacing the upper cervical edge with one broad straight curve.
 - Upper/lower overlay orientation is easy to invert. Check both jaws after changing any transform.
-- Do not tie implant fixture size too tightly to prosthetic crown fitting; the failed pass made the implant too small.
+- Do not tie implant fixture size too tightly to prosthetic crown fitting; preserve fixture readability while matching crown envelope to tooth class.
 - In-browser JSX transform means syntax errors in JSX files can break the whole prototype at load.
 
 ## Handoff Notes For Future Sessions
 
-Start by reading this file, then `SESSION_SUMMARY.md` if the task touches manual placement or visual-treatment drawing. For Stage 2 interaction work, inspect `dental-arch.jsx` first and preserve the current interaction contract unless the user explicitly changes it. For overlay drawing work, inspect `treatments.jsx` first, then test in a draft/fit-preview file before production edits.
+Start by reading this file, then `SESSION_SUMMARY.md` if the task touches manual placement or visual-treatment drawing. For Stage 2 interaction work, inspect `dental-arch.jsx` first and preserve the current interaction contract unless the user explicitly changes it. For overlay drawing work, inspect `treatments.jsx` and the relevant tooth geometry first, then build or update a diagnostic/fit-preview file before production edits.
 
 When changing selection behavior, update this file in the same session so future work does not reconstruct decisions from chat history.

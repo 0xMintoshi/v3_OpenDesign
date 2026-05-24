@@ -11,6 +11,7 @@ function Tooth({
 
   const flipY = jawFlip ? -1 : 1;
   const paths = window.toothPaths(type, w, h);
+  const numberY = jawFlip ? -(h + 16) : -(h + 10);
 
   const baseTransform = `translate(${cx}, ${yOffset * flipY}) scale(1, ${flipY}) rotate(${tilt})`;
 
@@ -108,10 +109,10 @@ function Tooth({
 
         {/* Number badge */}
         {(showNumber || isHovered || isSelected) &&
-        <g transform={`scale(1, ${flipY}) rotate(${-tilt})`}>
+        <g transform={`translate(0, ${numberY}) rotate(${-tilt}) scale(1, ${flipY})`}>
             <text
             x="0"
-            y={jawFlip ? h + 16 : -(h + 10)}
+            y="0"
             textAnchor="middle"
             fontSize="10"
             fontFamily="var(--sans)"
@@ -191,17 +192,19 @@ function bonePath(cervical, jaw, farY) {
   };
 
   if (jaw === 'upper') {
-    // Clockwise from top-left, rounded top corners.
+    const leftFloor = first.y;
+    const rightFloor = last.y;
     return `
-      M ${leftX} ${farY + cornerR}
-      Q ${leftX} ${farY} ${leftX + cornerR} ${farY}
-      L ${rightX - cornerR} ${farY}
-      Q ${rightX} ${farY} ${rightX} ${farY + cornerR}
-      L ${rightX} ${last.y}
-      L ${last.x + last.w * 0.5} ${last.y}
+      M ${leftX} ${farY + 28}
+      Q ${leftX + 2} ${farY + 4} ${leftX + 32} ${farY}
+      L ${rightX - 32} ${farY}
+      Q ${rightX - 2} ${farY + 4} ${rightX} ${farY + 28}
+      L ${rightX - 2} ${rightFloor - 7}
+      Q ${rightX - 8} ${rightFloor + 2} ${last.x + last.w * 0.5} ${rightFloor}
+      L ${last.x} ${last.y}
       ${scallopRL()}
-      L ${first.x - first.w * 0.5} ${first.y}
-      L ${leftX} ${first.y}
+      L ${first.x - first.w * 0.5} ${leftFloor}
+      Q ${leftX + 8} ${leftFloor + 2} ${leftX} ${leftFloor - 7}
       Z
     `;
   }
@@ -233,11 +236,16 @@ function buildSinus(cervical, startIdx, endIdx, ceilingY) {
   const midX = (leftX + rightX) / 2;
   const midCY = (floorY + ceilingY) / 2;
   const cy = midCY + (floorY - midCY) * 0.15; // label slightly below midline
+  const bottomLeftX = leftX - 12;
+  const bottomRightX = rightX + 12;
   const path = `
-    M ${leftX} ${floorY}
-    Q ${midX} ${floorY + 6} ${rightX} ${floorY}
-    C ${rightX + 12} ${(floorY + ceilingY * 0.6) / 1.6}, ${midX + 42} ${ceilingY}, ${midX} ${ceilingY}
-    C ${midX - 42} ${ceilingY}, ${leftX - 12} ${(floorY + ceilingY * 0.6) / 1.6}, ${leftX} ${floorY}
+    M ${bottomLeftX + 10} ${floorY + 1}
+    Q ${midX} ${floorY + 8} ${bottomRightX - 10} ${floorY + 1}
+    Q ${bottomRightX + 2} ${floorY - 1} ${bottomRightX} ${floorY - 12}
+    Q ${rightX + 8} ${ceilingY + 10} ${rightX - 28} ${ceilingY}
+    L ${leftX + 28} ${ceilingY}
+    Q ${leftX - 8} ${ceilingY + 10} ${bottomLeftX} ${floorY - 12}
+    Q ${bottomLeftX - 2} ${floorY - 1} ${bottomLeftX + 10} ${floorY + 1}
     Z
   `;
   return { path, leftX, rightX, floorY, ceilingY, cx: midX, cy };
@@ -317,12 +325,6 @@ function AnatomyBackground({
             strokeWidth={hov ? 1.4 : 1.0}
             strokeDasharray="5 4"
             opacity={hov ? 0.95 : 0.7} style={{ opacity: "0.87" }} />
-            <text x={z.shape.cx} y={z.shape.cy} textAnchor="middle"
-            fontSize="11" fontFamily="var(--sans)" fontWeight="500"
-            fill={hov ? accent : 'var(--ink-muted)'}
-            style={{ pointerEvents: 'none', letterSpacing: '0.22em', textTransform: 'uppercase' }}>
-              MS · {z.side === 'right' ? 'R' : 'L'}
-            </text>
           </g>);
 
       })}

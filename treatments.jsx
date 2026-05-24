@@ -140,6 +140,109 @@ function ImplantOverlay({ x, y, w, h, jaw, withCrown, accent }) {
 // gbr:                 densest AND larger footprint (extends beyond tooth)
 // ============================================================================
 
+// Fitted implant overlay - promoted from implant-fit-diagnostic.html.
+function fittedImplantCrownRatio(type) {
+  if (type === 'wisdomU' || type === 'wisdomL') return 0.46;
+  if (type === 'molarU' || type === 'molarL') return 0.40;
+  if (type === 'premolar' || type === 'premolar1') return 0.36;
+  return 0.34;
+}
+
+function fittedImplantClassRatios(type) {
+  if (type === 'molarU' || type === 'molarL') {
+    return { fixtureW: 0.52, fixtureH: 0.54, collarW: 0.66, threadCount: 7 };
+  }
+  if (type === 'wisdomU' || type === 'wisdomL') {
+    return { fixtureW: 0.50, fixtureH: 0.52, collarW: 0.64, threadCount: 6 };
+  }
+  if (type === 'premolar' || type === 'premolar1') {
+    return { fixtureW: 0.50, fixtureH: 0.58, collarW: 0.64, threadCount: 6 };
+  }
+  if (type === 'canine') {
+    return { fixtureW: 0.44, fixtureH: 0.62, collarW: 0.60, threadCount: 6 };
+  }
+  return { fixtureW: 0.46, fixtureH: 0.60, collarW: 0.60, threadCount: 6 };
+}
+
+function fittedImplantCrownPath(tooth, crownH) {
+  const w = tooth.w;
+  const half = w * 0.50;
+  const shoulder = w * 0.43;
+  const top = w * 0.30;
+  const bottomX = half * 0.82;
+  const bottomY = 1.5;
+  const bottomBulge = crownH * 0.055;
+  const y1 = -crownH;
+
+  return `M 0 ${bottomBulge}
+    C ${-w * 0.26} ${bottomBulge + 1.2}, ${-bottomX * 0.94} ${bottomY + 1.0}, ${-bottomX} ${bottomY}
+    C ${-half * 0.99} ${-crownH * 0.07}, ${-half * 0.99} ${-crownH * 0.17}, ${-half * 0.96} ${-crownH * 0.30}
+    C ${-half * 0.92} ${-crownH * 0.47}, ${-shoulder * 1.03} ${-crownH * 0.70}, ${-top} ${y1 + crownH * 0.05}
+    C ${-w * 0.22} ${y1 - crownH * 0.06}, ${-w * 0.08} ${y1 - crownH * 0.08}, 0 ${y1 - crownH * 0.05}
+    C ${w * 0.08} ${y1 - crownH * 0.08}, ${w * 0.22} ${y1 - crownH * 0.06}, ${top} ${y1 + crownH * 0.05}
+    C ${shoulder * 1.03} ${-crownH * 0.70}, ${half * 0.92} ${-crownH * 0.47}, ${half * 0.96} ${-crownH * 0.30}
+    C ${half * 0.99} ${-crownH * 0.17}, ${half * 0.99} ${-crownH * 0.07}, ${bottomX} ${bottomY}
+    C ${bottomX * 0.94} ${bottomY + 1.0}, ${w * 0.26} ${bottomBulge + 1.2}, 0 ${bottomBulge} Z`;
+}
+
+function FittedImplantOverlay({ tooth, biteY, withCrown, accent }) {
+  const flipY = tooth.jaw === 'lower' ? -1 : 1;
+  const ratios = fittedImplantClassRatios(tooth.type);
+  const crownH = tooth.h * fittedImplantCrownRatio(tooth.type);
+  const fixtureW = tooth.w * ratios.fixtureW;
+  const fixtureH = tooth.h * ratios.fixtureH;
+  const collarW = tooth.w * ratios.collarW;
+  const collarY = -crownH - 1.5;
+  const topY = collarY - 2;
+  const bottomY = topY - fixtureH;
+  const tipW = fixtureW * 0.56;
+
+  return (
+    <g
+      transform={`translate(0, ${biteY}) translate(${tooth.cx}, ${(tooth.yOffset || 0) * flipY}) scale(1, ${flipY}) rotate(${tooth.tilt || 0})`}
+      style={{ pointerEvents: 'none' }}>
+      {withCrown && (
+        <path
+          d={fittedImplantCrownPath(tooth, crownH)}
+          fill="var(--tooth-fill)"
+          stroke={accent}
+          strokeWidth="1.6"
+          strokeLinejoin="round"
+          strokeLinecap="round" />
+      )}
+
+      <rect x={-collarW / 2} y={collarY - 3} width={collarW} height="6" rx="1.4"
+            fill="var(--tooth-fill)" stroke={accent} strokeWidth="1.2" />
+
+      <path
+        d={`M ${-fixtureW / 2} ${topY}
+            L ${-tipW / 2} ${bottomY + fixtureW * 0.20}
+            Q ${-tipW / 2} ${bottomY}, 0 ${bottomY}
+            Q ${tipW / 2} ${bottomY}, ${tipW / 2} ${bottomY + fixtureW * 0.20}
+            L ${fixtureW / 2} ${topY}
+            Z`}
+        fill="var(--tooth-fill)" stroke={accent} strokeWidth="1.6" strokeLinejoin="round" />
+
+      {Array.from({ length: ratios.threadCount }).map((_, i) => {
+        const t = (i + 1) / (ratios.threadCount + 1);
+        const yy = topY + (bottomY - topY) * t;
+        const taper = 1 - Math.max(0, (t - 0.65) * 0.55);
+        const tw = Math.max(4, (fixtureW / 2) * taper - 1.6);
+        return (
+          <path
+            key={i}
+            d={`M ${-tw} ${yy} Q 0 ${yy - 2.1}, ${tw} ${yy}`}
+            stroke={accent} strokeWidth="1.0" fill="none" strokeLinecap="round" opacity="0.85"
+          />
+        );
+      })}
+    </g>
+  );
+}
+
+// ============================================================================
+// Bone graft overlay
+// ============================================================================
 function BoneGraftOverlay({ x, y, w, h, jaw, variant, accent }) {
   const flipY = jaw === 'upper' ? 1 : -1;
   // Footprint
@@ -488,9 +591,8 @@ function TreatmentLayer({ treatments, allTeeth, upperBiteY, lowerBiteY, archWidt
             {list.map((tx, i) => {
               if (tx.id === 'extraction') return null; // visual handled above
               if (tx.id === 'implant-only' || tx.id === 'implant-crown') {
-                return <ImplantOverlay key={i} x={tooth.cx} y={biteY}
-                                       w={tooth.w} h={tooth.h} jaw={tooth.jaw}
-                                       withCrown={tx.id === 'implant-crown'} accent={accent} />;
+                return <FittedImplantOverlay key={i} tooth={tooth} biteY={biteY}
+                                             withCrown={tx.id === 'implant-crown'} accent={accent} />;
               }
               if (tx.id === 'gbr' || tx.id === 'socket-preservation' || tx.id === 'simultaneous-graft') {
                 return <BoneGraftOverlay key={i} x={tooth.cx} y={biteY}
