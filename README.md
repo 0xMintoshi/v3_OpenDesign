@@ -1,6 +1,17 @@
 # CODING AGENTS: READ THIS FIRST
 
-> **Current status: Phase 0 — Vite migration in progress.** See [ROADMAP.md](ROADMAP.md) for the full phase plan. No `package.json` yet — the app still runs via in-browser Babel. Once Phase 0 completes this README will be updated with `npm i` / `npm run dev` / `npm run build` instructions.
+> **Current status: Phase 0 complete — Vite build.** See [ROADMAP.md](ROADMAP.md) for the full phase plan.
+
+## Running the app
+
+```
+npm install       # first time only
+npm run dev       # dev server at http://localhost:5173
+npm run build     # production build → dist/
+npm run preview   # serve the dist/ build locally
+```
+
+Entry: `src/main.jsx` → `dental-arch.jsx`. Styles: `src/styles.css`.
 
 This folder is an interactive HTML/JSX prototype project. The active work is the dental hero treatment-planning prototype.
 
@@ -12,7 +23,7 @@ If the task touches treatment label manual placement, default coordinates, expor
 
 ## Active files
 
-- `Dental Hero.html` - current canonical prototype entry file.
+- `index.html` + `src/main.jsx` - Vite entry (replaces old `Dental Hero.html`).
 - `dental-arch.jsx` - Stage 1/Stage 2 state, tooth presence, treatment application/removal, popover wiring, live maxilla/sinus geometry, and FDI number placement.
 - `treatments.jsx` - treatment catalog, availability rules, popover cards, treatment labels, default label positions.
 - `tweaks-panel.jsx` - compact Tweaks menu, manual placement toggle/export, collapsed menu positioning.
@@ -56,4 +67,4 @@ Latest implant decision: the fitted implant redraw is now live. The successful p
 - For dental illustration geometry, use the same diagnostic-first workflow. The current reference board is `dental-geometry-fit-diagnostic.html`; it reconstructed the current hero base before promoting only approved upper molar, maxilla, and sinus edits.
 - Do not promote mandible/IDN changes from the diagnostic unless the user explicitly approves them. The latest live push intentionally excluded mandible edits.
 - Do not overwrite user screenshots or older prototype variants unless explicitly asked.
-- This is a prototype using in-browser Babel/React. Syntax errors in any JSX module can break the whole page at load.
+- This is a Vite/React app (Phase 0 complete). Run `npm run dev` to work on it. Syntax errors in any JSX module will surface as HMR errors in the browser console.
