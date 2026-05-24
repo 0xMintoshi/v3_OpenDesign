@@ -1,4 +1,6 @@
 import React from 'react';
+import crownMolarUpper from './shapes-data/crown-molar-upper.json';
+import { shapeToPath } from './visuals/shapes.jsx';
 
 // ============================================================================
 // Treatment catalog, overlay renderers, popover, stage chrome — flat schematic.
@@ -18,6 +20,13 @@ const TX_GROUPS = [
     items: [
       { id: 'implant-crown', label: 'Implant + Crown',  hint: 'fixture · abutment · crown' },
       { id: 'implant-only',  label: 'Implant Only',     hint: 'fixture only · staged restoration' },
+    ],
+  },
+  {
+    label: 'Restoration',
+    scope: 'tooth',
+    items: [
+      { id: 'crown', label: 'Crown', hint: 'full-coverage crown · existing tooth', requires: 'present-tooth' },
     ],
   },
   {
@@ -238,6 +247,21 @@ function FittedImplantOverlay({ tooth, biteY, withCrown, accent }) {
           />
         );
       })}
+    </g>
+  );
+}
+
+function CrownOverlay({ tooth, biteY, accent }) {
+  const { cx, w, h, jaw } = tooth;
+  const flipY = jaw === 'upper' ? 1 : -1;
+  const d = shapeToPath(crownMolarUpper, w, h);
+  return (
+    <g transform={`translate(${cx}, ${biteY}) scale(1, ${flipY})`} style={{ pointerEvents: 'none' }}>
+      <path d={d} fill="var(--tooth-fill)" stroke={accent} strokeWidth="1.6" strokeLinejoin="round" />
+      <path
+        d={`M ${-w*0.26} 0 Q 0 ${h*0.04} ${w*0.26} 0`}
+        stroke={accent} strokeWidth="0.9" fill="none" opacity="0.55"
+      />
     </g>
   );
 }
@@ -600,6 +624,9 @@ function TreatmentLayer({ treatments, allTeeth, upperBiteY, lowerBiteY, archWidt
                 return <BoneGraftOverlay key={i} x={tooth.cx} y={biteY}
                                          w={tooth.w} h={tooth.h} jaw={tooth.jaw}
                                          variant={tx.id} accent={accent} />;
+              }
+              if (tx.id === 'crown') {
+                return <CrownOverlay key={i} tooth={tooth} biteY={biteY} accent={accent} />;
               }
               return null;
             })}
