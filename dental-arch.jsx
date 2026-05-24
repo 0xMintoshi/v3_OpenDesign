@@ -1,3 +1,9 @@
+import React from 'react';
+import { TOOTH_TYPES, QUADRANT, UPPER, LOWER, layoutArch, toothPaths } from './teeth-data.jsx';
+import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnCanalPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from './anatomy.jsx';
+import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog } from './treatments.jsx';
+import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
+
 const { useState, useEffect, useMemo, useCallback } = React;
 
 // ====================================================================
@@ -10,7 +16,7 @@ function Tooth({
   const { cx, h, w, type, fdi, tilt = 0, yOffset = 0 } = tooth;
 
   const flipY = jawFlip ? -1 : 1;
-  const paths = window.toothPaths(type, w, h);
+  const paths = toothPaths(type, w, h);
   const numberY = jawFlip ? -(h + 16) : -(h + 10);
 
   const baseTransform = `translate(${cx}, ${yOffset * flipY}) scale(1, ${flipY}) rotate(${tilt})`;
@@ -331,7 +337,7 @@ function AnatomyBackground({
 
       {/* IDN nerve — inside mandible */}
       {showIDN && ['right', 'left'].map((side) => {
-        const path = window.idnSchematicPath(side);
+        const path = idnSchematicPath(side);
         return (
           <g key={`idn-${side}`} style={{ pointerEvents: 'none' }}>
             <path d={path} stroke="var(--anatomy-stroke)" strokeWidth="3.5" fill="none"
@@ -341,7 +347,7 @@ function AnatomyBackground({
           </g>);
 
       })}
-      {showIDN && window.mentalForamenCenters().map(({ cx, cy, side }) =>
+      {showIDN && mentalForamenCenters().map(({ cx, cy, side }) =>
       <circle key={`foramen-${side}`} cx={cx} cy={cy} r="3.5"
       fill="var(--bg-0)" stroke="var(--anatomy-stroke)" strokeWidth="1.1"
       opacity="0.85" style={{ pointerEvents: 'none' }} />
@@ -403,7 +409,7 @@ const DEFAULT_TWEAKS = /*EDITMODE-BEGIN*/{
 } /*EDITMODE-END*/;
 
 function DentalHero() {
-  const [t, setTweak] = window.useTweaks(DEFAULT_TWEAKS);
+  const [t, setTweak] = useTweaks(DEFAULT_TWEAKS);
   const [hoveredId, setHoveredId] = useState(null);
 
   // ---- Workflow state ----
@@ -421,8 +427,8 @@ function DentalHero() {
   const upperBiteY = biteCenter - archGap / 2;
   const lowerBiteY = biteCenter + archGap / 2;
 
-  const upper = useMemo(() => window.layoutArch(window.UPPER, 800, scale, { archDepth: t.archDepth }), [t.archDepth]);
-  const lower = useMemo(() => window.layoutArch(window.LOWER, 800, scale, { archDepth: t.archDepth }), [t.archDepth]);
+  const upper = useMemo(() => layoutArch(UPPER, 800, scale, { archDepth: t.archDepth }), [t.archDepth]);
+  const lower = useMemo(() => layoutArch(LOWER, 800, scale, { archDepth: t.archDepth }), [t.archDepth]);
 
   const scaledUpper = upper.map((x) => ({ ...x, w: x.w * scale, h: x.h * scale }));
   const scaledLower = lower.map((x) => ({ ...x, w: x.w * scale, h: x.h * scale }));
@@ -809,7 +815,7 @@ function DentalHero() {
 
           {/* Treatment overlays (Stage 2) */}
           {stage === 'treatment' &&
-          <window.TreatmentLayer
+          <TreatmentLayer
             treatments={treatments}
             allTeeth={allTeeth}
             upperBiteY={upperBiteY}
@@ -821,7 +827,7 @@ function DentalHero() {
 
           {/* Treatment labels with leader lines (Stage 2) */}
            {stage === 'treatment' && t.showLeaders &&
-            <window.TreatmentLabels
+            <TreatmentLabels
              treatments={treatments}
              allTeeth={allTeeth}
              upperBiteY={upperBiteY}
@@ -868,7 +874,7 @@ function DentalHero() {
         }
       </footer>
 
-      <window.TreatmentPopover
+      <TreatmentPopover
         open={!!popover}
         anchor={popover ? popover.anchor : { x: 0, y: 0 }}
         mode={popover ? popover.mode : null}
@@ -885,7 +891,7 @@ function DentalHero() {
         onClose={() => {setPopover(null);setSelection([]);}} />
       
 
-      <window.ConfirmDialog
+      <ConfirmDialog
         open={!!confirmWipe}
         accent={t.accent}
         title="Remove planned treatments?"
@@ -895,31 +901,31 @@ function DentalHero() {
         onCancel={() => setConfirmWipe(null)} />
       
 
-      <window.TweaksPanel>
-        <window.TweakSection label="Display">
-          <window.TweakRadio label="Theme" value={t.theme} onChange={(v) => setTweak('theme', v)}
+      <TweaksPanel>
+        <TweakSection label="Display">
+          <TweakRadio label="Theme" value={t.theme} onChange={(v) => setTweak('theme', v)}
           options={[
           { value: 'flat', label: 'Flat' },
           { value: 'dark', label: 'Dark' }]
           } />
-          <window.TweakColor label="Accent" value={t.accent} onChange={(v) => setTweak('accent', v)}
+          <TweakColor label="Accent" value={t.accent} onChange={(v) => setTweak('accent', v)}
           options={['#2A6FDB', '#1F8A5B', '#D97757', '#8B5CF6', '#0F172A']} />
-          <window.TweakToggle label="Show FDI Numbers" value={t.showNumbering} onChange={(v) => setTweak('showNumbering', v)} />
+          <TweakToggle label="Show FDI Numbers" value={t.showNumbering} onChange={(v) => setTweak('showNumbering', v)} />
           <div className="twk-row twk-row-actions">
             <div className="twk-lbl"><span>Manual Placement Mode</span></div>
             <div className="twk-attached">
-              <window.TweakButton label="Export" secondary={true} className="twk-btn-export" onClick={handleExportLabelPositions} />
+              <TweakButton label="Export" secondary={true} className="twk-btn-export" onClick={handleExportLabelPositions} />
               <button type="button" className="twk-toggle" data-on={t.manualPlacementMode ? '1' : '0'}
                 role="switch" aria-checked={!!t.manualPlacementMode}
                 onClick={() => setTweak('manualPlacementMode', !t.manualPlacementMode)}><i /></button>
             </div>
           </div>
-        </window.TweakSection>
-        <window.TweakSection label="Anatomy">
-          <window.TweakToggle label="Sinus Zones" value={t.showSinus} onChange={(v) => setTweak('showSinus', v)} />
-          <window.TweakToggle label="ID Nerve" value={t.showIDN} onChange={(v) => setTweak('showIDN', v)} />
-        </window.TweakSection>
-      </window.TweaksPanel>
+        </TweakSection>
+        <TweakSection label="Anatomy">
+          <TweakToggle label="Sinus Zones" value={t.showSinus} onChange={(v) => setTweak('showSinus', v)} />
+          <TweakToggle label="ID Nerve" value={t.showIDN} onChange={(v) => setTweak('showIDN', v)} />
+        </TweakSection>
+      </TweaksPanel>
       {exportJson && (
         <>
           <div className="popover-veil" onClick={() => setExportJson(null)} />
@@ -1065,4 +1071,4 @@ function darkTheme() {
   };
 }
 
-ReactDOM.createRoot(document.getElementById('root')).render(<DentalHero />);
+export default DentalHero;

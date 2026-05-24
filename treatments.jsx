@@ -1,3 +1,5 @@
+import React from 'react';
+
 // ============================================================================
 // Treatment catalog, overlay renderers, popover, stage chrome — flat schematic.
 // ============================================================================
@@ -877,7 +879,7 @@ function TreatmentLabels({ treatments, allTeeth, upperBiteY, lowerBiteY, accent,
     return () => {
       try { delete window.exportLabelPositions; delete window.setLabelPositions; } catch (e) {}
     };
-  }, [persistentPositions, sessionPositions, positioned]);
+  }, [persistentPositions, sessionPositions]);
 
   // ── 1. Build label specs ──────────────────────────────────────────────────
 
@@ -1660,3 +1662,8 @@ Object.assign(window, {
   TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL,
   TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog,
 });
+
+export {
+  TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL,
+  TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog,
+};
