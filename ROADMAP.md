@@ -5,8 +5,8 @@ Single source of truth for phase status. All phase plan files live under `docs/p
 ---
 
 ## Phase 0 — Vite Migration
-**Status:** In progress
-**Start:** 2026-05-24 | **Completion:** —
+**Status:** Complete
+**Start:** 2026-05-24 | **Completion:** 2026-05-24
 **Plan:** [`docs/plans/2026-05-24-phase-0-vite-migration.md`](docs/plans/2026-05-24-phase-0-vite-migration.md)
 
 Behavior-preserving lift from CDN/Babel → Vite + plain JSX. No folder reshuffle, no new features. Exit criteria: `npm run dev` boots, `npm run build` clean, manual interaction sweep passes vs `pre-vite-baseline` screenshots.
