@@ -38,6 +38,24 @@ const SHAPES = {
     w: 800, h: 400,
     toothRef: null,
   },
+  'bridge-span': {
+    label: 'Bridge Span (pontic)',
+    loader: () => import('../shapes-data/bridge-span.json'),
+    w: 76, h: 88,
+    toothRef: null,
+  },
+  'partial-denture-upper': {
+    label: 'Partial Denture (Upper)',
+    loader: () => import('../shapes-data/partial-denture-upper.json'),
+    w: 800, h: 400,
+    toothRef: null,
+  },
+  'partial-denture-lower': {
+    label: 'Partial Denture (Lower)',
+    loader: () => import('../shapes-data/partial-denture-lower.json'),
+    w: 800, h: 400,
+    toothRef: null,
+  },
 };
 
 const DEFAULT_SHAPE_ID = 'crown-molar-upper';

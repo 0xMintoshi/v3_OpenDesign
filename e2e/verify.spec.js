@@ -88,3 +88,39 @@ test('lab drag moves a control point', async ({ page }) => {
   const jsonAfter = await page.locator('pre').first().innerText();
   expect(jsonAfter).not.toBe(jsonBefore);
 });
+
+test('lab bridge-span shape loads via selector', async ({ page }) => {
+  const errors = [];
+  page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+  await page.goto('/lab.html');
+  await page.waitForLoadState('networkidle');
+
+  const select = page.locator('select');
+  await select.selectOption('bridge-span');
+  await page.waitForLoadState('networkidle');
+
+  const svg = page.locator('svg').first();
+  await expect(svg).toBeVisible();
+  const paths = svg.locator('path');
+  expect(await paths.count()).toBeGreaterThan(0);
+  await expect(page.locator('vite-error-overlay')).toHaveCount(0);
+  expect(errors).toHaveLength(0);
+});
+
+test('lab partial-denture-upper shape loads via selector', async ({ page }) => {
+  const errors = [];
+  page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+  await page.goto('/lab.html');
+  await page.waitForLoadState('networkidle');
+
+  const select = page.locator('select');
+  await select.selectOption('partial-denture-upper');
+  await page.waitForLoadState('networkidle');
+
+  const svg = page.locator('svg').first();
+  await expect(svg).toBeVisible();
+  const paths = svg.locator('path');
+  expect(await paths.count()).toBeGreaterThan(0);
+  await expect(page.locator('vite-error-overlay')).toHaveCount(0);
+  expect(errors).toHaveLength(0);
+});
