@@ -1,5 +1,5 @@
 import React from 'react';
-import { CrownOverlay } from './visuals/CrownOverlay.jsx';
+import { CrownOverlay } from '../visuals/CrownOverlay.jsx';
 
 // ============================================================================
 // Treatment catalog, overlay renderers, popover, stage chrome — flat schematic.
