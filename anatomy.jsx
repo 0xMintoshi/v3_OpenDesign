@@ -124,3 +124,10 @@ Object.assign(window, {
   maxillarySinusPath, idnCanalPath, idnSchematicPath,
   mentalForamenCenters, ramusDetailPath,
 });
+
+export {
+  maxillaPath, mandiblePath,
+  nasalCavityPath, nasalSeptumPath,
+  maxillarySinusPath, idnCanalPath, idnSchematicPath,
+  mentalForamenCenters, ramusDetailPath,
+};

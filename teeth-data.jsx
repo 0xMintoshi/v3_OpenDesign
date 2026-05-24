@@ -319,3 +319,5 @@ function toothPaths(type, w, h) {
 Object.assign(window, {
   TOOTH_TYPES, QUADRANT, UPPER, LOWER, layoutArch, toothPaths,
 });
+
+export { TOOTH_TYPES, QUADRANT, UPPER, LOWER, layoutArch, toothPaths };

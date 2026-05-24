@@ -1,0 +1,522 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dental Geometry Fit Diagnostic</title>
+  <style>
+    :root {
+      --bg: #f7f8fb;
+      --surface: #ffffff;
+      --ink: #172033;
+      --muted: #6d7789;
+      --line: #d9dee8;
+      --tooth-fill: #fbfcff;
+      --tooth-stroke: #9aa7b7;
+      --bone-fill: #f1f5fa;
+      --bone-stroke: #8c9aac;
+      --accent: #208f9d;
+      --draft: #2c7280;
+      --warn: #c06b2f;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    }
+
+    main {
+      max-width: 1540px;
+      margin: 0 auto;
+      padding: 26px;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: end;
+      gap: 24px;
+      margin-bottom: 18px;
+    }
+
+    h1 { margin: 0; font-size: 28px; letter-spacing: -0.01em; }
+    .sub { max-width: 860px; margin: 8px 0 0; color: var(--muted); }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .compare {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .panel {
+      overflow: hidden;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    .panel.zoom {
+      grid-column: 1 / -1;
+    }
+
+    .panel h2 {
+      margin: 0;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .stage { padding: 10px; }
+    svg {
+      display: block;
+      width: 100%;
+      height: auto;
+      background:
+        linear-gradient(var(--line) 1px, transparent 1px),
+        linear-gradient(90deg, var(--line) 1px, transparent 1px);
+      background-size: 40px 40px;
+      background-position: -1px -1px;
+    }
+
+    .bone { fill: var(--bone-fill); stroke: var(--bone-stroke); stroke-width: 1.2; stroke-linejoin: round; opacity: 0.9; }
+    .bone-draft { stroke: var(--draft); stroke-width: 1.65; }
+    .sinus { fill: #ffffff; fill-opacity: 0.55; stroke: var(--bone-stroke); stroke-width: 1; stroke-dasharray: 5 4; opacity: 0.74; }
+    .sinus-draft { stroke: var(--draft); fill: rgba(32,143,157,0.08); opacity: 0.9; }
+    .idn { fill: none; stroke: var(--bone-stroke); stroke-width: 3.5; opacity: 0.3; stroke-linecap: round; }
+    .idn-line { fill: none; stroke: var(--bone-stroke); stroke-width: 1.6; opacity: 0.6; stroke-linecap: round; stroke-dasharray: 5 4; }
+    .tooth { fill: var(--tooth-fill); stroke: var(--tooth-stroke); stroke-width: 1.4; stroke-linejoin: round; stroke-linecap: round; }
+    .cervical { fill: none; stroke: var(--tooth-stroke); stroke-width: 1; stroke-linecap: round; opacity: 0.7; }
+    .bite { stroke: #aeb8c6; stroke-width: 0.6; stroke-dasharray: 2 4; }
+    .fdi { fill: #9aa7b7; font-size: 10px; font-weight: 500; letter-spacing: 0.06em; text-anchor: middle; }
+    .callout { fill: var(--draft); font-size: 13px; font-weight: 650; }
+    .leader { stroke: var(--draft); stroke-width: 1.2; fill: none; stroke-dasharray: 4 4; }
+
+    .checks { display: grid; gap: 10px; padding: 14px; }
+    .check { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fbfcfe; }
+    .check b { display: block; margin-bottom: 2px; }
+    .check span { color: var(--muted); font-size: 13px; }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      height: 22px;
+      padding: 0 8px;
+      margin-left: 6px;
+      border-radius: 999px;
+      background: #e7f5ef;
+      color: #176c52;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    .ref { display: grid; gap: 10px; padding: 14px; }
+    .ref img { width: 100%; border: 1px solid var(--line); border-radius: 8px; background: white; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; color: var(--muted); }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div>
+        <h1>Dental geometry fit diagnostic</h1>
+        <p class="sub">Draft-only reconstruction of the current hero diagram. The first panel is the current generated geometry. The draft panels keep the selected molar root base and test three higher single-point furcation drawings based on the uploaded crop, while maxilla, sinus, mandible context, and live-build sinus floor baseline are held fixed.</p>
+      </div>
+      <div class="mono">No live build files edited</div>
+    </header>
+
+    <div class="layout">
+      <section class="compare">
+        <article class="panel">
+          <h2>Current hero base</h2>
+          <div class="stage"><svg id="currentSvg" viewBox="0 0 1600 800" role="img" aria-label="Current dental hero geometry"></svg></div>
+        </article>
+        <article class="panel">
+          <h2>Furcation A</h2>
+          <div class="stage"><svg id="draftASvg" viewBox="0 0 1600 800" role="img" aria-label="Draft A dental hero geometry"></svg></div>
+        </article>
+        <article class="panel">
+          <h2>Furcation B</h2>
+          <div class="stage"><svg id="draftBSvg" viewBox="0 0 1600 800" role="img" aria-label="Draft B dental hero geometry"></svg></div>
+        </article>
+        <article class="panel zoom">
+          <h2>Furcation B enlarged</h2>
+          <div class="stage"><svg id="draftBZoomSvg" viewBox="900 176 285 230" role="img" aria-label="Enlarged Draft B upper molar furcation"></svg></div>
+        </article>
+        <article class="panel">
+          <h2>Furcation C</h2>
+          <div class="stage"><svg id="draftCSvg" viewBox="0 0 1600 800" role="img" aria-label="Draft C dental hero geometry"></svg></div>
+        </article>
+      </section>
+
+      <aside class="panel">
+        <h2>Draft checks</h2>
+        <div class="checks">
+          <div class="check"><b>Tooth style <span class="badge">re-based</span></b><span>All teeth render from the current hero arch. Molars are edited as small deltas from the existing outline, not from a new crown style.</span></div>
+          <div class="check"><b>Molar crowns <span class="badge">subtle</span></b><span>Crown base is flatter and corners are rounder, while the current four-sided molar mass and cervical rhythm are preserved.</span></div>
+          <div class="check"><b>Upper molar roots <span class="badge">focused</span></b><span>16/17/26/27 keep the copied 18/28 mesial/distal outer roots; A/B/C only vary a higher single-point furcation and the palatal root emerging from it.</span></div>
+          <div class="check"><b>Mandible <span class="badge">held</span></b><span>The prior Draft C mandible is kept as context only while this pass focuses on molars.</span></div>
+          <div class="check"><b>IDN <span class="badge">contained</span></b><span>The canal is shown against the updated mandible boundary and remains within the mandibular body.</span></div>
+          <div class="check"><b>Sinuses <span class="badge">kept</span></b><span>Rectangular/rounded sinus direction from the prior draft is preserved.</span></div>
+        </div>
+        <h2>Molar root reference</h2>
+        <div class="ref">
+          <img src="mph18ofb-image.png" alt="Pasted furcation reference crop" />
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script>
+    const TOOTH_TYPES = {
+      central:   { w: 28, h: 88,  type: 'incisor',   name: 'Central Incisor' },
+      lateral:   { w: 24, h: 82,  type: 'incisor',   name: 'Lateral Incisor' },
+      canine:    { w: 26, h: 100, type: 'canine',    name: 'Canine' },
+      premolar1: { w: 26, h: 84,  type: 'premolar1', name: 'First Premolar' },
+      premolar2: { w: 26, h: 82,  type: 'premolar',  name: 'Second Premolar' },
+      molar1:    { w: 38, h: 88,  type: 'molarU',    name: 'First Molar' },
+      molar2:    { w: 36, h: 84,  type: 'molarU',    name: 'Second Molar' },
+      wisdom:    { w: 30, h: 70,  type: 'wisdomU',   name: 'Third Molar' }
+    };
+
+    const QUADRANT = ['central','lateral','canine','premolar1','premolar2','molar1','molar2','wisdom'];
+
+    function buildArch(jaw) {
+      const right = [...QUADRANT].reverse();
+      const left = [...QUADRANT];
+      const order = [...right, ...left];
+      const fdi = jaw === 'upper'
+        ? [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28]
+        : [48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38];
+      const lowerOverrides = {
+        central: { w: 18, h: 80 },
+        lateral: { w: 20, h: 80 },
+        canine: { w: 22, h: 96 },
+        premolar1: { w: 22, h: 80, type: 'premolar' },
+        premolar2: { w: 22, h: 80 },
+        molar1: { w: 36, h: 86, type: 'molarL' },
+        molar2: { w: 34, h: 82, type: 'molarL' },
+        wisdom: { w: 28, h: 66, type: 'wisdomL' }
+      };
+      return order.map((key, i) => ({ key, jaw, fdi: fdi[i], ...TOOTH_TYPES[key], ...(jaw === 'lower' ? (lowerOverrides[key] || {}) : {}), id: `${jaw}-${fdi[i]}` }));
+    }
+
+    function layoutArch(arch, centerX, scale, opts = {}) {
+      const gap = opts.gap ?? 4;
+      const archDepth = opts.archDepth ?? 26;
+      const tiltScale = opts.tilt ?? 1;
+      const widths = arch.map(t => t.w * scale);
+      const totalW = widths.reduce((a, b) => a + b, 0) + gap * (arch.length - 1);
+      let cursor = centerX - totalW / 2;
+      return arch.map((t, i) => {
+        const w = widths[i];
+        const cx = cursor + w / 2;
+        cursor += w + gap;
+        const fromCenter = Math.abs(i - 7.5);
+        const tilt = Math.pow(fromCenter / 7.5, 1.5) * 7 * tiltScale * (i < 8 ? -1 : 1);
+        const yOffset = Math.pow(fromCenter / 7.5, 1.8) * archDepth;
+        return { ...t, w: t.w * scale, h: t.h * scale, cx, tilt, yOffset };
+      });
+    }
+
+    function incisorOutline(w, h) {
+      const ch = h * 0.34, ny = -ch, nw = w * 0.78, tipW = w * 0.06;
+      return `M ${w*0.46} 0 C ${w*0.50} ${-ch*0.35}, ${w*0.49} ${-ch*0.85}, ${nw*0.50} ${ny} C ${w*0.42} ${-ch-h*0.10}, ${w*0.22} ${-h*0.55}, ${tipW} ${-h*0.94} C ${tipW*0.5} ${-h}, ${-tipW*0.5} ${-h}, ${-tipW} ${-h*0.94} C ${-w*0.22} ${-h*0.55}, ${-w*0.42} ${-ch-h*0.10}, ${-nw*0.50} ${ny} C ${-w*0.49} ${-ch*0.85}, ${-w*0.50} ${-ch*0.35}, ${-w*0.46} 0 Q 0 ${h*0.018}, ${w*0.46} 0 Z`;
+    }
+    function incisorCervical(w, h) {
+      const ch = h * 0.34, ny = -ch, nw = w * 0.78;
+      return `M ${-nw*0.48} ${ny} Q 0 ${ny - ch*0.16} ${nw*0.48} ${ny}`;
+    }
+    function canineOutline(w, h) {
+      const ch = h * 0.34, ny = -ch, nw = w * 0.74, tipW = w * 0.05;
+      return `M ${w*0.42} ${-ch*0.04} C ${w*0.49} ${-ch*0.30}, ${w*0.48} ${-ch*0.78}, ${nw*0.50} ${ny} C ${w*0.40} ${-ch-h*0.10}, ${w*0.20} ${-h*0.55}, ${tipW} ${-h*0.94} C ${tipW*0.5} ${-h}, ${-tipW*0.5} ${-h}, ${-tipW} ${-h*0.94} C ${-w*0.20} ${-h*0.55}, ${-w*0.40} ${-ch-h*0.10}, ${-nw*0.50} ${ny} C ${-w*0.48} ${-ch*0.78}, ${-w*0.49} ${-ch*0.30}, ${-w*0.42} ${-ch*0.04} C ${-w*0.22} ${ch*0.06} ${w*0.22} ${ch*0.06} ${w*0.42} ${-ch*0.04} Z`;
+    }
+    function canineCervical(w, h) {
+      const ch = h * 0.34, ny = -ch, nw = w * 0.74;
+      return `M ${-nw*0.48} ${ny} Q 0 ${ny - ch*0.18} ${nw*0.48} ${ny}`;
+    }
+    function premolarOutline(w, h) {
+      const ch = h * 0.36, ny = -ch, nw = w * 0.76, tipW = w * 0.06;
+      return `M ${w*0.46} ${-ch*0.02} C ${w*0.52} ${-ch*0.4}, ${w*0.50} ${-ch*0.85}, ${nw*0.50} ${ny} C ${w*0.42} ${-ch-h*0.10}, ${w*0.20} ${-h*0.55}, ${tipW} ${-h*0.94} C ${tipW*0.5} ${-h}, ${-tipW*0.5} ${-h}, ${-tipW} ${-h*0.94} C ${-w*0.20} ${-h*0.55}, ${-w*0.42} ${-ch-h*0.10}, ${-nw*0.50} ${ny} C ${-w*0.50} ${-ch*0.85}, ${-w*0.52} ${-ch*0.4}, ${-w*0.46} ${-ch*0.02} C ${-w*0.26} ${ch*0.06} ${w*0.26} ${ch*0.06} ${w*0.46} ${-ch*0.02} Z`;
+    }
+    function premolarBifurcOutline(w, h) {
+      const ch = h * 0.36, ny = -ch, nw = w * 0.78;
+      return `M ${w*0.46} ${-ch*0.02} C ${w*0.52} ${-ch*0.4}, ${w*0.50} ${-ch*0.85}, ${nw*0.50} ${ny} C ${w*0.42} ${-ch-h*0.10}, ${w*0.30} ${-h*0.4}, ${w*0.20} ${-h*0.7} C ${w*0.16} ${-h*0.88}, ${w*0.12} ${-h*0.98}, ${w*0.10} ${-h*0.98} C ${w*0.06} ${-h*0.98}, ${w*0.04} ${-h*0.86}, ${w*0.04} ${-h*0.75} C ${w*0.04} ${-h*0.60}, ${w*0.02} ${-h*0.55}, 0 ${-h*0.55} C ${-w*0.02} ${-h*0.55}, ${-w*0.04} ${-h*0.60}, ${-w*0.04} ${-h*0.75} C ${-w*0.04} ${-h*0.86}, ${-w*0.06} ${-h*0.98}, ${-w*0.10} ${-h*0.98} C ${-w*0.12} ${-h*0.98}, ${-w*0.16} ${-h*0.88}, ${-w*0.20} ${-h*0.7} C ${-w*0.30} ${-h*0.4}, ${-w*0.42} ${-ch-h*0.10}, ${-nw*0.50} ${ny} C ${-w*0.50} ${-ch*0.85}, ${-w*0.52} ${-ch*0.4}, ${-w*0.46} ${-ch*0.02} C ${-w*0.26} ${ch*0.06} ${w*0.26} ${ch*0.06} ${w*0.46} ${-ch*0.02} Z`;
+    }
+    function premolarCervical(w, h) {
+      const ch = h * 0.36, ny = -ch, nw = w * 0.78;
+      return `M ${-nw*0.48} ${ny} Q 0 ${ny - ch*0.18} ${nw*0.48} ${ny}`;
+    }
+
+    function molarUOutlineCurrent(w, h) {
+      const ch = h * 0.40, ny = -ch, nw = w * 0.84;
+      return `M ${w*0.48} ${-ch*0.02} C ${w*0.52} ${-ch*0.4}, ${w*0.52} ${-ch*0.85}, ${nw*0.50} ${ny} C ${w*0.44} ${-ch-h*0.10}, ${w*0.42} ${-h*0.4}, ${w*0.34} ${-h*0.78} C ${w*0.30} ${-h*0.95}, ${w*0.26} ${-h*1.0}, ${w*0.24} ${-h*1.0} C ${w*0.20} ${-h*0.98}, ${w*0.18} ${-h*0.80}, ${w*0.16} ${-h*0.65} C ${w*0.14} ${-h*0.55}, ${w*0.08} ${-h*0.52}, ${w*0.04} ${-h*0.52} C ${w*0.02} ${-h*0.52}, 0 ${-h*0.60}, 0 ${-h*0.70} C 0 ${-h*0.85}, ${-w*0.02} ${-h*0.98}, ${-w*0.04} ${-h*1.0} C ${-w*0.08} ${-h*1.0}, ${-w*0.10} ${-h*0.85}, ${-w*0.12} ${-h*0.70} C ${-w*0.14} ${-h*0.58}, ${-w*0.18} ${-h*0.52}, ${-w*0.22} ${-h*0.52} C ${-w*0.26} ${-h*0.52}, ${-w*0.30} ${-h*0.62}, ${-w*0.34} ${-h*0.78} C ${-w*0.42} ${-h*0.4}, ${-w*0.44} ${-ch-h*0.10}, ${-nw*0.50} ${ny} C ${-w*0.52} ${-ch*0.85}, ${-w*0.52} ${-ch*0.4}, ${-w*0.48} ${-ch*0.02} C ${-w*0.10} ${ch*0.18} ${w*0.10} ${ch*0.18} ${w*0.48} ${-ch*0.02} Z`;
+    }
+    function molarLOutlineCurrent(w, h) {
+      const ch = h * 0.40, ny = -ch, nw = w * 0.86;
+      return `M ${w*0.48} ${-ch*0.02} C ${w*0.54} ${-ch*0.4}, ${w*0.52} ${-ch*0.85}, ${nw*0.50} ${ny} C ${w*0.46} ${-ch-h*0.10}, ${w*0.46} ${-h*0.5}, ${w*0.38} ${-h*0.85} C ${w*0.32} ${-h*1.0}, ${w*0.24} ${-h*1.0}, ${w*0.22} ${-h*0.98} C ${w*0.18} ${-h*0.92}, ${w*0.16} ${-h*0.75}, ${w*0.14} ${-h*0.60} C ${w*0.10} ${-h*0.50}, ${w*0.06} ${-h*0.50}, 0 ${-h*0.50} C ${-w*0.06} ${-h*0.50}, ${-w*0.10} ${-h*0.50}, ${-w*0.14} ${-h*0.60} C ${-w*0.16} ${-h*0.75}, ${-w*0.18} ${-h*0.92}, ${-w*0.22} ${-h*0.98} C ${-w*0.24} ${-h*1.0}, ${-w*0.32} ${-h*1.0}, ${-w*0.38} ${-h*0.85} C ${-w*0.46} ${-h*0.5}, ${-w*0.46} ${-ch-h*0.10}, ${-nw*0.50} ${ny} C ${-w*0.52} ${-ch*0.85}, ${-w*0.54} ${-ch*0.4}, ${-w*0.48} ${-ch*0.02} C ${-w*0.10} ${ch*0.18} ${w*0.10} ${ch*0.18} ${w*0.48} ${-ch*0.02} Z`;
+    }
+
+    function molarUOutlineDraft(w, h, variant = 'a') {
+      const ch = h * 0.40, ny = -ch, nw = w * 0.84;
+      const furcation = {
+        a: { meetY: 0.535, innerX: 0.118, innerY: 0.700, neckX: 0.078, neckY: 0.610, midX: 0.048, midY: 0.790, apexX: 0.014, apexY: 0.915, shoulderX: 0.046, shoulderY: 0.568 },
+        b: { meetY: 0.505, innerX: 0.122, innerY: 0.695, neckX: 0.084, neckY: 0.585, midX: 0.043, midY: 0.770, apexX: 0.016, apexY: 0.895, shoulderX: 0.040, shoulderY: 0.535 },
+        c: { meetY: 0.565, innerX: 0.112, innerY: 0.715, neckX: 0.072, neckY: 0.635, midX: 0.040, midY: 0.805, apexX: 0.012, apexY: 0.925, shoulderX: 0.044, shoulderY: 0.598 }
+      }[variant] || { meetY: 0.535, innerX: 0.118, innerY: 0.700, neckX: 0.078, neckY: 0.610, midX: 0.048, midY: 0.790, apexX: 0.014, apexY: 0.915, shoulderX: 0.046, shoulderY: 0.568 };
+      return `M ${w*0.48} ${-ch*0.02}
+        C ${w*0.52} ${-ch*0.4}, ${w*0.52} ${-ch*0.85}, ${nw*0.50} ${ny}
+        C ${w*0.40} ${-ch-h*0.10}, ${w*0.34} ${-h*0.5}, ${w*0.24} ${-h*0.86}
+        C ${w*0.20} ${-h*0.96}, ${w*0.14} ${-h*0.96}, ${w*0.12} ${-h*0.86}
+        C ${w*0.154} ${-h*0.792}, ${w*furcation.innerX} ${-h*furcation.innerY}, ${w*furcation.shoulderX} ${-h*furcation.shoulderY}
+        C ${w*0.026} ${-h*(furcation.meetY + 0.012)}, ${w*0.010} ${-h*(furcation.meetY + 0.004)}, 0 ${-h*furcation.meetY}
+        C ${w*0.026} ${-h*(furcation.meetY + 0.012)}, ${w*furcation.neckX} ${-h*furcation.neckY}, ${w*(furcation.neckX * 0.88)} ${-h*(furcation.neckY + 0.070)}
+        C ${w*furcation.midX} ${-h*furcation.midY}, ${w*(furcation.apexX + 0.018)} ${-h*(furcation.apexY - 0.012)}, ${w*furcation.apexX} ${-h*furcation.apexY}
+        C ${w*(furcation.apexX * 0.36)} ${-h*(furcation.apexY + 0.018)}, ${-w*(furcation.apexX * 0.36)} ${-h*(furcation.apexY + 0.018)}, ${-w*furcation.apexX} ${-h*furcation.apexY}
+        C ${-w*(furcation.apexX + 0.018)} ${-h*(furcation.apexY - 0.012)}, ${-w*furcation.midX} ${-h*furcation.midY}, ${-w*(furcation.neckX * 0.88)} ${-h*(furcation.neckY + 0.070)}
+        C ${-w*furcation.neckX} ${-h*furcation.neckY}, ${-w*0.026} ${-h*(furcation.meetY + 0.012)}, 0 ${-h*furcation.meetY}
+        C ${-w*0.010} ${-h*(furcation.meetY + 0.004)}, ${-w*0.026} ${-h*(furcation.meetY + 0.012)}, ${-w*furcation.shoulderX} ${-h*furcation.shoulderY}
+        C ${-w*furcation.innerX} ${-h*furcation.innerY}, ${-w*0.154} ${-h*0.792}, ${-w*0.12} ${-h*0.86}
+        C ${-w*0.14} ${-h*0.96}, ${-w*0.20} ${-h*0.96}, ${-w*0.24} ${-h*0.86}
+        C ${-w*0.34} ${-h*0.5}, ${-w*0.40} ${-ch-h*0.10}, ${-nw*0.50} ${ny}
+        C ${-w*0.52} ${-ch*0.85}, ${-w*0.52} ${-ch*0.4}, ${-w*0.48} ${-ch*0.02}
+        C ${-w*0.10} ${ch*0.18} ${w*0.10} ${ch*0.18} ${w*0.48} ${-ch*0.02}
+        Z`;
+    }
+    function molarLOutlineDraft(w, h) {
+      const ch = h * 0.40, ny = -ch, nw = w * 0.86;
+      return `M ${w*0.48} ${-ch*0.04} C ${w*0.54} ${-ch*0.38}, ${w*0.52} ${-ch*0.82}, ${nw*0.50} ${ny} C ${w*0.46} ${-ch-h*0.10}, ${w*0.46} ${-h*0.50}, ${w*0.38} ${-h*0.85} C ${w*0.32} ${-h}, ${w*0.24} ${-h}, ${w*0.22} ${-h*0.98} C ${w*0.18} ${-h*0.92}, ${w*0.16} ${-h*0.75}, ${w*0.14} ${-h*0.60} C ${w*0.10} ${-h*0.505}, ${w*0.06} ${-h*0.50}, 0 ${-h*0.50} C ${-w*0.06} ${-h*0.50}, ${-w*0.10} ${-h*0.505}, ${-w*0.14} ${-h*0.60} C ${-w*0.16} ${-h*0.75}, ${-w*0.18} ${-h*0.92}, ${-w*0.22} ${-h*0.98} C ${-w*0.24} ${-h}, ${-w*0.32} ${-h}, ${-w*0.38} ${-h*0.85} C ${-w*0.46} ${-h*0.50}, ${-w*0.46} ${-ch-h*0.10}, ${-nw*0.50} ${ny} C ${-w*0.52} ${-ch*0.82}, ${-w*0.54} ${-ch*0.38}, ${-w*0.48} ${-ch*0.04} C ${-w*0.38} ${ch*0.08}, ${-w*0.15} ${ch*0.105}, 0 ${ch*0.105} C ${w*0.15} ${ch*0.105}, ${w*0.38} ${ch*0.08}, ${w*0.48} ${-ch*0.04} Z`;
+    }
+
+    function wisdomUOutline(w, h) {
+      const ch = h * 0.46, ny = -ch, nw = w * 0.84;
+      return `M ${w*0.48} ${-ch*0.02} C ${w*0.52} ${-ch*0.45}, ${w*0.52} ${-ch*0.92}, ${nw*0.50} ${ny} C ${w*0.40} ${-ch-h*0.10}, ${w*0.34} ${-h*0.5}, ${w*0.24} ${-h*0.86} C ${w*0.20} ${-h*0.96}, ${w*0.14} ${-h*0.96}, ${w*0.12} ${-h*0.86} C ${w*0.10} ${-h*0.74}, ${w*0.06} ${-h*0.62}, 0 ${-h*0.60} C ${-w*0.06} ${-h*0.62}, ${-w*0.10} ${-h*0.74}, ${-w*0.12} ${-h*0.86} C ${-w*0.14} ${-h*0.96}, ${-w*0.20} ${-h*0.96}, ${-w*0.24} ${-h*0.86} C ${-w*0.34} ${-h*0.5}, ${-w*0.40} ${-ch-h*0.10}, ${-nw*0.50} ${ny} C ${-w*0.52} ${-ch*0.92}, ${-w*0.52} ${-ch*0.45}, ${-w*0.48} ${-ch*0.02} C ${-w*0.10} ${ch*0.18} ${w*0.10} ${ch*0.18} ${w*0.48} ${-ch*0.02} Z`;
+    }
+    function wisdomLOutline(w, h) {
+      const ch = h * 0.46, ny = -ch, nw = w * 0.86;
+      return `M ${w*0.48} ${-ch*0.02} C ${w*0.54} ${-ch*0.45}, ${w*0.52} ${-ch*0.92}, ${nw*0.50} ${ny} C ${w*0.44} ${-ch-h*0.10}, ${w*0.40} ${-h*0.55}, ${w*0.30} ${-h*0.86} C ${w*0.24} ${-h*0.96}, ${w*0.16} ${-h*0.96}, ${w*0.14} ${-h*0.86} C ${w*0.10} ${-h*0.65}, ${w*0.04} ${-h*0.55}, 0 ${-h*0.55} C ${-w*0.04} ${-h*0.55}, ${-w*0.10} ${-h*0.65}, ${-w*0.14} ${-h*0.86} C ${-w*0.16} ${-h*0.96}, ${-w*0.24} ${-h*0.96}, ${-w*0.30} ${-h*0.86} C ${-w*0.40} ${-h*0.55}, ${-w*0.44} ${-ch-h*0.10}, ${-nw*0.50} ${ny} C ${-w*0.52} ${-ch*0.92}, ${-w*0.54} ${-ch*0.45}, ${-w*0.48} ${-ch*0.02} C ${-w*0.10} ${ch*0.18} ${w*0.10} ${ch*0.18} ${w*0.48} ${-ch*0.02} Z`;
+    }
+    function molarCervical(w, h) {
+      const ch = h * 0.40, ny = -ch, nw = w * 0.84;
+      return `M ${-nw*0.48} ${ny} Q 0 ${ny - ch*0.18} ${nw*0.48} ${ny}`;
+    }
+    function wisdomCervical(w, h) {
+      const ch = h * 0.46, ny = -ch, nw = w * 0.84;
+      return `M ${-nw*0.48} ${ny} Q 0 ${ny - ch*0.18} ${nw*0.48} ${ny}`;
+    }
+
+    function toothPaths(type, w, h, mode) {
+      const draft = mode !== 'current';
+      const variant = mode === 'draftB' ? 'b' : mode === 'draftC' ? 'c' : 'a';
+      if (type === 'incisor') return { outline: incisorOutline(w, h), cervical: incisorCervical(w, h) };
+      if (type === 'canine') return { outline: canineOutline(w, h), cervical: canineCervical(w, h) };
+      if (type === 'premolar') return { outline: premolarOutline(w, h), cervical: premolarCervical(w, h) };
+      if (type === 'premolar1') return { outline: premolarBifurcOutline(w, h), cervical: premolarCervical(w, h) };
+      if (type === 'molarU') return { outline: draft ? molarUOutlineDraft(w, h, variant) : molarUOutlineCurrent(w, h), cervical: molarCervical(w, h) };
+      if (type === 'molarL') return { outline: draft ? molarLOutlineDraft(w, h) : molarLOutlineCurrent(w, h), cervical: molarCervical(w, h) };
+      if (type === 'wisdomU') return { outline: wisdomUOutline(w, h), cervical: wisdomCervical(w, h) };
+      return { outline: wisdomLOutline(w, h), cervical: wisdomCervical(w, h) };
+    }
+
+    function chRatioFor(type) {
+      if (type === 'molarU' || type === 'molarL') return 0.40;
+      if (type === 'premolar' || type === 'premolar1') return 0.36;
+      if (type === 'wisdomU' || type === 'wisdomL') return 0.46;
+      return 0.34;
+    }
+
+    function cervicalPoints(teeth, biteY, jaw) {
+      return [...teeth].sort((a, b) => a.cx - b.cx).map((t) => {
+        const ch = t.h * chRatioFor(t.type);
+        const y = jaw === 'upper' ? biteY + t.yOffset - ch : biteY - t.yOffset + ch;
+        return { x: t.cx, y, w: t.w, fdi: t.fdi };
+      });
+    }
+
+    function bonePath(cervical, jaw, farY) {
+      const peakDir = jaw === 'upper' ? -1 : 1;
+      const peakDepth = 4;
+      const overhang = 14;
+      const cornerR = 24;
+      const first = cervical[0], last = cervical[cervical.length - 1];
+      const leftX = first.x - first.w * 0.5 - overhang;
+      const rightX = last.x + last.w * 0.5 + overhang;
+      const scallopRL = () => cervical.slice(0, -1).reverse().map((p, j) => {
+        const n = cervical[cervical.length - 1 - j];
+        return `Q ${(p.x+n.x)/2} ${(p.y+n.y)/2 + peakDir*peakDepth} ${p.x} ${p.y}`;
+      }).join(' ');
+      const scallopLR = () => cervical.slice(1).map((p, i) => {
+        const pr = cervical[i];
+        return `Q ${(p.x+pr.x)/2} ${(p.y+pr.y)/2 + peakDir*peakDepth} ${p.x} ${p.y}`;
+      }).join(' ');
+      if (jaw === 'upper') {
+        return `M ${leftX} ${farY+cornerR} Q ${leftX} ${farY} ${leftX+cornerR} ${farY} L ${rightX-cornerR} ${farY} Q ${rightX} ${farY} ${rightX} ${farY+cornerR} L ${rightX} ${last.y} L ${last.x + last.w*0.5} ${last.y} ${scallopRL()} L ${first.x - first.w*0.5} ${first.y} L ${leftX} ${first.y} Z`;
+      }
+      return `M ${leftX} ${first.y} L ${first.x - first.w*0.5} ${first.y} ${scallopLR()} L ${last.x + last.w*0.5} ${last.y} L ${rightX} ${last.y} L ${rightX} ${farY-cornerR} Q ${rightX} ${farY} ${rightX-cornerR} ${farY} L ${leftX+cornerR} ${farY} Q ${leftX} ${farY} ${leftX} ${farY-cornerR} Z`;
+    }
+
+    function draftMaxillaPath(cervical, farY) {
+      const first = cervical[0], last = cervical[cervical.length - 1];
+      const leftX = first.x - first.w * 0.5 - 18;
+      const rightX = last.x + last.w * 0.5 + 18;
+      const leftFloor = first.y, rightFloor = last.y;
+      return `M ${leftX} ${farY+28} Q ${leftX+2} ${farY+4} ${leftX+32} ${farY} L ${rightX-32} ${farY} Q ${rightX-2} ${farY+4} ${rightX} ${farY+28} L ${rightX-2} ${rightFloor-7} Q ${rightX-8} ${rightFloor+2} ${last.x + last.w*0.5} ${rightFloor} Q 1120 ${rightFloor-10} 800 ${rightFloor-8} Q 480 ${rightFloor-10} ${first.x - first.w*0.5} ${leftFloor} Q ${leftX+8} ${leftFloor+2} ${leftX} ${leftFloor-7} Z`;
+    }
+
+    function draftMandiblePath(cervical, farY, variant = 'a') {
+      const first = cervical[0], last = cervical[cervical.length - 1];
+      const spread = variant === 'b' ? 66 : variant === 'c' ? 58 : 52;
+      const leftX = first.x - first.w * 0.5 - spread;
+      const rightX = last.x + last.w * 0.5 + spread;
+      const topY = Math.min(first.y, last.y) - 4;
+      const shapes = {
+        a: `M ${leftX} ${topY}
+          Q ${leftX-16} 474 ${leftX+24} 425
+          Q ${leftX+46} 398 ${leftX+90} 409
+          Q ${leftX+62} 462 ${leftX+72} 528
+          Q ${leftX+96} 642 ${leftX+184} 704
+          Q 365 762 560 773
+          Q 675 780 800 783
+          Q 925 780 1040 773
+          Q 1235 762 ${rightX-184} 704
+          Q ${rightX-96} 642 ${rightX-72} 528
+          Q ${rightX-62} 462 ${rightX-90} 409
+          Q ${rightX-46} 398 ${rightX-24} 425
+          Q ${rightX+16} 474 ${rightX} ${topY}
+          L ${rightX-64} ${topY+3}
+          Q 1110 ${topY+17} 800 ${topY+15}
+          Q 490 ${topY+17} ${leftX+64} ${topY+3}
+          Z`,
+        b: `M ${leftX} ${topY}
+          Q ${leftX-8} 468 ${leftX+18} 432
+          Q ${leftX+40} 400 ${leftX+98} 405
+          Q ${leftX+70} 448 ${leftX+82} 512
+          Q ${leftX+110} 628 ${leftX+210} 697
+          Q 370 750 555 766
+          Q 672 779 800 782
+          Q 928 779 1045 766
+          Q 1230 750 ${rightX-210} 697
+          Q ${rightX-110} 628 ${rightX-82} 512
+          Q ${rightX-70} 448 ${rightX-98} 405
+          Q ${rightX-40} 400 ${rightX-18} 432
+          Q ${rightX+8} 468 ${rightX} ${topY}
+          L ${rightX-70} ${topY+1}
+          Q 1115 ${topY+15} 800 ${topY+14}
+          Q 485 ${topY+15} ${leftX+70} ${topY+1}
+          Z`,
+        c: `M ${leftX} ${topY}
+          Q ${leftX-20} 482 ${leftX+18} 438
+          Q ${leftX+44} 398 ${leftX+92} 414
+          Q ${leftX+56} 470 ${leftX+72} 542
+          Q ${leftX+98} 665 ${leftX+196} 721
+          Q 365 770 558 780
+          Q 675 788 800 790
+          Q 925 788 1042 780
+          Q 1235 770 ${rightX-196} 721
+          Q ${rightX-98} 665 ${rightX-72} 542
+          Q ${rightX-56} 470 ${rightX-92} 414
+          Q ${rightX-44} 398 ${rightX-18} 438
+          Q ${rightX+20} 482 ${rightX} ${topY}
+          L ${rightX-62} ${topY+4}
+          Q 1110 ${topY+18} 800 ${topY+16}
+          Q 490 ${topY+18} ${leftX+62} ${topY+4}
+          Z`
+      };
+      return shapes[variant] || shapes.a;
+    }
+
+    function buildSinus(cervical, startIdx, endIdx, ceilingY, mode) {
+      const teeth = cervical.slice(startIdx, endIdx + 1);
+      const leftX = teeth[0].x - teeth[0].w * 0.45 + 6;
+      const rightX = teeth[teeth.length - 1].x + teeth[teeth.length - 1].w * 0.45 - 6;
+      const maxCerv = Math.max(...teeth.map((t) => t.y));
+      const floorY = maxCerv - 26;
+      const midX = (leftX + rightX) / 2;
+      if (mode !== 'current') {
+        return `M ${leftX-12} ${floorY-2} Q ${leftX-8} ${ceilingY+10} ${leftX+28} ${ceilingY} L ${rightX-28} ${ceilingY} Q ${rightX+8} ${ceilingY+10} ${rightX+12} ${floorY-2} Q ${midX} ${floorY+8} ${leftX-12} ${floorY-2} Z`;
+      }
+      return `M ${leftX} ${floorY} Q ${midX} ${floorY+6} ${rightX} ${floorY} C ${rightX+12} ${(floorY + ceilingY*0.6)/1.6}, ${midX+42} ${ceilingY}, ${midX} ${ceilingY} C ${midX-42} ${ceilingY}, ${leftX-12} ${(floorY + ceilingY*0.6)/1.6}, ${leftX} ${floorY} Z`;
+    }
+
+    function idnSchematicPath(side) {
+      return side === 'right'
+        ? `M 180 600 Q 280 670, 460 700 Q 600 712, 700 700`
+        : `M 1420 600 Q 1320 670, 1140 700 Q 1000 712, 900 700`;
+    }
+
+    function toothMarkup(tooth, jawFlip, biteY, mode) {
+      const flipY = jawFlip ? -1 : 1;
+      const p = toothPaths(tooth.type, tooth.w, tooth.h, mode);
+      const transform = `translate(${tooth.cx}, ${biteY + tooth.yOffset * flipY}) scale(1, ${flipY}) rotate(${tooth.tilt})`;
+      const labelY = jawFlip ? tooth.h + 16 : -(tooth.h + 10);
+      return `<g transform="${transform}">
+        <path class="tooth" d="${p.outline}"></path>
+        <path class="cervical" d="${p.cervical}"></path>
+        <g transform="scale(1, ${flipY}) rotate(${-tooth.tilt})"><text class="fdi" x="0" y="${labelY}">${tooth.fdi}</text></g>
+      </g>`;
+    }
+
+    function render(svg, mode) {
+      const scale = 1.55;
+      const upperBiteY = 360;
+      const lowerBiteY = 440;
+      const archWidth = 660;
+      const upper = layoutArch(buildArch('upper'), 800, scale, { gap: 4, archDepth: 26, tilt: 1 });
+      const lower = layoutArch(buildArch('lower'), 800, scale, { gap: 4, archDepth: 24, tilt: 0.8 });
+      const upperCerv = cervicalPoints(upper, upperBiteY, 'upper');
+      const lowerCerv = cervicalPoints(lower, lowerBiteY, 'lower');
+      const variant = mode === 'draftB' ? 'b' : mode === 'draftC' ? 'c' : 'a';
+      const maxilla = mode !== 'current' ? draftMaxillaPath(upperCerv, 110) : bonePath(upperCerv, 'upper', 110);
+      const mandible = mode !== 'current' ? draftMandiblePath(lowerCerv, 740, 'c') : bonePath(lowerCerv, 'lower', 740);
+      const sinusRight = buildSinus(upperCerv, 0, 4, 146, mode);
+      const sinusLeft = buildSinus(upperCerv, 11, 15, 146, mode);
+      const classes = mode !== 'current' ? 'bone bone-draft' : 'bone';
+      const sinusClass = mode !== 'current' ? 'sinus sinus-draft' : 'sinus';
+      const upperTeeth = upper.map((tooth) => toothMarkup(tooth, false, upperBiteY, mode)).join('');
+      const lowerTeeth = lower.map((tooth) => toothMarkup(tooth, true, lowerBiteY, mode)).join('');
+      const callouts = mode !== 'current' ? `
+        <path class="leader" d="M 246 126 L 326 162"></path>
+        <text class="callout" x="150" y="126">sinus kept; floor baseline locked</text>
+        <path class="leader" d="M 230 422 L 252 500"></path>
+        <text class="callout" x="96" y="424">reworked ramus/angle</text>
+        <path class="leader" d="M 788 780 L 790 724"></path>
+        <text class="callout" x="660" y="790">mandible held from Draft C</text>
+        <path class="leader" d="M 1026 358 L 1044 283"></path>
+        <text class="callout" x="986" y="344">molar root draft ${variant.toUpperCase()}</text>
+      ` : '';
+      svg.innerHTML = `
+        <path class="${classes}" d="${maxilla}"></path>
+        <path class="${classes}" d="${mandible}"></path>
+        <path class="${sinusClass}" d="${sinusRight}"></path>
+        <path class="${sinusClass}" d="${sinusLeft}"></path>
+        <path class="idn" d="${idnSchematicPath('right')}"></path>
+        <path class="idn-line" d="${idnSchematicPath('right')}"></path>
+        <path class="idn" d="${idnSchematicPath('left')}"></path>
+        <path class="idn-line" d="${idnSchematicPath('left')}"></path>
+        <circle cx="700" cy="700" r="3.5" fill="var(--surface)" stroke="var(--bone-stroke)" stroke-width="1.1" opacity="0.85"></circle>
+        <circle cx="900" cy="700" r="3.5" fill="var(--surface)" stroke="var(--bone-stroke)" stroke-width="1.1" opacity="0.85"></circle>
+        <line class="bite" x1="${800 - archWidth/2 - 30}" y1="400" x2="${800 + archWidth/2 + 30}" y2="400"></line>
+        <g>${upperTeeth}</g>
+        <g>${lowerTeeth}</g>
+        ${callouts}
+      `;
+    }
+
+    render(document.getElementById('currentSvg'), 'current');
+    render(document.getElementById('draftASvg'), 'draftA');
+    render(document.getElementById('draftBSvg'), 'draftB');
+    render(document.getElementById('draftBZoomSvg'), 'draftB');
+    render(document.getElementById('draftCSvg'), 'draftC');
+  </script>
+</body>
+</html>
