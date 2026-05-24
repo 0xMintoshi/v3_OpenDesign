@@ -34,11 +34,11 @@ Reshape repo into `core/ layout/ visuals/ app/ shapes-data/ lab/ legacy/`. Add E
 ---
 
 ## Phase 3 — Arch + Anatomy as Control-Point Shapes
-**Status:** Not started
-**Start:** — | **Completion:** —
-**Plan:** —
+**Status:** Complete
+**Start:** 2026-05-24 | **Completion:** 2026-05-24
+**Plan:** [`docs/plans/2026-05-24-phase-3-arch-shapes.md`](docs/plans/2026-05-24-phase-3-arch-shapes.md)
 
-Maxilla, mandible, and sinus zones authored in Inkscape or generated from anatomical landmarks; editable via control points in the lab. Exit criteria: arch curvature is adjustable by dragging points, not by a raw numeric slider.
+Maxilla, mandible, and sinus zones authored as normalized control-point JSON in `shapes-data/`. Anatomy paths driven by `shapeToPath` — no more hardcoded strings for arch shapes. Lab shape selector added: pick any arch or tooth shape, drag control points to edit curvature. Exit criteria: arch curvature is adjustable by dragging points, not by a raw numeric slider.
 
 ---
 

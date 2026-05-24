@@ -38,6 +38,34 @@ test('lab loads with tooth ghost and crown path', async ({ page }) => {
   expect(errors).toHaveLength(0);
 });
 
+test('lab arch shape loads via selector', async ({ page }) => {
+  const errors = [];
+  page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+  await page.goto('/lab.html');
+  await page.waitForLoadState('networkidle');
+
+  // Switch to Maxilla arch shape
+  const select = page.locator('select');
+  await select.selectOption('arch-maxilla');
+  await page.waitForLoadState('networkidle');
+
+  // SVG canvas still visible and a path rendered
+  const svg = page.locator('svg').first();
+  await expect(svg).toBeVisible();
+  const paths = svg.locator('path');
+  const pathCount = await paths.count();
+  expect(pathCount).toBeGreaterThan(0);
+
+  // Control points present
+  const circles = svg.locator('circle');
+  const circleCount = await circles.count();
+  expect(circleCount).toBeGreaterThan(0);
+
+  // No Vite error overlay
+  await expect(page.locator('vite-error-overlay')).toHaveCount(0);
+  expect(errors).toHaveLength(0);
+});
+
 test('lab drag moves a control point', async ({ page }) => {
   await page.goto('/lab.html');
   await page.waitForLoadState('networkidle');
