@@ -23,11 +23,13 @@ Minimal in-app visual lab + control-point editor + one molar crown end-to-end: I
 ---
 
 ## Phase 2 — Generalize Structure
-**Status:** Not started
-**Start:** — | **Completion:** —
-**Plan:** —
+**Status:** In progress
+**Start:** 2026-05-24 | **Completion:** —
+**Plan:** [`docs/plans/2026-05-24-phase-2-generalize-structure.md`](docs/plans/2026-05-24-phase-2-generalize-structure.md)
 
-Reshape repo into `core/ layout/ visuals/ app/ shapes-data/ lab/ legacy/`. Add ESLint import-boundary rule (`core` + `layout` may not import from `visuals` + `app`). Migrate remaining tooth crown shapes. TypeScript decision deferred to this phase.
+Reshape repo into `core/ layout/ visuals/ app/ shapes-data/ lab/ legacy/`. Add ESLint import-boundary rule (`core` + `layout` may not import from `visuals` + `app`). Migrate remaining tooth crown shapes.
+
+**TypeScript decision:** Explicitly deferred beyond Phase 2. Surface area too large alongside the directory restructure. Revisit after Phase 4 when the shape registry stabilizes.
 
 ---
 
