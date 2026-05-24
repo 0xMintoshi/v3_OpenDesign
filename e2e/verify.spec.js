@@ -1,0 +1,62 @@
+import { test, expect } from '@playwright/test';
+
+test('main app loads without console errors', async ({ page }) => {
+  const errors = [];
+  page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+  await page.goto('/');
+  await page.waitForLoadState('networkidle');
+  await expect(page.locator('svg').first()).toBeVisible();
+  expect(errors).toHaveLength(0);
+});
+
+test('lab loads with tooth ghost and crown path', async ({ page }) => {
+  const errors = [];
+  page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
+  await page.goto('/lab.html');
+  await page.waitForLoadState('networkidle');
+
+  // Heading present
+  await expect(page.locator('h2')).toContainText('Shape Lab');
+
+  // SVG canvas rendered
+  const svg = page.locator('svg').first();
+  await expect(svg).toBeVisible();
+
+  // At least 3 paths (outline, cervical, crown)
+  const paths = svg.locator('path');
+  await expect(paths).toHaveCount(3); // at minimum
+
+  // Control point circles rendered (handles on the 5 non-Z segments)
+  const circles = svg.locator('circle');
+  const circleCount = await circles.count();
+  expect(circleCount).toBeGreaterThan(0);
+
+  // Copy JSON button present
+  await expect(page.getByRole('button', { name: 'Copy JSON' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Download JSON' })).toBeVisible();
+
+  expect(errors).toHaveLength(0);
+});
+
+test('lab drag moves a control point', async ({ page }) => {
+  await page.goto('/lab.html');
+  await page.waitForLoadState('networkidle');
+
+  const svg = page.locator('svg').first();
+  const svgBox = await svg.boundingBox();
+
+  // Grab JSON before drag
+  const jsonBefore = await page.locator('pre').first().innerText();
+
+  // Drag the first circle handle
+  const circle = svg.locator('circle').first();
+  const box = await circle.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width / 2 + 20, box.y + box.height / 2 + 10, { steps: 5 });
+  await page.mouse.up();
+
+  // JSON should have changed
+  const jsonAfter = await page.locator('pre').first().innerText();
+  expect(jsonAfter).not.toBe(jsonBefore);
+});

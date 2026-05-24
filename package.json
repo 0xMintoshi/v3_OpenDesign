@@ -12,7 +12,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "lab": "vite --open /lab.html"
+    "lab": "vite --open /lab.html",
+    "e2e": "playwright test"
   },
   "repository": {
     "type": "git",
@@ -27,6 +28,7 @@
   },
   "homepage": "https://github.com/0xMintoshi/v3_OpenDesign#readme",
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@vitejs/plugin-react": "^6.0.2",
     "vite": "^8.0.14",
     "vitest": "^2.0.0"
