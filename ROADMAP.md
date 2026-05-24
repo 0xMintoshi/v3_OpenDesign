@@ -23,8 +23,8 @@ Minimal in-app visual lab + control-point editor + one molar crown end-to-end: I
 ---
 
 ## Phase 2 — Generalize Structure
-**Status:** In progress
-**Start:** 2026-05-24 | **Completion:** —
+**Status:** Complete
+**Start:** 2026-05-24 | **Completion:** 2026-05-24
 **Plan:** [`docs/plans/2026-05-24-phase-2-generalize-structure.md`](docs/plans/2026-05-24-phase-2-generalize-structure.md)
 
 Reshape repo into `core/ layout/ visuals/ app/ shapes-data/ lab/ legacy/`. Add ESLint import-boundary rule (`core` + `layout` may not import from `visuals` + `app`). Migrate remaining tooth crown shapes.
