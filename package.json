@@ -13,7 +13,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "lab": "vite --open /lab.html",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "lint": "eslint core/ layout/ visuals/ app/ lab/ src/"
   },
   "repository": {
     "type": "git",
@@ -28,8 +29,15 @@
   },
   "homepage": "https://github.com/0xMintoshi/v3_OpenDesign#readme",
   "devDependencies": {
+    "@babel/core": "^7.29.0",
+    "@babel/eslint-parser": "^7.28.6",
+    "@babel/preset-react": "^7.28.5",
+    "@eslint/js": "^10.0.1",
     "@playwright/test": "^1.60.0",
     "@vitejs/plugin-react": "^6.0.2",
+    "eslint": "^10.4.0",
+    "eslint-plugin-boundaries": "^6.0.2",
+    "globals": "^17.6.0",
     "vite": "^8.0.14",
     "vitest": "^2.0.0"
   },
