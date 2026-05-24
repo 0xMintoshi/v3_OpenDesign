@@ -1,0 +1,17 @@
+{
+  "id": "arch-sinus-left",
+  "label": "Maxillary Sinus (Patient Left)",
+  "version": 1,
+  "archType": "sinus",
+  "side": "left",
+  "note": "Coords normalized to 1600×800 viewBox. x = rawX/1600, y = rawY/800.",
+  "segments": [
+    { "type": "M",  "x": 0.825, "y": 0.350 },
+    { "type": "Q",  "x1": 0.863, "y1": 0.250, "x": 0.825, "y": 0.175 },
+    { "type": "Q",  "x1": 0.775, "y1": 0.138, "x": 0.700, "y": 0.150 },
+    { "type": "Q",  "x1": 0.638, "y1": 0.163, "x": 0.613, "y": 0.250 },
+    { "type": "Q",  "x1": 0.600, "y1": 0.350, "x": 0.663, "y": 0.375 },
+    { "type": "Q",  "x1": 0.763, "y1": 0.381, "x": 0.825, "y": 0.350 },
+    { "type": "Z" }
+  ]
+}
