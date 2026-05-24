@@ -43,9 +43,9 @@ Maxilla, mandible, and sinus zones authored as normalized control-point JSON in 
 ---
 
 ## Phase 4 — Visual Registry + Overlay Categories
-**Status:** Not started
-**Start:** — | **Completion:** —
-**Plan:** —
+**Status:** Complete ✓
+**Start:** 2026-05-24 | **Completion:** 2026-05-24
+**Plan:** docs/plans/2026-05-24-phase-4-visual-registry.md
 
 Split treatment overlays into tooth / span / arch / full-mouth categories with a formal registry. Author denture, bridge-span, and partial-denture shapes in Inkscape using the control-point workflow from Phase 1.
 
