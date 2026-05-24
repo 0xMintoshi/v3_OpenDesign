@@ -71,3 +71,26 @@ describe('arch shape round-trips', () => {
     expect(d).toMatch(/^M 1320\.\d+ 280\.\d+/);
   });
 });
+
+describe('phase-4 shape round-trips', () => {
+  it('bridge-span produces valid path at 76×88', async () => {
+    const json = await import('../shapes-data/bridge-span.json');
+    const d = shapeToPath(json.default ?? json, 76, 88);
+    expect(d).toContain('M');
+    expect(d).toContain('Z');
+  });
+
+  it('partial-denture-upper produces valid path at 1600×800', async () => {
+    const json = await import('../shapes-data/partial-denture-upper.json');
+    const d = shapeToPath(json.default ?? json, 1600, 800);
+    expect(d).toContain('M');
+    expect(d).toContain('Z');
+  });
+
+  it('partial-denture-lower produces valid path at 1600×800', async () => {
+    const json = await import('../shapes-data/partial-denture-lower.json');
+    const d = shapeToPath(json.default ?? json, 1600, 800);
+    expect(d).toContain('M');
+    expect(d).toContain('Z');
+  });
+});
