@@ -1,5 +1,7 @@
 import React from 'react';
 import { CrownOverlay } from '../visuals/CrownOverlay.jsx';
+import { BridgeSpanOverlay } from '../visuals/BridgeSpanOverlay.jsx';
+import { PartialDentureOverlay } from '../visuals/PartialDentureOverlay.jsx';
 
 // ============================================================================
 // Treatment catalog, overlay renderers, popover, stage chrome — flat schematic.
@@ -25,7 +27,8 @@ const TX_GROUPS = [
     label: 'Restoration',
     scope: 'tooth',
     items: [
-      { id: 'crown', label: 'Crown', hint: 'full-coverage crown · existing tooth', requires: 'present-tooth' },
+      { id: 'crown',       label: 'Crown',        hint: 'full-coverage crown · existing tooth', requires: 'present-tooth' },
+      { id: 'bridge-span', label: 'Bridge (span)', hint: 'pontic spanning selected teeth' },
     ],
   },
   {
@@ -52,8 +55,10 @@ const ARCH_GROUPS = [
     items: [
       { id: 'alveolectomy',     label: 'Alveolectomy',     hint: 'reduce ridge bone',
         requires: 'edentulous-arch' },
-      { id: 'complete-denture', label: 'Complete Denture', hint: 'full prosthesis on this arch',
+      { id: 'complete-denture',      label: 'Complete Denture',       hint: 'full prosthesis on this arch',
         requires: 'edentulous-arch' },
+      { id: 'partial-denture-upper', label: 'Partial Denture (Upper)', hint: 'removable partial · upper arch' },
+      { id: 'partial-denture-lower', label: 'Partial Denture (Lower)', hint: 'removable partial · lower arch' },
     ],
   },
   {
@@ -578,6 +583,12 @@ function TreatmentLayer({ treatments, allTeeth, upperBiteY, lowerBiteY, archWidt
         if (tx.id === 'complete-denture') {
           return <CompleteDentureBand key={`den-${i}-${arch}`} arch={arch} accent={accent} biteY={biteY} archWidth={archWidth} />;
         }
+        if (tx.id === 'partial-denture-upper') {
+          return <PartialDentureOverlay key={`pdu-${i}`} jaw="upper" accent={accent} />;
+        }
+        if (tx.id === 'partial-denture-lower') {
+          return <PartialDentureOverlay key={`pdl-${i}`} jaw="lower" accent={accent} />;
+        }
         return null;
       }))}
 
@@ -612,10 +623,20 @@ function TreatmentLayer({ treatments, allTeeth, upperBiteY, lowerBiteY, archWidt
               if (tx.id === 'crown') {
                 return <CrownOverlay key={i} tooth={tooth} biteY={biteY} accent={accent} />;
               }
+              if (tx.id === 'bridge-span') return null; // rendered as span below
               return null;
             })}
           </g>
         );
+      })}
+
+      {/* Bridge spans (drawn over per-tooth overlays) */}
+      {treatments.filter(t => t.id === 'bridge-span').map((tx, i) => {
+        const spanTeeth = tx.targets.map(id => allTeeth.find(t => t.id === id)).filter(Boolean);
+        if (spanTeeth.length === 0) return null;
+        const jaw = spanTeeth[0].jaw;
+        const biteY = jaw === 'upper' ? upperBiteY : lowerBiteY;
+        return <BridgeSpanOverlay key={`bs-${i}`} teeth={spanTeeth} biteY={biteY} accent={accent} />;
       })}
 
       {/* Full mouth ortho (drawn last, over teeth) */}
