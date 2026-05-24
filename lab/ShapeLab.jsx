@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { toothPaths } from '../teeth-data.jsx';
+import { toothPaths } from '../layout/teeth-data.jsx';
 import { shapeToPath } from '../visuals/shapes.jsx';
 import initialShape from '../shapes-data/crown-molar-upper.json';
 import { useShapeEditor } from './useShapeEditor.js';
