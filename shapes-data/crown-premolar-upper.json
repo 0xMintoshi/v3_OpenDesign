@@ -1,0 +1,15 @@
+{
+  "id": "crown-premolar-upper",
+  "label": "Upper Premolar Crown Overlay",
+  "version": 1,
+  "toothType": "premolarU",
+  "note": "Cervical line at y ≈ -0.42. Premolars are narrower buccolingually than molars. x = rawX/w, y = rawY/h.",
+  "segments": [
+    { "type": "M",  "x":  0.40, "y":  0.00 },
+    { "type": "C",  "x1": 0.44, "y1": -0.15, "x2": 0.44, "y2": -0.33, "x":  0.36, "y": -0.42 },
+    { "type": "Q",  "x1": 0.00, "y1": -0.48, "x": -0.36, "y": -0.42 },
+    { "type": "C",  "x1":-0.44, "y1": -0.33, "x2":-0.44, "y2": -0.15, "x": -0.40, "y":  0.00 },
+    { "type": "Q",  "x1": 0.00, "y1":  0.06, "x":  0.40, "y":  0.00 },
+    { "type": "Z" }
+  ]
+}

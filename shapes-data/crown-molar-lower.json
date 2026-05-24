@@ -1,0 +1,15 @@
+{
+  "id": "crown-molar-lower",
+  "label": "Lower Molar Crown Overlay",
+  "version": 1,
+  "toothType": "molarL",
+  "note": "Cervical line at y ≈ -0.38. Lower molars are slightly narrower occlusally. x = rawX/w, y = rawY/h.",
+  "segments": [
+    { "type": "M",  "x":  0.45, "y":  0.00 },
+    { "type": "C",  "x1": 0.49, "y1": -0.14, "x2": 0.49, "y2": -0.30, "x":  0.40, "y": -0.38 },
+    { "type": "Q",  "x1": 0.00, "y1": -0.44, "x": -0.40, "y": -0.38 },
+    { "type": "C",  "x1":-0.49, "y1": -0.30, "x2":-0.49, "y2": -0.14, "x": -0.45, "y":  0.00 },
+    { "type": "Q",  "x1": 0.00, "y1":  0.06, "x":  0.45, "y":  0.00 },
+    { "type": "Z" }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "id": "crown-incisor-upper",
+  "label": "Upper Incisor Crown Overlay",
+  "version": 1,
+  "toothType": "incisalU",
+  "note": "Cervical line at y ≈ -0.44. Incisors are blade-shaped: wide mesiodistally, flat labiolingually. x = rawX/w, y = rawY/h.",
+  "segments": [
+    { "type": "M",  "x":  0.46, "y":  0.00 },
+    { "type": "C",  "x1": 0.46, "y1": -0.12, "x2": 0.44, "y2": -0.30, "x":  0.38, "y": -0.44 },
+    { "type": "Q",  "x1": 0.00, "y1": -0.50, "x": -0.38, "y": -0.44 },
+    { "type": "C",  "x1":-0.44, "y1": -0.30, "x2":-0.46, "y2": -0.12, "x": -0.46, "y":  0.00 },
+    { "type": "L",  "x":  0.46, "y":  0.00 },
+    { "type": "Z" }
+  ]
+}
