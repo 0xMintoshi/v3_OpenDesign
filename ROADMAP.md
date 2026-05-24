@@ -14,9 +14,9 @@ Behavior-preserving lift from CDN/Babel → Vite + plain JSX. No folder reshuffl
 ---
 
 ## Phase 1 — Vertical Slice (Lab + One Molar Crown)
-**Status:** Not started
-**Start:** — | **Completion:** —
-**Plan:** —
+**Status:** Complete
+**Start:** 2026-05-24 | **Completion:** 2026-05-24
+**Plan:** [`docs/plans/2026-05-24-phase-1-vertical-slice.md`](docs/plans/2026-05-24-phase-1-vertical-slice.md)
 
 Minimal in-app visual lab + control-point editor + one molar crown end-to-end: Inkscape import → normalize → drag control points in lab → export JSON → render via `visuals/shapes`. Proves the editing approach before building the full structure. Exit criteria: editing a crown outline by dragging points is genuinely faster than today; output crown matches current hand-drawn quality.
 
