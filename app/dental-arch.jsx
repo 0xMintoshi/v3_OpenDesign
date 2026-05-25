@@ -1064,8 +1064,9 @@ function darkTheme() {
 }
 
 function DentalHero() {
+  const patientId = new URLSearchParams(window.location.search).get('patient') || undefined;
   return (
-    <ChartStateProvider>
+    <ChartStateProvider patientId={patientId}>
       <UIStateProvider>
         <DentalHeroInner />
       </UIStateProvider>
