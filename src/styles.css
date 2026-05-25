@@ -1,6 +1,10 @@
   *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
 
   :root {
+    --clinic-accent: #2563eb;
+    --clinic-accent-subtle: #eff6ff;
+    --clinic-surface: #ffffff;
+    --clinic-text: #0f172a;
     --bg-0: #fafaf8;
     --bg-1: #f3f3ef;
     --ink: #1a1f2e;

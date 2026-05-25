@@ -5,6 +5,7 @@ import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, Treatmen
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
 import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
 import { UIStateProvider, useUIState } from '../core/ui-context.jsx';
+import { useClinicTheme } from '../core/use-clinic-theme.js';
 
 const { useState, useEffect, useMemo, useCallback } = React;
 
@@ -411,6 +412,7 @@ const DEFAULT_TWEAKS = /*EDITMODE-BEGIN*/{
 } /*EDITMODE-END*/;
 
 function DentalHeroInner() {
+  useClinicTheme();
   const [t, setTweak] = useTweaks(DEFAULT_TWEAKS);
 
   const { stage, setStage, presence, setPresence, treatments, setTreatments } = useChartState();
