@@ -79,9 +79,9 @@ Wire treatment records to backend using stable FDI string IDs already in place. 
 ---
 
 ## Phase 8 — Deferred Quality Bar
-**Status:** Not started
-**Start:** — | **Completion:** —
-**Plan:** —
+**Status:** Complete
+**Start:** 2026-05-25 | **Completion:** 2026-05-25
+**Plan:** [`docs/plans/2026-05-25-phase-8-accessibility-perf.md`](docs/plans/2026-05-25-phase-8-accessibility-perf.md)
 
 Accessibility (WCAG 2.1 AA for interactive SVG), performance pass (bundle size, paint metrics), and responsive layout. Explicitly deferred per ARCHITECTURE_REFACTOR_BRIEF_V4 — do not pull forward.
 

@@ -398,7 +398,58 @@
   .confirm-body { font-size: 14px; color: var(--ink-muted); line-height: 1.5; margin-bottom: 20px; }
   .confirm-actions { display: flex; gap: 10px; justify-content: flex-end; }
 
+  /* Phone breakpoint */
+  @media (max-width: 480px) {
+    .brand {
+      padding: 16px 16px 0 16px;
+    }
+    .brand-mark {
+      font-size: 18px;
+    }
+    .brand-nav {
+      font-size: 10px;
+      letter-spacing: 0.12em;
+    }
+    .stage-pill {
+      top: 14px;
+      padding: 7px 12px 7px 10px;
+    }
+    .stage {
+      padding: 56px 16px 12px;
+    }
+    .arch-svg {
+      max-width: 100%;
+    }
+    .footer {
+      padding: 0 16px 16px 16px;
+      gap: 10px;
+    }
+    .wf-help {
+      display: none;
+    }
+    .selection-action-bar {
+      left: 16px;
+      right: 16px;
+      bottom: 70px;
+      transform: none;
+      min-width: 0;
+    }
+    .confirm-dialog {
+      width: calc(100vw - 32px);
+      padding: 18px;
+    }
+  }
+
   /* Dark theme overrides */
   .hero[data-theme="dark"] {
     background: radial-gradient(70% 50% at 50% 50%, #131a2e 0%, #0a0f1a 100%);
+  }
+
+  /* Accessibility: keyboard focus ring for interactive SVG tooth elements */
+  g[role="button"]:focus {
+    outline: none;
+  }
+  g[role="button"]:focus-visible {
+    outline: 2px solid var(--accent, #4f8ef7);
+    outline-offset: 2px;
   }

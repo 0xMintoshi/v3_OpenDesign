@@ -9,6 +9,7 @@ export function UIStateProvider({ children }) {
   const [popover, setPopover] = React.useState(null);
   const [confirmWipe, setConfirmWipe] = React.useState(null);
   const [exportJson, setExportJson] = React.useState(null);
+  const [focusedToothId, setFocusedToothId] = React.useState(null);
 
   const value = React.useMemo(
     () => ({
@@ -17,8 +18,9 @@ export function UIStateProvider({ children }) {
       popover, setPopover,
       confirmWipe, setConfirmWipe,
       exportJson, setExportJson,
+      focusedToothId, setFocusedToothId,
     }),
-    [hoveredId, selection, popover, confirmWipe, exportJson],
+    [hoveredId, selection, popover, confirmWipe, exportJson, focusedToothId],
   );
 
   return (
