@@ -131,6 +131,60 @@ test('maxilla arch: mirror left→right correctly places mirrored left anchors o
   expect(lastRightL.x).toBeCloseTo(0.919, 2);
 });
 
+// ── Test 5: arch-maxilla mirrorRight — hits the broken interleaved branch ──
+// Source (right, x > 0.5 strictly): [5]Q663 [6]Q850 [7]Q919 [8]L906 [9]L863 — 5 segs
+// Dest (left, x < 0.5): [1]L081 [2]Q150 [3]Q338 [11]Q138 — 4 segs
+// Seams at x=0.5: [4]Q(top) [10]Q(bottom) — kept, not mirrored
+// Correct output: 4 dest replaced by 5 mirrored → 14 total segs
+// Current code hits interleaved branch → 16 segs → test must FAIL before fix.
+test('arch-maxilla mirrorRight: replaces dest with mirrored source, seams kept, count=14', () => {
+  const segs = [
+    { type: 'M',  x: 0.094, y: 0.450 },
+    { type: 'L',  x: 0.081, y: 0.300 },
+    { type: 'Q',  x1: 0.088, y1: 0.163, x: 0.150, y: 0.113 },
+    { type: 'Q',  x1: 0.238, y1: 0.075, x: 0.338, y: 0.088 },
+    { type: 'Q',  x1: 0.438, y1: 0.100, x: 0.500, y: 0.100 },   // seam top
+    { type: 'Q',  x1: 0.563, y1: 0.100, x: 0.663, y: 0.088 },   // source
+    { type: 'Q',  x1: 0.763, y1: 0.075, x: 0.850, y: 0.113 },   // source
+    { type: 'Q',  x1: 0.913, y1: 0.163, x: 0.919, y: 0.300 },   // source
+    { type: 'L',  x: 0.906, y: 0.450 },                           // source
+    { type: 'L',  x: 0.863, y: 0.450 },                           // source
+    { type: 'Q',  x1: 0.688, y1: 0.438, x: 0.500, y: 0.438 },   // seam bottom
+    { type: 'Q',  x1: 0.313, y1: 0.438, x: 0.138, y: 0.450 },
+    { type: 'Z' },
+  ];
+  const { result } = renderHook(() => useShapeEditor(makeShape(segs), 100, 100));
+  mirrorRight(result);
+  const out = getSegs(result);
+
+  // M and Z preserved
+  expect(out[0].type).toBe('M');
+  expect(out[out.length - 1].type).toBe('Z');
+
+  // 4 dest segs replaced by 5 mirrored source segs → 14 total (not 16 from buggy branch)
+  expect(out.length).toBe(14);
+
+  // Seam anchors at x=0.5 appear exactly twice
+  const seams = out.filter(s => s.x !== undefined && Math.abs(s.x - 0.5) < 1e-6);
+  expect(seams.length).toBe(2);
+
+  // Mirrored source segs must be present (mx = 1 - x, rounded to 3 dec)
+  const anchors = out.filter(s => s.x !== undefined && s.x < 0.499);
+  const xs = anchors.map(s => +s.x.toFixed(3)).sort((a, b) => a - b);
+  // Expected mirrored x values: 0.081(mx919), 0.094(mx906), 0.137(mx863), 0.150(mx850), 0.337(mx663)
+  expect(xs).toContain(0.081);
+  expect(xs).toContain(0.094);
+  expect(xs).toContain(0.137);
+  expect(xs).toContain(0.150);
+  expect(xs).toContain(0.337);
+
+  // Control point of mirrored Q919: mx(0.913)=0.087
+  const mirroredQ919 = out.find(s => s.type === 'Q' && s.x !== undefined && Math.abs(s.x - 0.081) < 0.002);
+  expect(mirroredQ919).toBeDefined();
+  expect(mirroredQ919.x1).toBeCloseTo(0.087, 2);
+  expect(mirroredQ919.y1).toBeCloseTo(0.163, 3);
+});
+
 // ── Test 4: C segment x1↔x2 swap after reversal ───────────────────────────
 // Uses centered coordinates so mirrored C lands at x < 0.
 // After reversal: near-start and near-end handles swap roles → x1↔x2 swap.

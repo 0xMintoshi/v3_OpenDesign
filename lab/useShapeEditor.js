@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef } from 'react';
 import { splitSegmentAt } from './bezier-utils.js';
+import { mirrorSegments } from './mirrorSegments.js';
 
 const HISTORY_LIMIT = 50;
 
@@ -90,72 +91,11 @@ export function useShapeEditor(initial, w, h) {
 
   const mirrorAcrossX = useCallback((sourceSide /* 'left' | 'right' */) => {
     setShapeRaw(prev => {
+      // snapshot BEFORE mutation so undo restores pre-mirror state
+      snapshot(prev.segments);
       const segs = prev.segments;
-      const hasCentered = segs.some(s => s.x !== undefined && s.x < 0);
-      const center = hasCentered ? 0 : 0.5;
-      const mx = x => round(2 * center - x);
-
-      const isAnchor = s => s.type !== 'M' && s.type !== 'Z' && s.x !== undefined;
-      const isSource = s => isAnchor(s) && (sourceSide === 'right' ? s.x >= center : s.x <= center);
-      const isDest   = s => isAnchor(s) && (sourceSide === 'right' ? s.x <  center : s.x >  center);
-
-      const sourceIdx = segs.map((s, i) => isSource(s) ? i : -1).filter(i => i >= 0);
-      if (!sourceIdx.length) return prev;
-
-      // Mirror x-fields of each source segment.
-      const mirrored = sourceIdx.map(i => {
-        const s = segs[i];
-        const n = { type: s.type, x: mx(s.x), y: s.y };
-        if (s.x1 !== undefined) { n.x1 = mx(s.x1); n.y1 = s.y1; }
-        if (s.x2 !== undefined) { n.x2 = mx(s.x2); n.y2 = s.y2; }
-        return n;
-      });
-
-      // Reverse for consistent winding, then fix C handles: x1↔x2 swap after reversal
-      // (near-start and near-end handles exchange roles when traversal direction flips).
-      const out = [...mirrored].reverse().map(s =>
-        s.type === 'C'
-          ? { ...s, x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }
-          : s
-      );
-
-      const destIdx = segs.map((s, i) => isDest(s) ? i : -1).filter(i => i >= 0);
-      let next;
-      if (!destIdx.length) {
-        // No existing dest side — insert after the last source segment.
-        const lastSrc = sourceIdx[sourceIdx.length - 1];
-        next = [...segs.slice(0, lastSrc + 1), ...out, ...segs.slice(lastSrc + 1)];
-      } else {
-        const first = destIdx[0], last = destIdx[destIdx.length - 1];
-        // Check if source indices are interleaved within the dest range (non-contiguous dest).
-        // If so, a single block splice would drop the source anchors — must do per-slot replacement.
-        const interleaved = sourceIdx.some(i => i > first && i < last);
-        if (!interleaved) {
-          next = [...segs.slice(0, first), ...out, ...segs.slice(last + 1)];
-        } else {
-          // Iterate segs: keep M/Z/source as-is, replace dest slots with `out` one-by-one.
-          const destSet = new Set(destIdx);
-          let cursor = 0;
-          let lastInsertPos = -1;
-          next = [];
-          for (let i = 0; i < segs.length; i++) {
-            if (destSet.has(i)) {
-              if (cursor < out.length) { next.push(out[cursor++]); lastInsertPos = next.length - 1; }
-              // else: dest slot shrinks away (fewer out than dest)
-            } else {
-              next.push(segs[i]);
-            }
-          }
-          // Append any remaining `out` segments after the last filled dest slot.
-          if (cursor < out.length) {
-            const pos = lastInsertPos >= 0 ? lastInsertPos + 1 : next.length - 1;
-            next.splice(pos, 0, ...out.slice(cursor));
-          }
-        }
-      }
-
-      snapshot(segs);
-      return { ...prev, segments: next };
+      const centerX = prev.centerX ?? (segs.some(s => s.x !== undefined && s.x < 0) ? 0 : 0.5);
+      return { ...prev, segments: mirrorSegments(segs, sourceSide, centerX) };
     });
   }, []);
 
