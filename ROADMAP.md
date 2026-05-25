@@ -88,8 +88,8 @@ Accessibility (WCAG 2.1 AA for interactive SVG), performance pass (bundle size, 
 ---
 
 ## Phase 9 — AI-assisted shape import + Lab point editing
-**Status:** In progress
-**Start:** 2026-05-25 | **Completion:** —
+**Status:** Complete
+**Start:** 2026-05-25 | **Completion:** 2026-05-25
 **Plan:** [`docs/plans/2026-05-25-phase-9-ai-shape-import.md`](docs/plans/2026-05-25-phase-9-ai-shape-import.md)
 
 Feature 1: Add/insert/delete control points in the Lab (edge-hover phantom dot, click-to-insert, right-click/Delete-key to remove). Feature 2A: Clean-image trace via potrace-wasm (drag image onto canvas → threshold/trace → N sampled points). Feature 2B (V2): AI-assisted ROI for cluttered X-rays via Claude vision API → masked potrace. CLI wrapper: `scripts/trace-image.mjs`. Ships in order: F1 → F2A → CLI → F2B.
