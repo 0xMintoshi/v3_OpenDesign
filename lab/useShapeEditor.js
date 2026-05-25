@@ -1,9 +1,13 @@
 import { useState, useCallback, useRef } from 'react';
+import { splitSegmentAt } from './bezier-utils.js';
 
 // Returns [shape, setShape, handlers].
 // handlers.onPointerDown(segIdx, xField, yField, svgX, svgY) — call on pointerdown of a handle.
 // handlers.onPointerMove(svgX, svgY)                         — call on pointermove of SVG canvas.
 // handlers.onPointerUp()                                     — call on pointerup of SVG canvas.
+// handlers.insertPoint(segIdx, t)                            — split segment at t, inserting a new anchor.
+// handlers.deletePoint(segIdx)                               — remove anchor at segIdx (not M or Z).
+// handlers.isDragging()                                      — returns true while a drag is active.
 export function useShapeEditor(initial, w, h) {
   const [shape, setShape] = useState(initial);
   const drag = useRef(null);
@@ -30,7 +34,24 @@ export function useShapeEditor(initial, w, h) {
 
   const onPointerUp = useCallback(() => { drag.current = null; }, []);
 
-  return [shape, setShape, { onPointerDown, onPointerMove, onPointerUp }];
+  const isDragging = useCallback(() => drag.current !== null, []);
+
+  const insertPoint = useCallback((segIdx, t) => {
+    setShape(prev => ({
+      ...prev,
+      segments: splitSegmentAt(prev.segments, segIdx, t),
+    }));
+  }, []);
+
+  const deletePoint = useCallback((segIdx) => {
+    setShape(prev => {
+      const segs = prev.segments;
+      if (segs[segIdx]?.type === 'M' || segs[segIdx]?.type === 'Z') return prev;
+      return { ...prev, segments: segs.filter((_, i) => i !== segIdx) };
+    });
+  }, []);
+
+  return [shape, setShape, { onPointerDown, onPointerMove, onPointerUp, insertPoint, deletePoint, isDragging }];
 }
 
 function round(n) { return Math.round(n * 1000) / 1000; }

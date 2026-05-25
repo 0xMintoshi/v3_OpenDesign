@@ -4,6 +4,9 @@ import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  optimizeDeps: {
+    include: ['potrace-wasm'],
+  },
   test: {
     environment: 'jsdom',
     exclude: ['e2e/**', 'node_modules/**'],

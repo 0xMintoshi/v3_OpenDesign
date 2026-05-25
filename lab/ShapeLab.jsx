@@ -3,6 +3,8 @@ import { toothPaths } from '../layout/teeth-data.jsx';
 import { shapeToPath } from '../visuals/shapes.jsx';
 import { useShapeEditor } from './useShapeEditor.js';
 import { ControlPoint } from './ControlPoint.jsx';
+import { nearestOnSegments } from './bezier-utils.js';
+import { ImageImport } from './ImageImport.jsx';
 
 // Shape catalog: id → { label, loader, w, h, toothRef? }
 // w/h are the display pixel dimensions of the shape in the lab canvas.
@@ -65,12 +67,14 @@ export default function ShapeLab() {
   const svgRef = useRef(null);
   const [selectedId, setSelectedId] = useState(DEFAULT_SHAPE_ID);
   const [initialShape, setInitialShape] = useState(null);
+  const [phantomPoint, setPhantomPoint] = useState(null); // { segIdx, t, px, py }
+  const [selectedSegIdx, setSelectedSegIdx] = useState(null);
+  const [showImport, setShowImport] = useState(false);
 
   const meta = SHAPES[selectedId];
   const W = meta.w;
   const H = meta.h;
 
-  // Canvas pixel dimensions: tooth shapes get a small fixed canvas; arch shapes fill available width.
   const isArch = !meta.toothRef;
   const CANVAS_W = isArch ? Math.min(W + 40, 1000) : 400;
   const CANVAS_H = isArch ? H + 40 : 380;
@@ -79,15 +83,32 @@ export default function ShapeLab() {
 
   useEffect(() => {
     setInitialShape(null);
+    setPhantomPoint(null);
+    setSelectedSegIdx(null);
     meta.loader().then(m => setInitialShape(m.default ?? m));
   }, [selectedId]);
 
-  const [shape, setShape, { onPointerDown, onPointerMove, onPointerUp }] =
+  const [shape, setShape, { onPointerDown, onPointerMove, onPointerUp, insertPoint, deletePoint, isDragging }] =
     useShapeEditor(initialShape ?? LOADING_SHAPE, W, H);
 
   useEffect(() => {
     if (initialShape) setShape(initialShape);
   }, [initialShape]);
+
+  // Delete key removes selected anchor
+  useEffect(() => {
+    function handleKeyDown(e) {
+      if ((e.key === 'Delete' || e.key === 'Backspace') && selectedSegIdx !== null) {
+        // Don't fire when typing in an input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        e.preventDefault();
+        deletePoint(selectedSegIdx);
+        setSelectedSegIdx(null);
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [selectedSegIdx, deletePoint]);
 
   const toothRef = meta.toothRef ? toothPaths(meta.toothRef, W, H) : null;
   const shapePath = shape.segments.length ? shapeToPath(shape, W, H) : '';
@@ -102,6 +123,41 @@ export default function ShapeLab() {
       e.currentTarget.setPointerCapture(e.pointerId);
       const [sx, sy] = svgCoords(e);
       onPointerDown(segIdx, xField, yField, sx, sy);
+      // Select anchor on pointer down (only anchor points)
+      if (xField === 'x') setSelectedSegIdx(segIdx);
+    };
+  }
+
+  function handlePointerMove(e) {
+    const [sx, sy] = svgCoords(e);
+    onPointerMove(sx, sy);
+    if (!isDragging()) {
+      const hit = nearestOnSegments(shape.segments, sx, sy, W, H, CX, CY);
+      setPhantomPoint(hit);
+    } else {
+      setPhantomPoint(null);
+    }
+  }
+
+  function handlePointerUp() {
+    onPointerUp();
+  }
+
+  function handleSVGClick() {
+    // Insert on phantom dot click — only if pointer wasn't dragging
+    if (phantomPoint && !isDragging()) {
+      insertPoint(phantomPoint.segIdx, phantomPoint.t);
+      setPhantomPoint(null);
+    }
+  }
+
+  function handleContextMenuOnPoint(segIdx) {
+    return (e) => {
+      e.preventDefault();
+      const seg = shape.segments[segIdx];
+      if (seg?.type === 'M' || seg?.type === 'Z') return;
+      deletePoint(segIdx);
+      setSelectedSegIdx(null);
     };
   }
 
@@ -131,6 +187,14 @@ export default function ShapeLab() {
       }
       return lines;
     });
+  }
+
+  function handleTrace(segments) {
+    if (!window.confirm(`Replace current shape with ${segments.filter(s => s.type !== 'Z' && s.type !== 'M').length} traced segments?`)) return;
+    setShape(prev => ({ ...prev, segments }));
+    setSelectedSegIdx(null);
+    setPhantomPoint(null);
+    setShowImport(false);
   }
 
   function downloadJSON() {
@@ -168,14 +232,34 @@ export default function ShapeLab() {
         </select>
       </div>
 
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+        <span style={{ fontSize: 11, color: '#666', lineHeight: 1.6 }}>
+          <strong>Edit:</strong> Drag handles.&nbsp;
+          <strong>Insert:</strong> Hover edge → click phantom dot.&nbsp;
+          <strong>Delete:</strong> Right-click or select (gold) + Delete.
+        </span>
+        <button
+          onClick={() => setShowImport(v => !v)}
+          style={{ padding: '4px 12px', cursor: 'pointer', fontSize: 12, background: showImport ? '#3b82f6' : undefined, color: showImport ? '#fff' : undefined, borderRadius: 4 }}
+        >
+          {showImport ? 'Hide Import' : 'Import Image…'}
+        </button>
+      </div>
+
+      {showImport && (
+        <ImageImport onTrace={handleTrace} onClose={() => setShowImport(false)} />
+      )}
+
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
         <div>
           <svg
             ref={svgRef}
             width={CANVAS_W} height={CANVAS_H}
             style={{ background: '#fff', border: '1px solid #ccc', borderRadius: 8, display: 'block' }}
-            onPointerMove={(e) => { const [sx, sy] = svgCoords(e); onPointerMove(sx, sy); }}
-            onPointerUp={onPointerUp}
+            onPointerMove={handlePointerMove}
+            onPointerUp={handlePointerUp}
+            onClick={handleSVGClick}
+            onPointerLeave={() => setPhantomPoint(null)}
           >
             {/* Ghost tooth reference (crown shapes only) */}
             {toothRef && (
@@ -202,10 +286,20 @@ export default function ShapeLab() {
                   <ControlPoint
                     key={`${idx}-${xField}`}
                     svgX={sx} svgY={sy} isAnchor={isAnchor}
+                    selected={isAnchor && idx === selectedSegIdx}
                     onPointerDown={handleDown(idx, xField, yField)}
+                    onContextMenu={isAnchor ? handleContextMenuOnPoint(idx) : undefined}
                   />
                 );
               })
+            )}
+            {/* Phantom insertion dot */}
+            {phantomPoint && (
+              <circle
+                cx={phantomPoint.px} cy={phantomPoint.py} r={5}
+                fill="rgba(34,197,94,0.6)" stroke="#16a34a" strokeWidth={1.5}
+                style={{ cursor: 'copy', pointerEvents: 'none' }}
+              />
             )}
           </svg>
         </div>

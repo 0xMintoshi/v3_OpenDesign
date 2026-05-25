@@ -14,7 +14,8 @@
     "test:watch": "vitest",
     "lab": "vite --open /lab.html",
     "e2e": "playwright test",
-    "lint": "eslint core/ layout/ visuals/ app/ lab/ src/"
+    "lint": "eslint core/ layout/ visuals/ app/ lab/ src/",
+    "trace": "node scripts/trace-image.mjs"
   },
   "repository": {
     "type": "git",
@@ -46,6 +47,7 @@
   },
   "dependencies": {
     "firebase": "^12.13.0",
+    "potrace-wasm": "^1.0.4",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   }
