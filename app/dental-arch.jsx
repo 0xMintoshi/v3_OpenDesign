@@ -76,7 +76,17 @@ function Tooth({
       }}
       data-tooth-id={tooth.id}
       data-tooth-fdi={fdi}>
-      
+
+      {/* Invisible touch target — ensures minimum 44×44 SVG-unit hit area */}
+      <rect
+        x={-Math.max(w, 44) / 2}
+        y={-Math.max(h, 44) / 2}
+        width={Math.max(w, 44)}
+        height={Math.max(h, 44)}
+        fill="transparent"
+        stroke="none"
+        style={{ pointerEvents: 'all' }} />
+
       <g
         style={{
           transform: `translateY(${liftY}px)`,
