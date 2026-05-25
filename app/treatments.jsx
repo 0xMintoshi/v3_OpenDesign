@@ -1,8 +1,8 @@
 import React from 'react';
-import { CrownOverlay } from '../visuals/CrownOverlay.jsx';
-import { BridgeSpanOverlay } from '../visuals/BridgeSpanOverlay.jsx';
-import { PartialDentureOverlay } from '../visuals/PartialDentureOverlay.jsx';
-import { TreatmentLabels } from '../visuals/TreatmentLabels.jsx';
+import { CrownOverlay } from '../treatment-overlays/CrownOverlay.jsx';
+import { BridgeSpanOverlay } from '../treatment-overlays/BridgeSpanOverlay.jsx';
+import { PartialDentureOverlay } from '../treatment-overlays/PartialDentureOverlay.jsx';
+import { TreatmentLabels } from '../treatment-overlays/TreatmentLabels.jsx';
 import { useChartState } from '../core/chart-context.jsx';
 
 
@@ -871,4 +871,4 @@ export {
   TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL,
   TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog,
 };
-export { exportLabelPositions, setLabelPositions } from '../visuals/TreatmentLabels.jsx';
+export { exportLabelPositions, setLabelPositions } from '../treatment-overlays/TreatmentLabels.jsx';

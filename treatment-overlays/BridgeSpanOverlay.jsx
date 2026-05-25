@@ -1,5 +1,5 @@
 import React from 'react';
-import bridgeSpan from '../shapes-data/bridge-span.json';
+import bridgeSpan from '../shapes-data/treatments/bridge-span.json';
 import { shapeToPath } from './shapes.jsx';
 
 export function BridgeSpanOverlay({ teeth, biteY, accent }) {

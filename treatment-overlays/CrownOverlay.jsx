@@ -1,5 +1,5 @@
 import React from 'react';
-import crownMolarUpper from '../shapes-data/crown-molar-upper.json';
+import crownMolarUpper from '../shapes-data/treatments/crown-molar-upper.json';
 import { shapeToPath } from './shapes.jsx';
 
 export function CrownOverlay({ tooth, biteY, accent }) {

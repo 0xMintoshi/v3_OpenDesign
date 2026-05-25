@@ -27,7 +27,7 @@ describe('shapeToPath', () => {
   });
 
   it('builds a round-trip path for the molar crown JSON', async () => {
-    const json = await import('../shapes-data/crown-molar-upper.json');
+    const json = await import('../shapes-data/treatments/crown-molar-upper.json');
     const d = shapeToPath(json.default ?? json, 38, 88);
     expect(d).toContain('M');
     expect(d).toContain('Z');
@@ -36,7 +36,7 @@ describe('shapeToPath', () => {
 
 describe('arch shape round-trips', () => {
   it('arch-maxilla produces valid path at 1600×800', async () => {
-    const json = await import('../shapes-data/arch-maxilla.json');
+    const json = await import('../shapes-data/anatomy/arch-maxilla.json');
     const d = shapeToPath(json.default ?? json, 1600, 800);
     expect(d).toContain('M');
     expect(d).toContain('Z');
@@ -45,7 +45,7 @@ describe('arch shape round-trips', () => {
   });
 
   it('arch-mandible produces valid path at 1600×800', async () => {
-    const json = await import('../shapes-data/arch-mandible.json');
+    const json = await import('../shapes-data/anatomy/arch-mandible.json');
     const d = shapeToPath(json.default ?? json, 1600, 800);
     expect(d).toContain('M');
     expect(d).toContain('Z');
@@ -54,7 +54,7 @@ describe('arch shape round-trips', () => {
   });
 
   it('arch-sinus-right produces valid path at 1600×800', async () => {
-    const json = await import('../shapes-data/arch-sinus-right.json');
+    const json = await import('../shapes-data/anatomy/arch-sinus-right.json');
     const d = shapeToPath(json.default ?? json, 1600, 800);
     expect(d).toContain('M');
     expect(d).toContain('Z');
@@ -63,7 +63,7 @@ describe('arch shape round-trips', () => {
   });
 
   it('arch-sinus-left produces valid path at 1600×800', async () => {
-    const json = await import('../shapes-data/arch-sinus-left.json');
+    const json = await import('../shapes-data/anatomy/arch-sinus-left.json');
     const d = shapeToPath(json.default ?? json, 1600, 800);
     expect(d).toContain('M');
     expect(d).toContain('Z');
@@ -74,21 +74,21 @@ describe('arch shape round-trips', () => {
 
 describe('phase-4 shape round-trips', () => {
   it('bridge-span produces valid path at 76×88', async () => {
-    const json = await import('../shapes-data/bridge-span.json');
+    const json = await import('../shapes-data/treatments/bridge-span.json');
     const d = shapeToPath(json.default ?? json, 76, 88);
     expect(d).toContain('M');
     expect(d).toContain('Z');
   });
 
   it('partial-denture-upper produces valid path at 1600×800', async () => {
-    const json = await import('../shapes-data/partial-denture-upper.json');
+    const json = await import('../shapes-data/treatments/partial-denture-upper.json');
     const d = shapeToPath(json.default ?? json, 1600, 800);
     expect(d).toContain('M');
     expect(d).toContain('Z');
   });
 
   it('partial-denture-lower produces valid path at 1600×800', async () => {
-    const json = await import('../shapes-data/partial-denture-lower.json');
+    const json = await import('../shapes-data/treatments/partial-denture-lower.json');
     const d = shapeToPath(json.default ?? json, 1600, 800);
     expect(d).toContain('M');
     expect(d).toContain('Z');

@@ -3,10 +3,10 @@
 // All others remain as hardcoded strings in the 1600×800 viewBox.
 
 import { shapeToPath } from '../core/shapes.js';
-import archMaxilla  from '../shapes-data/arch-maxilla.json';
-import archMandible from '../shapes-data/arch-mandible.json';
-import archSinusR   from '../shapes-data/arch-sinus-right.json';
-import archSinusL   from '../shapes-data/arch-sinus-left.json';
+import archMaxilla  from '../shapes-data/anatomy/arch-maxilla.json';
+import archMandible from '../shapes-data/anatomy/arch-mandible.json';
+import archSinusR   from '../shapes-data/anatomy/arch-sinus-right.json';
+import archSinusL   from '../shapes-data/anatomy/arch-sinus-left.json';
 
 const VW = 1600, VH = 800;
 

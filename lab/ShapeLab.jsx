@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { toothPaths } from '../layout/teeth-data.jsx';
-import { shapeToPath } from '../visuals/shapes.jsx';
+import { shapeToPath } from '../treatment-overlays/shapes.jsx';
 import { useShapeEditor } from './useShapeEditor.js';
 import { ControlPoint } from './ControlPoint.jsx';
 import { nearestOnSegments } from './bezier-utils.js';
@@ -9,56 +9,61 @@ import { ImageImport } from './ImageImport.jsx';
 // Shape catalog: id → { label, loader, w, h, toothRef? }
 // w/h are the display pixel dimensions of the shape in the lab canvas.
 // toothRef: if set, draws a ghost tooth outline behind the shape.
-const SHAPES = {
-  'crown-molar-upper': {
-    label: 'Upper Molar Crown',
-    loader: () => import('../shapes-data/crown-molar-upper.json'),
-    w: 38, h: 88,
-    toothRef: 'molarU',
-  },
+const ANATOMY_SHAPES = {
   'arch-maxilla': {
     label: 'Maxilla (Upper Jaw)',
-    loader: () => import('../shapes-data/arch-maxilla.json'),
+    loader: () => import('../shapes-data/anatomy/arch-maxilla.json'),
     w: 800, h: 400,
     toothRef: null,
   },
   'arch-mandible': {
     label: 'Mandible (Lower Jaw)',
-    loader: () => import('../shapes-data/arch-mandible.json'),
+    loader: () => import('../shapes-data/anatomy/arch-mandible.json'),
     w: 800, h: 400,
     toothRef: null,
   },
   'arch-sinus-right': {
     label: 'Sinus (Patient Right)',
-    loader: () => import('../shapes-data/arch-sinus-right.json'),
+    loader: () => import('../shapes-data/anatomy/arch-sinus-right.json'),
     w: 800, h: 400,
     toothRef: null,
   },
   'arch-sinus-left': {
     label: 'Sinus (Patient Left)',
-    loader: () => import('../shapes-data/arch-sinus-left.json'),
+    loader: () => import('../shapes-data/anatomy/arch-sinus-left.json'),
     w: 800, h: 400,
     toothRef: null,
   },
+};
+
+const TREATMENT_SHAPES = {
+  'crown-molar-upper': {
+    label: 'Upper Molar Crown',
+    loader: () => import('../shapes-data/treatments/crown-molar-upper.json'),
+    w: 38, h: 88,
+    toothRef: 'molarU',
+  },
   'bridge-span': {
     label: 'Bridge Span (pontic)',
-    loader: () => import('../shapes-data/bridge-span.json'),
+    loader: () => import('../shapes-data/treatments/bridge-span.json'),
     w: 76, h: 88,
     toothRef: null,
   },
   'partial-denture-upper': {
     label: 'Partial Denture (Upper)',
-    loader: () => import('../shapes-data/partial-denture-upper.json'),
+    loader: () => import('../shapes-data/treatments/partial-denture-upper.json'),
     w: 800, h: 400,
     toothRef: null,
   },
   'partial-denture-lower': {
     label: 'Partial Denture (Lower)',
-    loader: () => import('../shapes-data/partial-denture-lower.json'),
+    loader: () => import('../shapes-data/treatments/partial-denture-lower.json'),
     w: 800, h: 400,
     toothRef: null,
   },
 };
+
+const ALL_SHAPES = { ...ANATOMY_SHAPES, ...TREATMENT_SHAPES };
 
 const DEFAULT_SHAPE_ID = 'crown-molar-upper';
 const LOADING_SHAPE = { id: 'loading', label: 'Loading…', segments: [] };
@@ -71,7 +76,7 @@ export default function ShapeLab() {
   const [selectedSegIdx, setSelectedSegIdx] = useState(null);
   const [showImport, setShowImport] = useState(false);
 
-  const meta = SHAPES[selectedId];
+  const meta = ALL_SHAPES[selectedId];
   const W = meta.w;
   const H = meta.h;
 
@@ -226,9 +231,16 @@ export default function ShapeLab() {
           onChange={e => setSelectedId(e.target.value)}
           style={{ padding: '4px 8px', fontSize: 14 }}
         >
-          {Object.entries(SHAPES).map(([id, s]) => (
-            <option key={id} value={id}>{s.label}</option>
-          ))}
+          <optgroup label="Base Anatomy">
+            {Object.entries(ANATOMY_SHAPES).map(([id, s]) => (
+              <option key={id} value={id}>{s.label}</option>
+            ))}
+          </optgroup>
+          <optgroup label="Treatments">
+            {Object.entries(TREATMENT_SHAPES).map(([id, s]) => (
+              <option key={id} value={id}>{s.label}</option>
+            ))}
+          </optgroup>
         </select>
       </div>
 
@@ -322,13 +334,13 @@ export default function ShapeLab() {
             <p style={{ fontSize: 11, color: '#888', marginTop: 12, lineHeight: 1.5 }}>
               Arch shape — viewBox 1600×800, displayed at {W}×{H}px.<br/>
               Drag control points to edit. Download JSON and replace<br/>
-              shapes-data/{selectedId}.json to persist edits.
+              shapes-data/anatomy/{selectedId}.json to persist edits.
             </p>
           ) : (
             <p style={{ fontSize: 11, color: '#888', marginTop: 12, lineHeight: 1.5 }}>
               Inkscape: draw at {W}×{H} px → Save Plain SVG<br/>
               node scripts/normalize-svg.mjs shape.svg {W} {H} {selectedId}<br/>
-              &gt; shapes-data/{selectedId}.json — then load here to fine-tune.
+              &gt; shapes-data/treatments/{selectedId}.json — then load here to fine-tune.
             </p>
           )}
         </div>

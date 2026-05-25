@@ -21,7 +21,7 @@ export default [
       'boundaries/elements': [
         { type: 'core',    pattern: 'core/**'    },
         { type: 'layout',  pattern: 'layout/**'  },
-        { type: 'visuals', pattern: 'visuals/**' },
+        { type: 'treatment-overlays', pattern: 'treatment-overlays/**' },
         { type: 'app',     pattern: 'app/**'     },
         { type: 'lab',     pattern: 'lab/**'     },
         { type: 'src',     pattern: 'src/**'     },
@@ -35,10 +35,10 @@ export default [
         rules: [
           { from: 'core',    allow: [] },
           { from: 'layout',  allow: ['core'] },
-          { from: 'visuals', allow: ['core', 'layout'] },
-          { from: 'app',     allow: ['core', 'layout', 'visuals'] },
-          { from: 'lab',     allow: ['core', 'layout', 'visuals'] },
-          { from: 'src',     allow: ['core', 'layout', 'visuals', 'app', 'lab'] },
+          { from: 'treatment-overlays', allow: ['core', 'layout'] },
+          { from: 'app',     allow: ['core', 'layout', 'treatment-overlays'] },
+          { from: 'lab',     allow: ['core', 'layout', 'treatment-overlays'] },
+          { from: 'src',     allow: ['core', 'layout', 'treatment-overlays', 'app', 'lab'] },
         ],
       }],
     },

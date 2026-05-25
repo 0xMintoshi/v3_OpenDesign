@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { VISUAL_REGISTRY, registryFor } from './visual-registry.js';
+import { VISUAL_REGISTRY, registryFor } from './treatment-registry.js';
 
 const VALID_SCOPES = new Set(['tooth', 'sinus', 'arch', 'full-mouth']);
 const VALID_CATEGORIES = new Set(['tooth', 'span', 'arch', 'full-mouth', 'sinus']);

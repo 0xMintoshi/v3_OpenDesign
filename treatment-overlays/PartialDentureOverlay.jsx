@@ -1,6 +1,6 @@
 import React from 'react';
-import partialDentureUpper from '../shapes-data/partial-denture-upper.json';
-import partialDentureLower from '../shapes-data/partial-denture-lower.json';
+import partialDentureUpper from '../shapes-data/treatments/partial-denture-upper.json';
+import partialDentureLower from '../shapes-data/treatments/partial-denture-lower.json';
 import { shapeToPath } from './shapes.jsx';
 
 const SVG_W = 1600;
