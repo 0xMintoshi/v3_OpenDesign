@@ -3,6 +3,7 @@ import { CrownOverlay } from '../visuals/CrownOverlay.jsx';
 import { BridgeSpanOverlay } from '../visuals/BridgeSpanOverlay.jsx';
 import { PartialDentureOverlay } from '../visuals/PartialDentureOverlay.jsx';
 import { TreatmentLabels } from '../visuals/TreatmentLabels.jsx';
+import { useChartState } from '../core/chart-context.jsx';
 
 
 // ============================================================================
@@ -557,7 +558,8 @@ function ExtractionOverlay({ x, y, w, h, jaw }) {
 // TreatmentLayer — composes overlays from treatments[] state
 // ============================================================================
 
-function TreatmentLayer({ treatments, allTeeth, upperBiteY, lowerBiteY, archWidth, accent }) {
+function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent }) {
+  const { treatments } = useChartState();
   const byTooth = {};
   for (const tx of treatments) {
     if (tx.scope === 'tooth') {

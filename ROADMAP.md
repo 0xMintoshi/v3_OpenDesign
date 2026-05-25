@@ -61,16 +61,16 @@ Extract label/connector logic into a dedicated module. Add debug toggles (show a
 ---
 
 ## Phase 6 — Interaction State Cleanup
-**Status:** Not started
-**Start:** — | **Completion:** —
-**Plan:** —
+**Status:** Complete
+**Start:** 2026-05-25 | **Completion:** 2026-05-25
+**Plan:** [`docs/plans/2026-05-25-phase-6-interaction-state-cleanup.md`](docs/plans/2026-05-25-phase-6-interaction-state-cleanup.md)
 
 Separate clinical state / ephemeral UI state / draft state into distinct stores. No Redux — plain React context or zustand. Clean up remaining `window.*` global side-channels introduced during Phase 0 preservation.
 
 ---
 
 ## Phase 7 — Backend Integration
-**Status:** Not started
+**Status:** Next up
 **Start:** — | **Completion:** —
 **Plan:** —
 

@@ -3,6 +3,8 @@ import { TOOTH_TYPES, QUADRANT, UPPER, LOWER, layoutArch, toothPaths } from '../
 import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnCanalPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from '../layout/anatomy.jsx';
 import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog, exportLabelPositions } from './treatments.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
+import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
+import { UIStateProvider, useUIState } from '../core/ui-context.jsx';
 
 const { useState, useEffect, useMemo, useCallback } = React;
 
@@ -408,18 +410,11 @@ const DEFAULT_TWEAKS = /*EDITMODE-BEGIN*/{
   "archDepth": 0
 } /*EDITMODE-END*/;
 
-function DentalHero() {
+function DentalHeroInner() {
   const [t, setTweak] = useTweaks(DEFAULT_TWEAKS);
-  const [hoveredId, setHoveredId] = useState(null);
 
-  // ---- Workflow state ----
-  const [stage, setStage] = useState('baseline');
-  const [presence, setPresence] = useState({}); // toothId -> 'missing'
-  const [treatments, setTreatments] = useState([]); // [{ id, scope, targets }]
-  const [selection, setSelection] = useState([]);
-  const [popover, setPopover] = useState(null);
-  const [confirmWipe, setConfirmWipe] = useState(null);
-  const [exportJson, setExportJson] = useState(null);
+  const { stage, setStage, presence, setPresence, treatments, setTreatments } = useChartState();
+  const { hoveredId, setHoveredId, selection, setSelection, popover, setPopover, confirmWipe, setConfirmWipe, exportJson, setExportJson } = useUIState();
 
   const scale = 2.2;
   const biteCenter = 410;
@@ -813,7 +808,6 @@ function DentalHero() {
           {/* Treatment overlays (Stage 2) */}
           {stage === 'treatment' &&
           <TreatmentLayer
-            treatments={treatments}
             allTeeth={allTeeth}
             upperBiteY={upperBiteY}
             lowerBiteY={lowerBiteY}
@@ -1067,6 +1061,16 @@ function darkTheme() {
     '--card-border': 'rgba(238,242,248,0.14)',
     '--card-shadow': '0 12px 40px rgba(0,0,0,0.5)'
   };
+}
+
+function DentalHero() {
+  return (
+    <ChartStateProvider>
+      <UIStateProvider>
+        <DentalHeroInner />
+      </UIStateProvider>
+    </ChartStateProvider>
+  );
 }
 
 export default DentalHero;
