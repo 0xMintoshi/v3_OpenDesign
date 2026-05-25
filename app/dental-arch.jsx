@@ -16,7 +16,7 @@ const { useState, useEffect, useMemo, useCallback } = React;
 // ====================================================================
 function Tooth({
   tooth, jawFlip, accent, isHovered, isSelected, isInDrag,
-  presence, onHover, onSelect, showNumber, stage, hasTreatment
+  presence, onHover, onSelect, onFocus, tabIndex = 0, showNumber, stage, hasTreatment
 }) {
   const { cx, h, w, type, fdi, tilt = 0, yOffset = 0 } = tooth;
 
@@ -53,14 +53,27 @@ function Tooth({
     fillColor = 'var(--tooth-hover-fill)';
   }
 
+  const typeLabel = type.replace(/-/g, ' ');
+
   return (
     <g
       transform={baseTransform}
       style={{ cursor: 'pointer', transition: 'transform 200ms cubic-bezier(.2,.7,.2,1)' }}
+      role="button"
+      tabIndex={tabIndex}
+      aria-label={`Tooth ${fdi} ${typeLabel}`}
+      aria-pressed={isSelected}
       onMouseEnter={() => onHover(tooth.id)}
       onMouseLeave={() => onHover(null)}
+      onFocus={onFocus}
       onClick={(e) => onSelect({ kind: 'tooth', id: tooth.id }, e, 'click')}
       onContextMenu={(e) => onSelect({ kind: 'tooth', id: tooth.id }, e, 'context')}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect({ kind: 'tooth', id: tooth.id }, e, 'click');
+        }
+      }}
       data-tooth-id={tooth.id}
       data-tooth-fdi={fdi}>
       
@@ -418,7 +431,7 @@ function DentalHeroInner() {
   const [t, setTweak] = useTweaks(DEFAULT_TWEAKS);
 
   const { stage, setStage, presence, setPresence, treatments, setTreatments } = useChartState();
-  const { hoveredId, setHoveredId, selection, setSelection, popover, setPopover, confirmWipe, setConfirmWipe, exportJson, setExportJson } = useUIState();
+  const { hoveredId, setHoveredId, selection, setSelection, popover, setPopover, confirmWipe, setConfirmWipe, exportJson, setExportJson, focusedToothId, setFocusedToothId } = useUIState();
 
   const scale = 2.2;
   const biteCenter = 410;
@@ -733,10 +746,30 @@ function DentalHeroInner() {
           className="arch-svg"
           viewBox="0 0 1600 800"
           preserveAspectRatio="xMidYMid meet"
+          aria-label="Dental chart"
           onClick={() => {
             if (stage === 'treatment') {
               setSelection([]);
               setPopover(null);
+            }
+          }}
+          onKeyDown={(e) => {
+            const allIds = [...scaledUpper.map((t) => t.id), ...scaledLower.map((t) => t.id)];
+            const upperIds = scaledUpper.map((t) => t.id);
+            const lowerIds = scaledLower.map((t) => t.id);
+            const focused = focusedToothId || allIds[0];
+            const inUpper = upperIds.includes(focused);
+            const arr = inUpper ? upperIds : lowerIds;
+            const idx = arr.indexOf(focused);
+            let nextId = null;
+            if (e.key === 'ArrowRight') nextId = arr[idx + 1] ?? arr[idx];
+            else if (e.key === 'ArrowLeft') nextId = arr[idx - 1] ?? arr[idx];
+            else if (e.key === 'ArrowDown') nextId = inUpper ? (lowerIds[idx] ?? lowerIds[lowerIds.length - 1]) : null;
+            else if (e.key === 'ArrowUp') nextId = !inUpper ? (upperIds[idx] ?? upperIds[upperIds.length - 1]) : null;
+            if (nextId) {
+              e.preventDefault();
+              setFocusedToothId(nextId);
+              document.querySelector(`[data-tooth-id="${nextId}"]`)?.focus();
             }
           }}
           style={{ height: "988px" }}>
@@ -766,47 +799,52 @@ function DentalHeroInner() {
           
 
           {/* Upper arch */}
-          <g>
-            {scaledUpper.map((tooth) =>
-            <g key={tooth.id} transform={`translate(0, ${upperBiteY})`}>
-                <Tooth
-                tooth={tooth}
-                jawFlip={false}
-                accent={t.accent}
-                isHovered={hoveredId === tooth.id}
-                isSelected={selection.includes(tooth.id)}
-                isInDrag={false}
-                presence={presence[tooth.id] === 'missing' ? 'missing' : 'present'}
-                onHover={setHoveredId}
-                onSelect={handleToothSelect}
-                showNumber={t.showNumbering}
-                stage={stage}
-                hasTreatment={treatedTeeth.has(tooth.id)} />
-              
-              </g>
-            )}
+          <g aria-label="Upper arch">
+            {scaledUpper.map((tooth, i) => {
+              const isFirst = !focusedToothId && i === 0;
+              return (
+                <g key={tooth.id} transform={`translate(0, ${upperBiteY})`}>
+                  <Tooth
+                    tooth={tooth}
+                    jawFlip={false}
+                    accent={t.accent}
+                    isHovered={hoveredId === tooth.id}
+                    isSelected={selection.includes(tooth.id)}
+                    isInDrag={false}
+                    presence={presence[tooth.id] === 'missing' ? 'missing' : 'present'}
+                    onHover={setHoveredId}
+                    onSelect={handleToothSelect}
+                    onFocus={() => setFocusedToothId(tooth.id)}
+                    tabIndex={focusedToothId === tooth.id || isFirst ? 0 : -1}
+                    showNumber={t.showNumbering}
+                    stage={stage}
+                    hasTreatment={treatedTeeth.has(tooth.id)} />
+                </g>
+              );
+            })}
           </g>
 
           {/* Lower arch */}
-          <g>
-            {scaledLower.map((tooth) =>
-            <g key={tooth.id} transform={`translate(0, ${lowerBiteY})`}>
+          <g aria-label="Lower arch">
+            {scaledLower.map((tooth) => (
+              <g key={tooth.id} transform={`translate(0, ${lowerBiteY})`}>
                 <Tooth
-                tooth={tooth}
-                jawFlip={true}
-                accent={t.accent}
-                isHovered={hoveredId === tooth.id}
-                isSelected={selection.includes(tooth.id)}
-                isInDrag={false}
-                presence={presence[tooth.id] === 'missing' ? 'missing' : 'present'}
-                onHover={setHoveredId}
-                onSelect={handleToothSelect}
-                showNumber={t.showNumbering}
-                stage={stage}
-                hasTreatment={treatedTeeth.has(tooth.id)} />
-              
+                  tooth={tooth}
+                  jawFlip={true}
+                  accent={t.accent}
+                  isHovered={hoveredId === tooth.id}
+                  isSelected={selection.includes(tooth.id)}
+                  isInDrag={false}
+                  presence={presence[tooth.id] === 'missing' ? 'missing' : 'present'}
+                  onHover={setHoveredId}
+                  onSelect={handleToothSelect}
+                  onFocus={() => setFocusedToothId(tooth.id)}
+                  tabIndex={focusedToothId === tooth.id ? 0 : -1}
+                  showNumber={t.showNumbering}
+                  stage={stage}
+                  hasTreatment={treatedTeeth.has(tooth.id)} />
               </g>
-            )}
+            ))}
           </g>
 
           {/* Treatment overlays (Stage 2) */}

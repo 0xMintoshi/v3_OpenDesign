@@ -402,3 +402,12 @@
   .hero[data-theme="dark"] {
     background: radial-gradient(70% 50% at 50% 50%, #131a2e 0%, #0a0f1a 100%);
   }
+
+  /* Accessibility: keyboard focus ring for interactive SVG tooth elements */
+  g[role="button"]:focus {
+    outline: none;
+  }
+  g[role="button"]:focus-visible {
+    outline: 2px solid var(--accent, #4f8ef7);
+    outline-offset: 2px;
+  }
