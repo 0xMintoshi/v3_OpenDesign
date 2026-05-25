@@ -52,9 +52,9 @@ Split treatment overlays into tooth / span / arch / full-mouth categories with a
 ---
 
 ## Phase 5 — Label + Connector System Extraction
-**Status:** Not started
-**Start:** — | **Completion:** —
-**Plan:** —
+**Status:** Complete
+**Start:** 2026-05-24 | **Completion:** 2026-05-25
+**Plan:** [`docs/plans/2026-05-24-phase-5-label-connectors.md`](docs/plans/2026-05-24-phase-5-label-connectors.md)
 
 Extract label/connector logic into a dedicated module. Add debug toggles (show anchor points, connector paths, mirror axis). Replace `window.__labelAPI` side-channel with real module exports.
 
