@@ -126,3 +126,43 @@ export function fitToBoundingBox(segments) {
 }
 
 function r(n) { return Math.round(n * 1000) / 1000; }
+
+/**
+ * Apply a polygon mask to a canvas in-place (browser-only).
+ * polygon: Array<{x, y}> where x/y are percentages (0–100) relative to canvas dimensions.
+ * Pixels outside the polygon are set to white so potrace ignores them.
+ */
+export function applyPolygonMask(canvas, polygon) {
+  const { width, height } = canvas;
+  const ctx = canvas.getContext('2d');
+
+  // Mask canvas: white = keep, black = discard
+  const maskCanvas = document.createElement('canvas');
+  maskCanvas.width  = width;
+  maskCanvas.height = height;
+  const maskCtx = maskCanvas.getContext('2d');
+
+  maskCtx.fillStyle = 'black';
+  maskCtx.fillRect(0, 0, width, height);
+
+  maskCtx.fillStyle = 'white';
+  maskCtx.beginPath();
+  polygon.forEach(({ x, y }, i) => {
+    const px = (x / 100) * width;
+    const py = (y / 100) * height;
+    if (i === 0) maskCtx.moveTo(px, py);
+    else maskCtx.lineTo(px, py);
+  });
+  maskCtx.closePath();
+  maskCtx.fill();
+
+  const imgData  = ctx.getImageData(0, 0, width, height);
+  const maskData = maskCtx.getImageData(0, 0, width, height);
+
+  for (let i = 0; i < imgData.data.length; i += 4) {
+    if (maskData.data[i] === 0) {
+      imgData.data[i] = imgData.data[i + 1] = imgData.data[i + 2] = 255;
+    }
+  }
+  ctx.putImageData(imgData, 0, 0);
+}
