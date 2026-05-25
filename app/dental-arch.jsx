@@ -1,7 +1,7 @@
 import React from 'react';
 import { TOOTH_TYPES, QUADRANT, UPPER, LOWER, layoutArch, toothPaths } from '../layout/teeth-data.jsx';
 import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnCanalPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from '../layout/anatomy.jsx';
-import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog } from './treatments.jsx';
+import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog, exportLabelPositions } from './treatments.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
 
 const { useState, useEffect, useMemo, useCallback } = React;
@@ -677,12 +677,9 @@ function DentalHero() {
 
   const handleExportLabelPositions = useCallback(async () => {
     try {
-      // Prefer the in-page API when available; fall back to localStorage.
       let p = {};
-      if (window.exportLabelPositions) {
-        try { p = window.exportLabelPositions(); } catch (e) { p = {}; }
-      } else {
-        try { p = JSON.parse(localStorage.getItem('labelPositions') || '{}'); } catch (e) { p = {}; }
+      try { p = exportLabelPositions(); } catch (e) {
+        try { p = JSON.parse(localStorage.getItem('labelPositions') || '{}'); } catch (_) { p = {}; }
       }
       const txt = JSON.stringify(p, null, 2);
       if (navigator.clipboard && navigator.clipboard.writeText) {
@@ -835,6 +832,7 @@ function DentalHero() {
              accent={t.accent}
              debugGuides={t.showLayoutGuides}
              manualPlacementMode={t.manualPlacementMode}
+             txLabel={TX_LABEL}
              onRemoveTooth={removeTreatmentForTooth}
              onRemoveOther={removeNonToothTreatment} />
 
