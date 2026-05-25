@@ -11,7 +11,7 @@ const HISTORY_LIMIT = 50;
 // handlers.deletePoint(segIdx)
 // handlers.isDragging()
 // handlers.undo()         — revert last committed state
-// handlers.mirrorRight()  — mirror right half onto left half (symmetric cleanup)
+// handlers.mirrorAcrossX(sourceSide)  — mirror 'left'|'right' half onto the other
 export function useShapeEditor(initial, w, h) {
   const [shape, setShapeRaw] = useState(initial);
   const drag = useRef(null);
@@ -88,42 +88,70 @@ export function useShapeEditor(initial, w, h) {
     setShapeRaw(s => ({ ...s, segments: prev }));
   }, []);
 
-  const mirrorRight = useCallback(() => {
+  const mirrorAcrossX = useCallback((sourceSide /* 'left' | 'right' */) => {
     setShapeRaw(prev => {
       const segs = prev.segments;
-      // Determine coordinate convention: centered (tooth) uses x near 0, arch uses x in [0,1].
       const hasCentered = segs.some(s => s.x !== undefined && s.x < 0);
       const center = hasCentered ? 0 : 0.5;
       const mx = x => round(2 * center - x);
 
-      // Segments whose anchor sits at x >= center = right half (source for mirror).
-      const rightSegs = segs.filter(s => s.type !== 'M' && s.type !== 'Z' && s.x !== undefined && s.x >= center);
+      const isAnchor = s => s.type !== 'M' && s.type !== 'Z' && s.x !== undefined;
+      const isSource = s => isAnchor(s) && (sourceSide === 'right' ? s.x >= center : s.x <= center);
+      const isDest   = s => isAnchor(s) && (sourceSide === 'right' ? s.x <  center : s.x >  center);
 
-      if (!rightSegs.length) return prev;
+      const sourceIdx = segs.map((s, i) => isSource(s) ? i : -1).filter(i => i >= 0);
+      if (!sourceIdx.length) return prev;
 
-      // Build mirrored left-side segments (reversed so winding stays consistent).
-      const mirrored = [...rightSegs].reverse().map(s => {
+      // Mirror x-fields of each source segment.
+      const mirrored = sourceIdx.map(i => {
+        const s = segs[i];
         const n = { type: s.type, x: mx(s.x), y: s.y };
         if (s.x1 !== undefined) { n.x1 = mx(s.x1); n.y1 = s.y1; }
         if (s.x2 !== undefined) { n.x2 = mx(s.x2); n.y2 = s.y2; }
         return n;
       });
 
-      // Replace segments with anchor x < center (left half) with mirrored set.
-      // Keep M, Z, and right-half segments in place; swap left-half segments.
-      const leftIndices = segs.reduce((acc, s, i) => {
-        if (s.type !== 'M' && s.type !== 'Z' && s.x !== undefined && s.x < center) acc.push(i);
-        return acc;
-      }, []);
+      // Reverse for consistent winding, then fix C handles: x1↔x2 swap after reversal
+      // (near-start and near-end handles exchange roles when traversal direction flips).
+      const out = [...mirrored].reverse().map(s =>
+        s.type === 'C'
+          ? { ...s, x1: s.x2, y1: s.y2, x2: s.x1, y2: s.y1 }
+          : s
+      );
 
-      const next = [...segs];
-      leftIndices.forEach((origIdx, i) => {
-        if (i < mirrored.length) next[origIdx] = mirrored[i];
-      });
-      // If mirrored has more segments than left-half slots, insert extras after last left-half index.
-      if (mirrored.length > leftIndices.length) {
-        const insertAfter = leftIndices[leftIndices.length - 1] ?? next.length - 1;
-        next.splice(insertAfter + 1, 0, ...mirrored.slice(leftIndices.length));
+      const destIdx = segs.map((s, i) => isDest(s) ? i : -1).filter(i => i >= 0);
+      let next;
+      if (!destIdx.length) {
+        // No existing dest side — insert after the last source segment.
+        const lastSrc = sourceIdx[sourceIdx.length - 1];
+        next = [...segs.slice(0, lastSrc + 1), ...out, ...segs.slice(lastSrc + 1)];
+      } else {
+        const first = destIdx[0], last = destIdx[destIdx.length - 1];
+        // Check if source indices are interleaved within the dest range (non-contiguous dest).
+        // If so, a single block splice would drop the source anchors — must do per-slot replacement.
+        const interleaved = sourceIdx.some(i => i > first && i < last);
+        if (!interleaved) {
+          next = [...segs.slice(0, first), ...out, ...segs.slice(last + 1)];
+        } else {
+          // Iterate segs: keep M/Z/source as-is, replace dest slots with `out` one-by-one.
+          const destSet = new Set(destIdx);
+          let cursor = 0;
+          let lastInsertPos = -1;
+          next = [];
+          for (let i = 0; i < segs.length; i++) {
+            if (destSet.has(i)) {
+              if (cursor < out.length) { next.push(out[cursor++]); lastInsertPos = next.length - 1; }
+              // else: dest slot shrinks away (fewer out than dest)
+            } else {
+              next.push(segs[i]);
+            }
+          }
+          // Append any remaining `out` segments after the last filled dest slot.
+          if (cursor < out.length) {
+            const pos = lastInsertPos >= 0 ? lastInsertPos + 1 : next.length - 1;
+            next.splice(pos, 0, ...out.slice(cursor));
+          }
+        }
       }
 
       snapshot(segs);
@@ -131,7 +159,7 @@ export function useShapeEditor(initial, w, h) {
     });
   }, []);
 
-  return [shape, setShape, { onPointerDown, onPointerMove, onPointerUp, insertPoint, deletePoint, isDragging, undo, mirrorRight }];
+  return [shape, setShape, { onPointerDown, onPointerMove, onPointerUp, insertPoint, deletePoint, isDragging, undo, mirrorAcrossX }];
 }
 
 function round(n) { return Math.round(n * 1000) / 1000; }

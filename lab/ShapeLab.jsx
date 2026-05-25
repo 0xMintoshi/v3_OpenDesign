@@ -153,7 +153,7 @@ export default function ShapeLab() {
     });
   }, []);
 
-  const [shape, setShape, { onPointerDown, onPointerMove, onPointerUp, insertPoint, deletePoint, isDragging, undo, mirrorRight }] =
+  const [shape, setShape, { onPointerDown, onPointerMove, onPointerUp, insertPoint, deletePoint, isDragging, undo, mirrorAcrossX }] =
     useShapeEditor(initialShape ?? LOADING_SHAPE, W, H);
 
   useEffect(() => {
@@ -520,9 +520,12 @@ export default function ShapeLab() {
                     style={{ padding: '6px 14px', cursor: 'pointer' }}>Copy JSON</button>
             <button onClick={downloadJSON}
                     style={{ padding: '6px 14px', cursor: 'pointer' }}>Download JSON</button>
-            <button onClick={mirrorRight}
+            <button onClick={() => mirrorAcrossX('left')}
                     style={{ padding: '6px 14px', cursor: 'pointer' }}
-                    title="Copy right half → mirror onto left half (symmetric cleanup)">Mirror right →</button>
+                    title="Copy patient-L (screen-right) → mirror onto patient-R (screen-left)">Mirror patient-L → R</button>
+            <button onClick={() => mirrorAcrossX('right')}
+                    style={{ padding: '6px 14px', cursor: 'pointer' }}
+                    title="Copy patient-R (screen-left) → mirror onto patient-L (screen-right)">Mirror patient-R → L</button>
             <label style={{ fontSize: 12, color: '#555' }}>
               Load: <input type="file" accept=".json" onChange={importFile} />
             </label>
