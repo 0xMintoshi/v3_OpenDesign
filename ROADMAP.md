@@ -70,9 +70,9 @@ Separate clinical state / ephemeral UI state / draft state into distinct stores.
 ---
 
 ## Phase 7 — Backend Integration
-**Status:** Next up
-**Start:** — | **Completion:** —
-**Plan:** —
+**Status:** Complete ✓
+**Start:** 2026-05-25 | **Completion:** 2026-05-25
+**Plan:** [`docs/plans/2026-05-25-phase-7-backend-integration.md`](docs/plans/2026-05-25-phase-7-backend-integration.md)
 
 Wire treatment records to backend using stable FDI string IDs already in place. Per-clinic theme loaded at runtime. Tablet layout decision (≤1180px: scale down vs simplified fallback) resolved here.
 
