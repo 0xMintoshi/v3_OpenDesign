@@ -6,34 +6,42 @@ import { ControlPoint } from './ControlPoint.jsx';
 import { nearestOnSegments } from './bezier-utils.js';
 import { ImageImport } from './ImageImport.jsx';
 
-// Shape catalog: id → { label, loader, w, h, toothRef? }
-// w/h are the display pixel dimensions of the shape in the lab canvas.
-// toothRef: if set, draws a ghost tooth outline behind the shape.
-const ANATOMY_SHAPES = {
+// Shape catalog — id → { label, loader, w, h, toothRef?, ghostContext? }
+// w/h: display pixel dimensions in the lab canvas.
+// toothRef: single tooth ghost behind crown shapes.
+// ghostContext: richer ghost context for bridge/dentures.
+const ANATOMY_ARCH_SHAPES = {
   'arch-maxilla': {
     label: 'Maxilla (Upper Jaw)',
     loader: () => import('../shapes-data/anatomy/arch-maxilla.json'),
     w: 800, h: 400,
-    toothRef: null,
   },
   'arch-mandible': {
     label: 'Mandible (Lower Jaw)',
     loader: () => import('../shapes-data/anatomy/arch-mandible.json'),
     w: 800, h: 400,
-    toothRef: null,
   },
   'arch-sinus-right': {
     label: 'Sinus (Patient Right)',
     loader: () => import('../shapes-data/anatomy/arch-sinus-right.json'),
     w: 800, h: 400,
-    toothRef: null,
   },
   'arch-sinus-left': {
     label: 'Sinus (Patient Left)',
     loader: () => import('../shapes-data/anatomy/arch-sinus-left.json'),
     w: 800, h: 400,
-    toothRef: null,
   },
+};
+
+const ANATOMY_TEETH_SHAPES = {
+  'incisor':   { label: 'Incisor',             loader: () => import('../shapes-data/anatomy/teeth/incisor.json'),   w: 28, h: 88,  isTwoPath: true },
+  'canine':    { label: 'Canine',               loader: () => import('../shapes-data/anatomy/teeth/canine.json'),    w: 26, h: 100, isTwoPath: true },
+  'premolar':  { label: 'Premolar (1 root)',    loader: () => import('../shapes-data/anatomy/teeth/premolar.json'),  w: 26, h: 82,  isTwoPath: true },
+  'premolar1': { label: 'Premolar (2 roots)',   loader: () => import('../shapes-data/anatomy/teeth/premolar1.json'), w: 26, h: 84,  isTwoPath: true },
+  'molarU':    { label: 'Upper Molar',          loader: () => import('../shapes-data/anatomy/teeth/molarU.json'),    w: 38, h: 88,  isTwoPath: true },
+  'molarL':    { label: 'Lower Molar',          loader: () => import('../shapes-data/anatomy/teeth/molarL.json'),    w: 36, h: 86,  isTwoPath: true },
+  'wisdomU':   { label: 'Upper Wisdom Tooth',   loader: () => import('../shapes-data/anatomy/teeth/wisdomU.json'),   w: 30, h: 70,  isTwoPath: true },
+  'wisdomL':   { label: 'Lower Wisdom Tooth',   loader: () => import('../shapes-data/anatomy/teeth/wisdomL.json'),   w: 28, h: 66,  isTwoPath: true },
 };
 
 const TREATMENT_SHAPES = {
@@ -43,27 +51,48 @@ const TREATMENT_SHAPES = {
     w: 38, h: 88,
     toothRef: 'molarU',
   },
+  'crown-molar-lower': {
+    label: 'Lower Molar Crown',
+    loader: () => import('../shapes-data/treatments/crown-molar-lower.json'),
+    w: 36, h: 86,
+    toothRef: 'molarL',
+  },
+  'crown-premolar-upper': {
+    label: 'Upper Premolar Crown',
+    loader: () => import('../shapes-data/treatments/crown-premolar-upper.json'),
+    w: 26, h: 82,
+    toothRef: 'premolar',
+  },
+  'crown-incisor-upper': {
+    label: 'Upper Incisor Crown',
+    loader: () => import('../shapes-data/treatments/crown-incisor-upper.json'),
+    w: 28, h: 88,
+    toothRef: 'incisor',
+  },
   'bridge-span': {
     label: 'Bridge Span (pontic)',
     loader: () => import('../shapes-data/treatments/bridge-span.json'),
     w: 76, h: 88,
-    toothRef: null,
+    ghostContext: { teeth: ['molarU', 'premolar', 'molarU'], arch: null },
   },
   'partial-denture-upper': {
     label: 'Partial Denture (Upper)',
     loader: () => import('../shapes-data/treatments/partial-denture-upper.json'),
     w: 800, h: 400,
-    toothRef: null,
+    ghostContext: { teeth: null, arch: 'arch-maxilla' },
   },
   'partial-denture-lower': {
     label: 'Partial Denture (Lower)',
     loader: () => import('../shapes-data/treatments/partial-denture-lower.json'),
     w: 800, h: 400,
-    toothRef: null,
+    ghostContext: { teeth: null, arch: 'arch-mandible' },
   },
 };
 
-const ALL_SHAPES = { ...ANATOMY_SHAPES, ...TREATMENT_SHAPES };
+const ALL_SHAPES = { ...ANATOMY_ARCH_SHAPES, ...ANATOMY_TEETH_SHAPES, ...TREATMENT_SHAPES };
+
+const ARCH_SHAPE_IDS = new Set(Object.keys(ANATOMY_ARCH_SHAPES));
+const TOOTH_SHAPE_IDS = new Set(Object.keys(ANATOMY_TEETH_SHAPES));
 
 const DEFAULT_SHAPE_ID = 'crown-molar-upper';
 const LOADING_SHAPE = { id: 'loading', label: 'Loading…', segments: [] };
@@ -72,51 +101,138 @@ export default function ShapeLab() {
   const svgRef = useRef(null);
   const [selectedId, setSelectedId] = useState(DEFAULT_SHAPE_ID);
   const [initialShape, setInitialShape] = useState(null);
-  const [phantomPoint, setPhantomPoint] = useState(null); // { segIdx, t, px, py }
+  const [phantomPoint, setPhantomPoint] = useState(null);
   const [selectedSegIdx, setSelectedSegIdx] = useState(null);
   const [showImport, setShowImport] = useState(false);
+
+  // For two-path tooth templates
+  const [activePath, setActivePath] = useState('outline'); // 'outline' | 'cervical'
+  const [fullToothShape, setFullToothShape] = useState(null);
+
+  // Ghost anatomy shapes for composite view (arch/sinus editing)
+  const [archGhosts, setArchGhosts] = useState({});  // id → shape JSON
 
   const meta = ALL_SHAPES[selectedId];
   const W = meta.w;
   const H = meta.h;
 
-  const isArch = !meta.toothRef;
+  const isArch = ARCH_SHAPE_IDS.has(selectedId);
+  const isTooth = TOOTH_SHAPE_IDS.has(selectedId);
   const CANVAS_W = isArch ? Math.min(W + 40, 1000) : 400;
   const CANVAS_H = isArch ? H + 40 : 380;
   const CX = isArch ? 20 : 200;
   const CY = isArch ? 20 : 130;
 
+  // Load the selected shape
   useEffect(() => {
     setInitialShape(null);
     setPhantomPoint(null);
     setSelectedSegIdx(null);
-    meta.loader().then(m => setInitialShape(m.default ?? m));
+    setActivePath('outline');
+    setFullToothShape(null);
+    meta.loader().then(m => {
+      const loaded = m.default ?? m;
+      if (isTooth) {
+        setFullToothShape(loaded);
+        // Expose the outline segments as the editable shape
+        setInitialShape({ ...loaded, segments: loaded.outline.segments });
+      } else {
+        setInitialShape(loaded);
+      }
+    });
   }, [selectedId]);
 
-  const [shape, setShape, { onPointerDown, onPointerMove, onPointerUp, insertPoint, deletePoint, isDragging }] =
+  // Load all arch ghosts on mount for composite view
+  useEffect(() => {
+    Promise.all(
+      Object.entries(ANATOMY_ARCH_SHAPES).map(([id, s]) =>
+        s.loader().then(m => [id, m.default ?? m])
+      )
+    ).then(entries => {
+      setArchGhosts(Object.fromEntries(entries));
+    });
+  }, []);
+
+  const [shape, setShape, { onPointerDown, onPointerMove, onPointerUp, insertPoint, deletePoint, isDragging, undo, mirrorRight }] =
     useShapeEditor(initialShape ?? LOADING_SHAPE, W, H);
 
   useEffect(() => {
     if (initialShape) setShape(initialShape);
   }, [initialShape]);
 
-  // Delete key removes selected anchor
+  // Sync active path edits back into fullToothShape
+  useEffect(() => {
+    if (!isTooth || !fullToothShape || !shape.segments.length) return;
+    setFullToothShape(prev => ({
+      ...prev,
+      [activePath]: { segments: shape.segments },
+    }));
+  }, [shape.segments]);
+
+  // Path selector tab switch — save current path, load the other
+  function switchPath(newPath) {
+    if (newPath === activePath) return;
+    setActivePath(newPath);
+    setSelectedSegIdx(null);
+    setPhantomPoint(null);
+    // Load the other path's segments into the editor
+    if (fullToothShape) {
+      const pathShape = { ...fullToothShape, segments: fullToothShape[newPath].segments };
+      setInitialShape(pathShape);
+    }
+  }
+
+  // Ctrl-Z / Cmd-Z undo + Delete key
   useEffect(() => {
     function handleKeyDown(e) {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
       if ((e.key === 'Delete' || e.key === 'Backspace') && selectedSegIdx !== null) {
-        // Don't fire when typing in an input
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         e.preventDefault();
         deletePoint(selectedSegIdx);
+        setSelectedSegIdx(null);
+      }
+      if (e.key === 'z' && (e.ctrlKey || e.metaKey)) {
+        e.preventDefault();
+        undo();
         setSelectedSegIdx(null);
       }
     }
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [selectedSegIdx, deletePoint]);
+  }, [selectedSegIdx, deletePoint, undo]);
 
+  // Single tooth ghost reference (crown shapes)
   const toothRef = meta.toothRef ? toothPaths(meta.toothRef, W, H) : null;
+
   const shapePath = shape.segments.length ? shapeToPath(shape, W, H) : '';
+
+  // Ghost tooth paths for bridge-span (3 teeth)
+  function bridgeGhostPaths() {
+    if (!meta.ghostContext?.teeth) return null;
+    const types = meta.ghostContext.teeth;
+    return types.map((type, i) => {
+      const tw = W / 3;
+      const paths = toothPaths(type, tw, H);
+      const tx = CX + i * tw;
+      return { outline: paths.outline, cervical: paths.cervical, tx, ty: CY };
+    });
+  }
+
+  const bridgeGhosts = meta.ghostContext?.teeth ? bridgeGhostPaths() : null;
+
+  // Arch ghost for partial denture context
+  const archGhostShape = meta.ghostContext?.arch ? archGhosts[meta.ghostContext.arch] : null;
+
+  // Inactive path ghost for tooth template two-path editing
+  function inactivePathGhost() {
+    if (!isTooth || !fullToothShape) return null;
+    const inactivePath = activePath === 'outline' ? 'cervical' : 'outline';
+    const inactiveSegs = fullToothShape[inactivePath]?.segments;
+    if (!inactiveSegs?.length) return null;
+    return shapeToPath({ segments: inactiveSegs }, W, H);
+  }
+
+  const ghostPath = inactivePathGhost();
 
   function svgCoords(e) {
     const r = svgRef.current.getBoundingClientRect();
@@ -128,7 +244,6 @@ export default function ShapeLab() {
       e.currentTarget.setPointerCapture(e.pointerId);
       const [sx, sy] = svgCoords(e);
       onPointerDown(segIdx, xField, yField, sx, sy);
-      // Select anchor on pointer down (only anchor points)
       if (xField === 'x') setSelectedSegIdx(segIdx);
     };
   }
@@ -144,12 +259,9 @@ export default function ShapeLab() {
     }
   }
 
-  function handlePointerUp() {
-    onPointerUp();
-  }
+  function handlePointerUp() { onPointerUp(); }
 
   function handleSVGClick() {
-    // Insert on phantom dot click — only if pointer wasn't dragging
     if (phantomPoint && !isDragging()) {
       insertPoint(phantomPoint.segIdx, phantomPoint.t);
       setPhantomPoint(null);
@@ -166,7 +278,6 @@ export default function ShapeLab() {
     };
   }
 
-  // Normalized coord → absolute SVG canvas coord.
   function toSVG(nx, ny) { return [CX + nx * W, CY + ny * H]; }
 
   function segHandles(seg) {
@@ -203,10 +314,12 @@ export default function ShapeLab() {
   }
 
   function downloadJSON() {
-    const blob = new Blob([JSON.stringify(shape, null, 2)], { type: 'application/json' });
+    // For two-path tooth templates, download the full tooth shape (both paths).
+    const toSave = isTooth && fullToothShape ? fullToothShape : shape;
+    const blob = new Blob([JSON.stringify(toSave, null, 2)], { type: 'application/json' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob);
-    a.download = `${shape.id}.json`;
+    a.download = `${toSave.id}.json`;
     a.click();
     URL.revokeObjectURL(a.href);
   }
@@ -216,11 +329,21 @@ export default function ShapeLab() {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = (evt) => {
-      try { setShape(JSON.parse(evt.target.result)); }
-      catch { alert('Invalid JSON'); }
+      try {
+        const loaded = JSON.parse(evt.target.result);
+        if (isTooth && loaded.outline) {
+          setFullToothShape(loaded);
+          setShape({ ...loaded, segments: loaded[activePath].segments });
+        } else {
+          setShape(loaded);
+        }
+      } catch { alert('Invalid JSON'); }
     };
     reader.readAsText(file);
   }
+
+  // Download JSON for the active path only (for debugging)
+  const jsonPreview = isTooth && fullToothShape ? fullToothShape : shape;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 24, fontFamily: 'monospace', background: '#f5f5f5', minHeight: '100vh' }}>
@@ -231,8 +354,13 @@ export default function ShapeLab() {
           onChange={e => setSelectedId(e.target.value)}
           style={{ padding: '4px 8px', fontSize: 14 }}
         >
-          <optgroup label="Base Anatomy">
-            {Object.entries(ANATOMY_SHAPES).map(([id, s]) => (
+          <optgroup label="Base Anatomy — Arches &amp; Sinuses">
+            {Object.entries(ANATOMY_ARCH_SHAPES).map(([id, s]) => (
+              <option key={id} value={id}>{s.label}</option>
+            ))}
+          </optgroup>
+          <optgroup label="Base Anatomy — Teeth (templates)">
+            {Object.entries(ANATOMY_TEETH_SHAPES).map(([id, s]) => (
               <option key={id} value={id}>{s.label}</option>
             ))}
           </optgroup>
@@ -244,11 +372,35 @@ export default function ShapeLab() {
         </select>
       </div>
 
+      {/* Path selector tabs for two-path tooth templates */}
+      {isTooth && (
+        <div style={{ display: 'flex', gap: 6 }}>
+          {['outline', 'cervical'].map(p => (
+            <button
+              key={p}
+              onClick={() => switchPath(p)}
+              style={{
+                padding: '4px 14px', fontSize: 12, cursor: 'pointer', borderRadius: 4, border: 'none',
+                background: activePath === p ? '#3b82f6' : '#e5e7eb',
+                color: activePath === p ? '#fff' : '#374151',
+                fontWeight: activePath === p ? 600 : 400,
+              }}
+            >
+              {p.charAt(0).toUpperCase() + p.slice(1)}
+            </button>
+          ))}
+          <span style={{ fontSize: 11, color: '#888', alignSelf: 'center' }}>
+            Editing {activePath} — other path shown as ghost
+          </span>
+        </div>
+      )}
+
       <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
         <span style={{ fontSize: 11, color: '#666', lineHeight: 1.6 }}>
           <strong>Edit:</strong> Drag handles.&nbsp;
           <strong>Insert:</strong> Hover edge → click phantom dot.&nbsp;
-          <strong>Delete:</strong> Right-click or select (gold) + Delete.
+          <strong>Delete:</strong> Right-click or select (gold) + Delete.&nbsp;
+          <strong>Undo:</strong> Ctrl-Z.
         </span>
         <button
           onClick={() => setShowImport(v => !v)}
@@ -273,14 +425,50 @@ export default function ShapeLab() {
             onClick={handleSVGClick}
             onPointerLeave={() => setPhantomPoint(null)}
           >
-            {/* Ghost tooth reference (crown shapes only) */}
+            {/* Composite arch ghost — other 3 anatomy shapes when editing an arch/sinus shape */}
+            {isArch && Object.entries(archGhosts)
+              .filter(([id]) => id !== selectedId)
+              .map(([id, gs]) => {
+                const path = gs?.segments?.length ? shapeToPath(gs, W, H) : '';
+                return path ? (
+                  <path key={id} d={path} fill="none" stroke="#ccc" strokeWidth={1} opacity={0.5}
+                    transform={`translate(${CX}, ${CY})`} />
+                ) : null;
+              })
+            }
+
+            {/* Arch ghost behind partial denture */}
+            {archGhostShape && (() => {
+              const archPath = archGhostShape.segments?.length ? shapeToPath(archGhostShape, W, H) : '';
+              return archPath ? (
+                <path d={archPath} fill="none" stroke="#aac" strokeWidth={1} opacity={0.4}
+                  transform={`translate(${CX}, ${CY})`} />
+              ) : null;
+            })()}
+
+            {/* Ghost tooth reference — single tooth (crown shapes) */}
             {toothRef && (
               <g transform={`translate(${CX}, ${CY})`}>
                 <path d={toothRef.outline}  fill="#e8f0ff" stroke="#aac" strokeWidth={1} opacity={0.5} />
                 <path d={toothRef.cervical} fill="none"    stroke="#99b" strokeWidth={0.8} opacity={0.5} />
               </g>
             )}
-            {/* Shape path */}
+
+            {/* Ghost teeth for bridge span (3 adjacent teeth) */}
+            {bridgeGhosts && bridgeGhosts.map((gt, i) => (
+              <g key={i} transform={`translate(${gt.tx}, ${gt.ty})`}>
+                <path d={gt.outline}  fill="#e8f0ff" stroke="#aac" strokeWidth={1} opacity={0.4} />
+                <path d={gt.cervical} fill="none"    stroke="#99b" strokeWidth={0.8} opacity={0.4} />
+              </g>
+            ))}
+
+            {/* Inactive path ghost for tooth templates */}
+            {ghostPath && (
+              <path d={ghostPath} fill="none" stroke="#a78bfa" strokeWidth={1} strokeDasharray="4 3" opacity={0.5}
+                transform={`translate(${CX}, ${CY})`} />
+            )}
+
+            {/* Active shape path */}
             {shapePath && (
               <path
                 d={shapePath}
@@ -288,9 +476,11 @@ export default function ShapeLab() {
                 transform={`translate(${CX}, ${CY})`}
               />
             )}
+
             {/* Bezier handle lines */}
             {handleLines()}
-            {/* Draggable control point handles */}
+
+            {/* Draggable control points */}
             {shape.segments.flatMap((seg, idx) =>
               segHandles(seg).map(({ xField, yField, isAnchor }) => {
                 const [sx, sy] = toSVG(seg[xField], seg[yField]);
@@ -305,6 +495,7 @@ export default function ShapeLab() {
                 );
               })
             )}
+
             {/* Phantom insertion dot */}
             {phantomPoint && (
               <circle
@@ -317,15 +508,21 @@ export default function ShapeLab() {
         </div>
 
         <div style={{ flex: 1, minWidth: 280 }}>
-          <h3 style={{ margin: '0 0 8px' }}>Shape JSON — {shape.label}</h3>
+          <h3 style={{ margin: '0 0 8px' }}>
+            Shape JSON — {jsonPreview.label}
+            {isTooth && <span style={{ fontSize: 11, color: '#888', fontWeight: 400 }}> ({activePath} active)</span>}
+          </h3>
           <pre style={{ background: '#1e1e1e', color: '#d4d4d4', padding: 16, borderRadius: 8, overflow: 'auto', fontSize: 12, maxHeight: 420 }}>
-            {JSON.stringify(shape, null, 2)}
+            {JSON.stringify(jsonPreview, null, 2)}
           </pre>
           <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <button onClick={() => navigator.clipboard.writeText(JSON.stringify(shape, null, 2))}
+            <button onClick={() => navigator.clipboard.writeText(JSON.stringify(jsonPreview, null, 2))}
                     style={{ padding: '6px 14px', cursor: 'pointer' }}>Copy JSON</button>
             <button onClick={downloadJSON}
                     style={{ padding: '6px 14px', cursor: 'pointer' }}>Download JSON</button>
+            <button onClick={mirrorRight}
+                    style={{ padding: '6px 14px', cursor: 'pointer' }}
+                    title="Copy right half → mirror onto left half (symmetric cleanup)">Mirror right →</button>
             <label style={{ fontSize: 12, color: '#555' }}>
               Load: <input type="file" accept=".json" onChange={importFile} />
             </label>
@@ -335,6 +532,14 @@ export default function ShapeLab() {
               Arch shape — viewBox 1600×800, displayed at {W}×{H}px.<br/>
               Drag control points to edit. Download JSON and replace<br/>
               shapes-data/anatomy/{selectedId}.json to persist edits.
+            </p>
+          ) : isTooth ? (
+            <p style={{ fontSize: 11, color: '#888', marginTop: 12, lineHeight: 1.5 }}>
+              Tooth template — two paths (outline + cervical).<br/>
+              Download saves both paths together as {selectedId}.json.<br/>
+              Replace shapes-data/anatomy/teeth/{selectedId}.json to persist.<br/>
+              This template applies to all FDI positions that use it.<br/>
+              Left-side FDI positions are rendered as a mirror at runtime.
             </p>
           ) : (
             <p style={{ fontSize: 11, color: '#888', marginTop: 12, lineHeight: 1.5 }}>

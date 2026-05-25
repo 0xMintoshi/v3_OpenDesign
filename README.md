@@ -1,70 +1,72 @@
-# CODING AGENTS: READ THIS FIRST
+# v3hero — Interactive SVG Dental Chart
 
-> **Current status: Phase 0 complete — Vite build.** See [ROADMAP.md](ROADMAP.md) for the full phase plan.
+> **Current status: Phases 0–9 complete + naming refactor.** v3hero is feature-complete as a standalone app.
 
-## Running the app
+## Quick start
 
-```
+```bash
 npm install       # first time only
-npm run dev       # dev server at http://localhost:5173
-npm run build     # production build → dist/
-npm run preview   # serve the dist/ build locally
+npm run dev       # app → http://localhost:5173
+npm run lab       # Shape Lab → http://localhost:5173/lab.html
 ```
 
-Entry: `src/main.jsx` → `dental-arch.jsx`. Styles: `src/styles.css`.
+## Stack
 
-This folder is an interactive HTML/JSX prototype project. The active work is the dental hero treatment-planning prototype.
+- **Vite + React 18** — dev server, HMR, ESM build
+- **Vitest** — 111 unit tests (`npm run test`)
+- **Playwright** — 30 e2e tests (`npm run e2e`)
+- **Firebase / Firestore** — treatment state persistence
 
-## Current project context
+## All commands
 
-Before editing the prototype, read `PROJECT_PROGRESS.md`. It records the current Stage 1/Stage 2 UI state, the Stage 2 tooth-selection contract, the current treatment-addition rules, and the regression watchlist that must be preserved unless the user explicitly changes it.
+```bash
+npm run dev          # app dev server
+npm run build        # production build → dist/
+npm run preview      # serve dist/ locally
+npm run lab          # Shape Lab standalone editor
+npm run test         # Vitest unit tests (run once)
+npm run test:watch   # Vitest in watch mode
+npm run e2e          # Playwright end-to-end
+npm run lint         # ESLint — must be clean before committing
+npm run trace -- <image-path>  # CLI potrace wrapper
+```
 
-If the task touches treatment label manual placement, default coordinates, export/import, the Tweaks panel, dental illustration geometry, or current visual-treatment drawing decisions, also read `SESSION_SUMMARY.md`.
+## Architecture overview
 
-## Active files
+v3hero renders a full-mouth FDI dental chart with two independent layers:
 
-- `index.html` + `src/main.jsx` - Vite entry (replaces old `Dental Hero.html`).
-- `dental-arch.jsx` - Stage 1/Stage 2 state, tooth presence, treatment application/removal, popover wiring, live maxilla/sinus geometry, and FDI number placement.
-- `treatments.jsx` - treatment catalog, availability rules, popover cards, treatment labels, default label positions.
-- `tweaks-panel.jsx` - compact Tweaks menu, manual placement toggle/export, collapsed menu positioning.
-- `teeth-data.jsx` - tooth geometry and identifiers. Latest live geometry change: upper molars only (`molarUOutline`) now use the accepted diagnostic furcation/root form.
-- `anatomy.jsx` - standalone anatomy helper paths. Not the current hero source for the promoted maxilla/sinus geometry.
+1. **Anatomy layer** — teeth outlines, arch curves, sinus zones. Shape JSONs in `shapes-data/anatomy/`. Layout math (arch curve, FDI positions, angulation) stays parametric in `layout/teeth-data.jsx`.
+2. **Treatment layer** — SVG overlays applied per tooth/arch/sinus. Registered in `core/treatment-registry.js`. Shape JSONs in `shapes-data/treatments/`.
 
-`dental-hero-v2.html` is an older/responsive experiment. Do not treat it as canonical unless the user explicitly asks to switch to it.
+See **`docs/USER_GUIDE.md`** for the full architectural guide, Shape Lab walkthrough, and practical authoring workflows.
 
-## Current visual-treatment context
+## Key directories
 
-The user is now building toward a larger backend treatment database. Keep a separation between:
+```
+core/               # Treatment registry, chart context, Firestore service, themes
+layout/             # Anatomy rendering, tooth geometry, arch layout
+treatment-overlays/ # Treatment SVG overlay components
+shapes-data/
+  anatomy/          # Arch/sinus JSONs + tooth template JSONs (shapes-data/anatomy/teeth/)
+  treatments/       # Crown, bridge, denture JSONs
+lab/                # Shape Lab (standalone editor)
+scripts/            # normalize-svg.mjs, extract-tooth-shapes.mjs, trace-image.mjs
+docs/               # USER_GUIDE.md
+e2e/                # Playwright specs
+```
 
-- database treatments: clinical/product source of truth;
-- hero visual treatments: reusable SVG overlays in `treatments.jsx`;
-- final form treatments: detailed fields loaded after a visual treatment choice.
+## Shape Lab
 
-Do not assume every database treatment needs a unique arch visual. Many records should map to shared visual types.
+`npm run lab` opens a standalone control-point editor for authoring and refining shape JSONs. Features:
 
-Current visual backlog from the user:
+- Drag anchor points and Bézier handles
+- Insert / delete points
+- Undo (Ctrl+Z) and Mirror right → left
+- Composite view: editing an arch shape shows the other 3 anatomy shapes as ghosts
+- Two-path editing for tooth templates (Outline / Cervical tabs)
+- Import from image (clean trace or AI-assisted via Claude vision API)
+- Download JSON to replace source files
 
-- crown: only existing tooth or implant site;
-- bridge: multi-tooth span where every unit in the span draws a crown, including pontics over missing teeth;
-- partial denture: multi-select teeth, removable partial denture visual;
-- clear aligners: existing visual needs refinement;
-- extraction: replace the current red X with a cleaner clinical marker.
+## Next step
 
-Latest implant decision: the fitted implant redraw is now live. The successful pass used `implant-fit-diagnostic.html` first, then promoted the approved renderer into `treatments.jsx` as `FittedImplantOverlay`. The live implant now uses the full tooth object and real tooth transform (`cx`, `w`, `h`, `type`, `tilt`, `yOffset`, jaw flip, and `biteY`) instead of simplified `x/y/w/h` placement. The style direction still stands: blue outline, white interior, minimal detail, no gradients/metal/cream realism. Implant-only must continue to reuse the implant+crown fixture/collar anchor with the crown hidden.
-
-## Working rules
-
-- Read `Dental Hero.html` in full before changing UI or CSS, then follow its imported JSX modules.
-- Preserve the current Stage 2 selection contract unless the user explicitly changes it.
-- Keep changes small and focused. `dental-arch.jsx` and `treatments.jsx` share treatment behavior, so update both when a rule affects both availability and application.
-- For FDI number placement, preserve the current transform intent: anchor the label on the tooth's local angulated centerline, then counter-rotate/flip so the glyphs stay readable. Recheck upper and lower teeth because the mandibular jaw flip inverts local Y.
-- Sinus zones are currently unlabeled by design. Keep the shapes interactive, but do not re-add visible `MS`, `L`, or `R` labels unless requested.
-- Maxilla and mandible bone-level edges should both read as anatomical/scalloped rather than straight baselines.
-- For visual-treatment drawing, prototype in a separate draft/fit-preview file first, then promote the chosen SVG into `treatments.jsx`.
-- New overlays must fit each single tooth using tooth `cx`, `w`, `h`, `jaw`, `yOffset`, and when relevant `tilt`/natural tooth path geometry; test upper and lower orientation before shipping.
-- Do not promote implant/crown SVG edits until the user approves them inside the real hero context, not only in standalone draft boards.
-- For difficult treatment visuals, use the implant workflow as the model: inspect old plan/current production, identify the geometry source of truth, build a diagnostic with guides, tune one variable at a time, then promote only the approved renderer.
-- For dental illustration geometry, use the same diagnostic-first workflow. The current reference board is `dental-geometry-fit-diagnostic.html`; it reconstructed the current hero base before promoting only approved upper molar, maxilla, and sinus edits.
-- Do not promote mandible/IDN changes from the diagnostic unless the user explicitly approves them. The latest live push intentionally excluded mandible edits.
-- Do not overwrite user screenshots or older prototype variants unless explicitly asked.
-- This is a Vite/React app (Phase 0 complete). Run `npm run dev` to work on it. Syntax errors in any JSX module will surface as HMR errors in the browser console.
+Embed v3hero into the live Quotation App.
