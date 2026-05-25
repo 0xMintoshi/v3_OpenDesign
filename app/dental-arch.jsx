@@ -6,6 +6,8 @@ import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggl
 import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
 import { UIStateProvider, useUIState } from '../core/ui-context.jsx';
 import { useClinicTheme } from '../core/use-clinic-theme.js';
+import { useIsTablet } from '../layout/use-is-tablet.js';
+import { TabletChart } from '../layout/tablet-chart.jsx';
 
 const { useState, useEffect, useMemo, useCallback } = React;
 
@@ -1067,10 +1069,11 @@ function darkTheme() {
 
 function DentalHero() {
   const patientId = new URLSearchParams(window.location.search).get('patient') || undefined;
+  const isTablet = useIsTablet();
   return (
     <ChartStateProvider patientId={patientId}>
       <UIStateProvider>
-        <DentalHeroInner />
+        {isTablet ? <TabletChart /> : <DentalHeroInner />}
       </UIStateProvider>
     </ChartStateProvider>
   );
