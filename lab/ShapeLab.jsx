@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { toothPaths } from '../layout/teeth-data.jsx';
+import { toothPaths, UPPER, LOWER, layoutArch } from '../layout/teeth-data.jsx';
 import { shapeToPath } from '../treatment-overlays/shapes.jsx';
 import { useShapeEditor } from './useShapeEditor.js';
 import { ControlPoint } from './ControlPoint.jsx';
@@ -50,41 +50,48 @@ const TREATMENT_SHAPES = {
     loader: () => import('../shapes-data/treatments/crown-molar-upper.json'),
     w: 38, h: 88,
     toothRef: 'molarU',
+    jaw: 'upper',
   },
   'crown-molar-lower': {
     label: 'Lower Molar Crown',
     loader: () => import('../shapes-data/treatments/crown-molar-lower.json'),
     w: 36, h: 86,
     toothRef: 'molarL',
+    jaw: 'lower',
   },
   'crown-premolar-upper': {
     label: 'Upper Premolar Crown',
     loader: () => import('../shapes-data/treatments/crown-premolar-upper.json'),
     w: 26, h: 82,
     toothRef: 'premolar',
+    jaw: 'upper',
   },
   'crown-incisor-upper': {
     label: 'Upper Incisor Crown',
     loader: () => import('../shapes-data/treatments/crown-incisor-upper.json'),
     w: 28, h: 88,
     toothRef: 'incisor',
+    jaw: 'upper',
   },
   'bridge-span': {
     label: 'Bridge Span (pontic)',
     loader: () => import('../shapes-data/treatments/bridge-span.json'),
     w: 76, h: 88,
+    jaw: 'upper',
     ghostContext: { teeth: ['molarU', 'premolar', 'molarU'], arch: null },
   },
   'partial-denture-upper': {
     label: 'Partial Denture (Upper)',
     loader: () => import('../shapes-data/treatments/partial-denture-upper.json'),
     w: 800, h: 400,
+    jaw: 'upper',
     ghostContext: { teeth: null, arch: 'arch-maxilla' },
   },
   'partial-denture-lower': {
     label: 'Partial Denture (Lower)',
     loader: () => import('../shapes-data/treatments/partial-denture-lower.json'),
     w: 800, h: 400,
+    jaw: 'lower',
     ghostContext: { teeth: null, arch: 'arch-mandible' },
   },
 };
@@ -94,11 +101,38 @@ const ALL_SHAPES = { ...ANATOMY_ARCH_SHAPES, ...ANATOMY_TEETH_SHAPES, ...TREATME
 const ARCH_SHAPE_IDS = new Set(Object.keys(ANATOMY_ARCH_SHAPES));
 const TOOTH_SHAPE_IDS = new Set(Object.keys(ANATOMY_TEETH_SHAPES));
 
+const ARCH_JAW = {
+  'arch-maxilla':     'upper',
+  'arch-sinus-right': 'upper',
+  'arch-sinus-left':  'upper',
+  'arch-mandible':    'lower',
+};
+
+function buildArchTeethGhosts(jaw, W, H, CX, CY) {
+  const arch = jaw === 'upper' ? UPPER : LOWER;
+  const biteY = jaw === 'upper' ? CY + H * 0.83 : CY + H * 0.17;
+  const scale = 0.85;
+  const laid = layoutArch(arch, CX + W / 2, scale, { gap: 3, archDepth: 20 });
+  return laid.map(t => {
+    const tw = t.w * scale, th = t.h * scale;
+    const paths = toothPaths(t.type, tw, th);
+    const tx = t.cx;
+    const ty = biteY + t.yOffset;
+    const scaleY = jaw === 'lower' ? -1 : 1;
+    const scaleX = t.side === 'left' ? -1 : 1;
+    return { outline: paths.outline, cervical: paths.cervical, tx, ty, tilt: t.tilt, scaleX, scaleY };
+  });
+}
+
 const DEFAULT_SHAPE_ID = 'crown-molar-upper';
 const LOADING_SHAPE = { id: 'loading', label: 'Loading…', segments: [] };
 
+const MIN_ZOOM = 0.5, MAX_ZOOM = 5.0, ZOOM_STEP = 0.25;
+
 export default function ShapeLab() {
   const svgRef = useRef(null);
+  const containerRef = useRef(null);
+  const [zoom, setZoom] = useState(1.0);
   const [selectedId, setSelectedId] = useState(DEFAULT_SHAPE_ID);
   const [initialShape, setInitialShape] = useState(null);
   const [phantomPoint, setPhantomPoint] = useState(null);
@@ -118,10 +152,12 @@ export default function ShapeLab() {
 
   const isArch = ARCH_SHAPE_IDS.has(selectedId);
   const isTooth = TOOTH_SHAPE_IDS.has(selectedId);
-  const CANVAS_W = isArch ? Math.min(W + 40, 1000) : 400;
-  const CANVAS_H = isArch ? H + 40 : 380;
-  const CX = isArch ? 20 : 200;
-  const CY = isArch ? 20 : 130;
+  const isTreatment = !isArch && !isTooth;
+  // Arch and treatment shapes use arch-sized canvas so anatomy context fits.
+  const CANVAS_W = (isArch || isTreatment) ? 840 : 400;
+  const CANVAS_H = (isArch || isTreatment) ? 440 : 380;
+  const CX = isArch ? 20 : (isTreatment ? 20 : 200);
+  const CY = isArch ? 20 : (isTreatment ? 20 : 130);
 
   // Load the selected shape
   useEffect(() => {
@@ -234,9 +270,23 @@ export default function ShapeLab() {
 
   const ghostPath = inactivePathGhost();
 
+  // Ctrl+scroll zoom
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    function handleWheel(e) {
+      if (!e.ctrlKey && !e.metaKey) return;
+      e.preventDefault();
+      setZoom(z => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM,
+        z + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP))));
+    }
+    el.addEventListener('wheel', handleWheel, { passive: false });
+    return () => el.removeEventListener('wheel', handleWheel);
+  }, []);
+
   function svgCoords(e) {
     const r = svgRef.current.getBoundingClientRect();
-    return [e.clientX - r.left, e.clientY - r.top];
+    return [(e.clientX - r.left) / zoom, (e.clientY - r.top) / zoom];
   }
 
   function handleDown(segIdx, xField, yField) {
@@ -416,10 +466,22 @@ export default function ShapeLab() {
 
       <div style={{ display: 'flex', gap: 24, flexWrap: 'wrap' }}>
         <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6 }}>
+            <button onClick={() => setZoom(z => Math.max(MIN_ZOOM, z - ZOOM_STEP))}
+                    style={{ padding: '2px 10px', cursor: 'pointer', fontSize: 14 }}>−</button>
+            <span style={{ fontSize: 12, minWidth: 36, textAlign: 'center' }}>{zoom.toFixed(2)}×</span>
+            <button onClick={() => setZoom(z => Math.min(MAX_ZOOM, z + ZOOM_STEP))}
+                    style={{ padding: '2px 10px', cursor: 'pointer', fontSize: 14 }}>+</button>
+            <button onClick={() => setZoom(1.0)}
+                    style={{ padding: '2px 8px', cursor: 'pointer', fontSize: 11, color: '#666' }}>Reset</button>
+          </div>
+          <div ref={containerRef} style={{ overflow: 'auto', maxWidth: '100%', maxHeight: '80vh' }}>
           <svg
             ref={svgRef}
-            width={CANVAS_W} height={CANVAS_H}
-            style={{ background: '#fff', border: '1px solid #ccc', borderRadius: 8, display: 'block' }}
+            width={CANVAS_W * zoom} height={CANVAS_H * zoom}
+            style={{ background: '#fff', border: '1px solid #ccc', borderRadius: 8, display: 'block',
+                     transform: `scale(${zoom})`, transformOrigin: 'top left',
+                     width: CANVAS_W * zoom, height: CANVAS_H * zoom }}
             onPointerMove={handlePointerMove}
             onPointerUp={handlePointerUp}
             onClick={handleSVGClick}
@@ -436,6 +498,42 @@ export default function ShapeLab() {
                 ) : null;
               })
             }
+
+            {/* Teeth ghosts for arch/sinus editing */}
+            {isArch && (() => {
+              const jaw = ARCH_JAW[selectedId];
+              return buildArchTeethGhosts(jaw, W, H, CX, CY).map((g, i) => (
+                <g key={i} transform={`translate(${g.tx},${g.ty}) rotate(${g.tilt}) scale(${g.scaleX},${g.scaleY})`}>
+                  <path d={g.outline}  fill="#e8f0ff" stroke="#aac" strokeWidth={0.8} opacity={0.3} />
+                  <path d={g.cervical} fill="none"    stroke="#99b" strokeWidth={0.6} opacity={0.3} />
+                </g>
+              ));
+            })()}
+
+            {/* Full anatomy background for crown/bridge/treatment editing */}
+            {isTreatment && !meta.ghostContext?.arch && (() => {
+              const jaw = meta.jaw;
+              if (!jaw) return null;
+              const archId = jaw === 'upper' ? 'arch-maxilla' : 'arch-mandible';
+              const sinusIds = jaw === 'upper' ? ['arch-sinus-right', 'arch-sinus-left'] : [];
+              const archW = 800, archH = 400, archCX = 20, archCY = 20;
+              return (<>
+                {[archId, ...sinusIds].map(id => {
+                  const gs = archGhosts[id];
+                  const path = gs?.segments?.length ? shapeToPath(gs, archW, archH) : '';
+                  return path ? (
+                    <path key={id} d={path} fill="none" stroke="#ccc" strokeWidth={1} opacity={0.4}
+                      transform={`translate(${archCX},${archCY})`} />
+                  ) : null;
+                })}
+                {buildArchTeethGhosts(jaw, archW, archH, archCX, archCY).map((g, i) => (
+                  <g key={i} transform={`translate(${g.tx},${g.ty}) rotate(${g.tilt}) scale(${g.scaleX},${g.scaleY})`}>
+                    <path d={g.outline}  fill="#e8f0ff" stroke="#aac" strokeWidth={0.8} opacity={0.25} />
+                    <path d={g.cervical} fill="none"    stroke="#99b" strokeWidth={0.6} opacity={0.25} />
+                  </g>
+                ))}
+              </>);
+            })()}
 
             {/* Arch ghost behind partial denture */}
             {archGhostShape && (() => {
@@ -505,6 +603,7 @@ export default function ShapeLab() {
               />
             )}
           </svg>
+          </div>
         </div>
 
         <div style={{ flex: 1, minWidth: 280 }}>
