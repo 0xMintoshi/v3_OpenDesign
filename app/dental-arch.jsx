@@ -3,6 +3,7 @@ import { shapeRangeToPath } from '../core/shapes.js';
 import archMaxilla from '../shapes-data/anatomy/arch-maxilla.json';
 import archMandible from '../shapes-data/anatomy/arch-mandible.json';
 import { TOOTH_TYPES, QUADRANT, UPPER, LOWER, layoutArch, toothPaths } from '../layout/teeth-data.jsx';
+import { chRatioFor, scallopRL, scallopLR } from '../core/arch-math.js';
 import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnCanalPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from '../layout/anatomy.jsx';
 import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog, exportLabelPositions } from './treatments.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
@@ -174,13 +175,6 @@ const ANATOMY_INFO = {
   'sinus-left': { name: 'Left Maxillary Sinus', side: 'left', code: 'MS-L' }
 };
 
-function chRatioFor(type) {
-  if (type === 'wisdomU' || type === 'wisdomL') return 0.46;
-  if (type === 'molarU' || type === 'molarL') return 0.40;
-  if (type === 'premolar' || type === 'premolar1') return 0.36;
-  return 0.34;
-}
-
 // Cervical (crown–root junction) screen-y for each tooth in the arch.
 // Accounts for per-tooth yOffset (arch curvature) and jaw orientation.
 function cervicalPoints(teeth, biteY, jaw) {
@@ -193,38 +187,15 @@ function cervicalPoints(teeth, biteY, jaw) {
   });
 }
 
+export { cervicalPoints, chRatioFor, scallopRL, scallopLR };
+
 // Build a bone outline path. Bottom (maxilla) / top (mandible) edge scallops
 // along the cervical line of every tooth; far edge is a soft rectangle.
 function bonePath(cervical, jaw, farY) {
   if (!cervical.length) return '';
   const peakDir = jaw === 'upper' ? -1 : 1; // gap dip direction (away from bite)
-  const peakDepth = 4;
   const first = cervical[0];
   const last = cervical[cervical.length - 1];
-
-  // Scallop R→L: traces from rightmost tooth to leftmost, ending at first.x, first.y
-  const scallopRL = () => {
-    let s = '';
-    for (let i = cervical.length - 2; i >= 0; i--) {
-      const p = cervical[i],n = cervical[i + 1];
-      const mx = (p.x + n.x) / 2;
-      const my = (p.y + n.y) / 2 + peakDir * peakDepth;
-      s += `Q ${mx} ${my} ${p.x} ${p.y} `;
-    }
-    return s;
-  };
-
-  // Scallop L→R: traces from leftmost tooth to rightmost, ending at last.x, last.y
-  const scallopLR = () => {
-    let s = '';
-    for (let i = 1; i < cervical.length; i++) {
-      const p = cervical[i], prev = cervical[i - 1];
-      const mx = (prev.x + p.x) / 2;
-      const my = (prev.y + p.y) / 2 + peakDir * peakDepth;
-      s += `Q ${mx} ${my} ${p.x} ${p.y} `;
-    }
-    return s;
-  };
 
   if (jaw === 'upper') {
     // Open-arc JSON: sub-path 1 = M(top) → patient-R-side → patient-R-cervical (SVG left, near first).
@@ -241,7 +212,7 @@ function bonePath(cervical, jaw, farY) {
       ${sub1}
       L ${first.x - first.w * 0.5} ${first.y}
       L ${first.x} ${first.y}
-      ${scallopLR()}
+      ${scallopLR(cervical, -1)}
       L ${last.x + last.w * 0.5} ${last.y}
       L ${lSx} ${lSy}
       ${sub2}
@@ -257,7 +228,7 @@ function bonePath(cervical, jaw, farY) {
     ${mandBody}
     L ${last.x + last.w * 0.5} ${last.y}
     L ${last.x} ${last.y}
-    ${scallopRL()}
+    ${scallopRL(cervical, 1)}
     L ${first.x - first.w * 0.5} ${first.y}
     Z
   `;
@@ -296,6 +267,7 @@ function buildSinus(cervical, startIdx, endIdx, ceilingY) {
 // ====================================================================
 function AnatomyBackground({
   accent, hoveredId, onHover, onSelect, showSinus, showIDN,
+  idnCurvature = 0.5, idnLength = 0.5,
   stage, onArchClick, upperTeeth, lowerTeeth, upperBiteY, lowerBiteY
 }) {
   const isHov = (id) => hoveredId === id;
@@ -371,7 +343,7 @@ function AnatomyBackground({
 
       {/* IDN nerve — inside mandible */}
       {showIDN && ['right', 'left'].map((side) => {
-        const path = idnSchematicPath(side);
+        const path = idnSchematicPath(side, { curvature: idnCurvature, length: idnLength });
         return (
           <g key={`idn-${side}`} style={{ pointerEvents: 'none' }}>
             <path d={path} stroke="var(--anatomy-stroke)" strokeWidth="3.5" fill="none"
@@ -381,7 +353,7 @@ function AnatomyBackground({
           </g>);
 
       })}
-      {showIDN && mentalForamenCenters().map(({ cx, cy, side }) =>
+      {showIDN && mentalForamenCenters({ length: idnLength }).map(({ cx, cy, side }) =>
       <circle key={`foramen-${side}`} cx={cx} cy={cy} r="3.5"
       fill="var(--bg-0)" stroke="var(--anatomy-stroke)" strokeWidth="1.1"
       opacity="0.85" style={{ pointerEvents: 'none' }} />
@@ -435,6 +407,8 @@ const DEFAULT_TWEAKS = /*EDITMODE-BEGIN*/{
   "accent": "#2A6FDB",
   "showSinus": true,
   "showIDN": true,
+  "idnCurvature": 0.5,
+  "idnLength": 0.5,
   "showNumbering": true,
   "showLeaders": true,
   "showLayoutGuides": false,
@@ -798,6 +772,8 @@ function DentalHeroInner() {
             onSelect={handleAnatomySelect}
             showSinus={t.showSinus}
             showIDN={t.showIDN}
+            idnCurvature={t.idnCurvature}
+            idnLength={t.idnLength}
             stage={stage}
             onArchClick={handleArchClick}
             upperTeeth={scaledUpper}
@@ -974,6 +950,10 @@ function DentalHeroInner() {
         <TweakSection label="Anatomy">
           <TweakToggle label="Sinus Zones" value={t.showSinus} onChange={(v) => setTweak('showSinus', v)} />
           <TweakToggle label="ID Nerve" value={t.showIDN} onChange={(v) => setTweak('showIDN', v)} />
+          {t.showIDN && <>
+            <TweakSlider label="IDN Curve" value={t.idnCurvature} min={0} max={1} step={0.05} onChange={(v) => setTweak('idnCurvature', v)} />
+            <TweakSlider label="IDN Length" value={t.idnLength} min={0} max={1} step={0.05} onChange={(v) => setTweak('idnLength', v)} />
+          </>}
         </TweakSection>
       </TweaksPanel>
       {exportJson && (

@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { toothPaths, UPPER, LOWER, layoutArch } from '../layout/teeth-data.jsx';
 import { shapeToPath } from '../treatment-overlays/shapes.jsx';
+import { scallopLR, scallopRL, chRatioFor } from '../core/arch-math.js';
 import { useShapeEditor } from './useShapeEditor.js';
 import { ControlPoint } from './ControlPoint.jsx';
 import { nearestOnSegments } from './bezier-utils.js';
@@ -107,6 +108,23 @@ const ARCH_JAW = {
   'arch-sinus-left':  'upper',
   'arch-mandible':    'lower',
 };
+
+// Compute cervical-line points for each tooth in the arch, in ShapeLab canvas space.
+// Returns array of {x, y, w} sorted L→R, suitable for scallopLR / scallopRL.
+function buildArchCervicalPoints(jaw, W, H, CX, CY) {
+  const arch = jaw === 'upper' ? UPPER : LOWER;
+  const biteY = jaw === 'upper' ? CY + H * 0.83 : CY + H * 0.17;
+  const scale = 0.85;
+  const laid = layoutArch(arch, CX + W / 2, scale, { gap: 3, archDepth: 20 });
+  const points = laid.map(t => {
+    const th = t.h * scale;
+    const ch = th * chRatioFor(t.type);
+    const yo = t.yOffset || 0;
+    const y = jaw === 'upper' ? biteY + yo - ch : biteY - yo + ch;
+    return { x: t.cx, y, w: t.w * scale };
+  });
+  return points.sort((a, b) => a.x - b.x);
+}
 
 function buildArchTeethGhosts(jaw, W, H, CX, CY) {
   const arch = jaw === 'upper' ? UPPER : LOWER;
@@ -514,12 +532,25 @@ export default function ShapeLab() {
             {/* Teeth ghosts for arch/sinus editing */}
             {isArch && (() => {
               const jaw = ARCH_JAW[selectedId];
-              return buildArchTeethGhosts(jaw, W, H, CX, CY).map((g, i) => (
-                <g key={i} transform={`translate(${g.tx},${g.ty}) rotate(${g.tilt}) scale(${g.scaleX},${g.scaleY})`}>
-                  <path d={g.outline}  fill="#e8f0ff" stroke="#aac" strokeWidth={0.8} opacity={0.3} />
-                  <path d={g.cervical} fill="none"    stroke="#99b" strokeWidth={0.6} opacity={0.3} />
-                </g>
-              ));
+              const ghosts = buildArchTeethGhosts(jaw, W, H, CX, CY);
+              const cerv = buildArchCervicalPoints(jaw, W, H, CX, CY);
+              const peakDir = jaw === 'upper' ? -1 : 1;
+              const scallopStr = cerv.length > 1
+                ? `M ${cerv[0].x} ${cerv[0].y} ` + (jaw === 'upper' ? scallopLR(cerv, peakDir) : scallopRL(cerv, peakDir))
+                : '';
+              return (<>
+                {ghosts.map((g, i) => (
+                  <g key={i} transform={`translate(${g.tx},${g.ty}) rotate(${g.tilt}) scale(${g.scaleX},${g.scaleY})`}>
+                    <path d={g.outline}  fill="#e8f0ff" stroke="#aac" strokeWidth={0.8} opacity={0.3} />
+                    <path d={g.cervical} fill="none"    stroke="#99b" strokeWidth={0.6} opacity={0.3} />
+                  </g>
+                ))}
+                {scallopStr && (
+                  <path d={scallopStr} fill="none" stroke="#f59e0b" strokeWidth={1.2}
+                    strokeDasharray="4 3" opacity={0.7} pointerEvents="none"
+                    transform={`translate(${CX},${CY})`} />
+                )}
+              </>);
             })()}
 
             {/* Full anatomy background for crown/bridge/treatment editing */}
