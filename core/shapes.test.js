@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { shapeToPath } from './shapes.js';
+import { shapeToPath, shapeRangeToPath } from './shapes.js';
 
 describe('shapeToPath', () => {
   it('renders M segment', () => {
@@ -31,6 +31,33 @@ describe('shapeToPath', () => {
     const d = shapeToPath(json.default ?? json, 38, 88);
     expect(d).toContain('M');
     expect(d).toContain('Z');
+  });
+});
+
+describe('shapeRangeToPath', () => {
+  const shape = {
+    segments: [
+      { type: 'M', x: 0.1, y: 0.2 },
+      { type: 'L', x: 0.3, y: 0.4 },
+      { type: 'Q', x1: 0.5, y1: 0.6, x: 0.7, y: 0.8 },
+      { type: 'Z' },
+    ],
+  };
+
+  it('full range equals shapeToPath minus Z', () => {
+    const full = shapeRangeToPath(shape, 100, 100, 0, 2);
+    expect(full).toBe('M 10.00 20.00 L 30.00 40.00 Q 50.00 60.00 70.00 80.00');
+  });
+
+  it('mid-range suppresses leading M', () => {
+    const mid = shapeRangeToPath(shape, 100, 100, 1, 2);
+    expect(mid).toMatch(/^L /);
+    expect(mid).not.toContain('M');
+  });
+
+  it('single-seg range from idx 0 includes M', () => {
+    const s = shapeRangeToPath(shape, 100, 100, 0, 0);
+    expect(s).toBe('M 10.00 20.00');
   });
 });
 

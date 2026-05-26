@@ -1,4 +1,6 @@
 import React from 'react';
+import { shapeRangeToPath } from '../core/shapes.js';
+import archMaxilla from '../shapes-data/anatomy/arch-maxilla.json';
 import { TOOTH_TYPES, QUADRANT, UPPER, LOWER, layoutArch, toothPaths } from '../layout/teeth-data.jsx';
 import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnCanalPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from '../layout/anatomy.jsx';
 import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog, exportLabelPositions } from './treatments.jsx';
@@ -226,6 +228,33 @@ function bonePath(cervical, jaw, farY) {
   };
 
   if (jaw === 'upper') {
+    const span = archMaxilla.innerEdgeSpan;
+    if (span) {
+      // JSON outer arch + dynamic cervical scallop.
+      // arch-maxilla.json segs [0..span[0]-1] = outer R side from top to R-bottom corner.
+      // segs [span[1]+1..end-1] = outer L side from L-bottom corner back to top. Z excluded.
+      const lastIdx = archMaxilla.segments.length - 2; // exclude Z
+      const outerR = shapeRangeToPath(archMaxilla, 1600, 800, 0, span[0] - 1);
+      const outerL = shapeRangeToPath(archMaxilla, 1600, 800, span[1] + 1, lastIdx);
+      // Bridge endpoints: JSON R-bottom corner endpoint, then L-bottom corner start
+      const rCornerSeg = archMaxilla.segments[span[0] - 1];
+      const rCx = (rCornerSeg.x * 1600).toFixed(2);
+      const rCy = (rCornerSeg.y * 800).toFixed(2);
+      const lStartSeg = archMaxilla.segments[span[1] + 1];
+      const lSx = (lStartSeg.x * 1600).toFixed(2);
+      const lSy = (lStartSeg.y * 800).toFixed(2);
+      return `
+        ${outerR}
+        L ${last.x + last.w * 0.5} ${last.y}
+        L ${last.x} ${last.y}
+        ${scallopRL()}
+        L ${first.x - first.w * 0.5} ${first.y}
+        L ${lSx} ${lSy}
+        ${outerL}
+        Z
+      `;
+    }
+    // Fallback: procedural outline (no innerEdgeSpan on JSON)
     const leftFloor = first.y;
     const rightFloor = last.y;
     return `
