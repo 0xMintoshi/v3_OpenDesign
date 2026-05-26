@@ -214,9 +214,22 @@ function bonePath(cervical, jaw, farY) {
     return s;
   };
 
+  // Scallop L→R: traces from leftmost tooth to rightmost, ending at last.x, last.y
+  const scallopLR = () => {
+    let s = '';
+    for (let i = 1; i < cervical.length; i++) {
+      const p = cervical[i], prev = cervical[i - 1];
+      const mx = (prev.x + p.x) / 2;
+      const my = (prev.y + p.y) / 2 + peakDir * peakDepth;
+      s += `Q ${mx} ${my} ${p.x} ${p.y} `;
+    }
+    return s;
+  };
+
   if (jaw === 'upper') {
-    // Open-arc JSON: sub-path 1 = M(top) → R-side → R-cervical; sub-path 2 = M(L-cervical) → L-side → top.
-    // Find the mid-M (second M in segments) — it marks the L-cervical jump point.
+    // Open-arc JSON: sub-path 1 = M(top) → patient-R-side → patient-R-cervical (SVG left, near first).
+    //                sub-path 2 = M(patient-L-cervical, SVG right, near last) → patient-L-side → top.
+    // Bridge: sub1 ends near first → scallopLR (first→last) → sub2 M point (near last).
     const segs = archMaxilla.segments;
     const midMIdx = segs.findIndex((s, i) => i > 0 && s.type === 'M');
     const sub1 = shapeRangeToPath(archMaxilla, 1600, 800, 0, midMIdx - 1);
@@ -226,10 +239,10 @@ function bonePath(cervical, jaw, farY) {
     const lSy = (ms.y * 800).toFixed(2);
     return `
       ${sub1}
-      L ${last.x + last.w * 0.5} ${last.y}
-      L ${last.x} ${last.y}
-      ${scallopRL()}
       L ${first.x - first.w * 0.5} ${first.y}
+      L ${first.x} ${first.y}
+      ${scallopLR()}
+      L ${last.x + last.w * 0.5} ${last.y}
       L ${lSx} ${lSy}
       ${sub2}
       Z
