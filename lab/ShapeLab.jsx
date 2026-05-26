@@ -138,6 +138,7 @@ export default function ShapeLab() {
   const [phantomPoint, setPhantomPoint] = useState(null);
   const [selectedSegIdx, setSelectedSegIdx] = useState(null);
   const [showImport, setShowImport] = useState(false);
+  const [showPoints, setShowPoints] = useState(true);
 
   // For two-path tooth templates
   const [activePath, setActivePath] = useState('outline'); // 'outline' | 'cervical'
@@ -189,7 +190,7 @@ export default function ShapeLab() {
     });
   }, []);
 
-  const [shape, setShape, { onPointerDown, onPointerMove, onPointerUp, insertPoint, deletePoint, isDragging, undo, mirrorAcrossX }] =
+  const [shape, setShape, { onPointerDown, onPointerMove, onPointerUp, insertPoint, deletePoint, isDragging, undo }] =
     useShapeEditor(initialShape ?? LOADING_SHAPE, W, H);
 
   useEffect(() => {
@@ -231,6 +232,10 @@ export default function ShapeLab() {
         e.preventDefault();
         undo();
         setSelectedSegIdx(null);
+      }
+      if (e.key === 'h' || e.key === 'H') {
+        e.preventDefault();
+        setShowPoints(v => !v);
       }
     }
     window.addEventListener('keydown', handleKeyDown);
@@ -301,7 +306,7 @@ export default function ShapeLab() {
   function handlePointerMove(e) {
     const [sx, sy] = svgCoords(e);
     onPointerMove(sx, sy);
-    if (!isDragging()) {
+    if (!isDragging() && showPoints) {
       const hit = nearestOnSegments(shape.segments, sx, sy, W, H, CX, CY);
       setPhantomPoint(hit);
     } else {
@@ -453,6 +458,13 @@ export default function ShapeLab() {
           <strong>Undo:</strong> Ctrl-Z.
         </span>
         <button
+          onClick={() => setShowPoints(v => !v)}
+          style={{ padding: '4px 12px', cursor: 'pointer', fontSize: 12, background: showPoints ? undefined : '#374151', color: showPoints ? undefined : '#fff', borderRadius: 4 }}
+          title="Toggle control point dots (H)"
+        >
+          {showPoints ? 'Hide Dots' : 'Show Dots'}
+        </button>
+        <button
           onClick={() => setShowImport(v => !v)}
           style={{ padding: '4px 12px', cursor: 'pointer', fontSize: 12, background: showImport ? '#3b82f6' : undefined, color: showImport ? '#fff' : undefined, borderRadius: 4 }}
         >
@@ -576,10 +588,10 @@ export default function ShapeLab() {
             )}
 
             {/* Bezier handle lines */}
-            {handleLines()}
+            {showPoints && handleLines()}
 
             {/* Draggable control points */}
-            {shape.segments.flatMap((seg, idx) =>
+            {showPoints && shape.segments.flatMap((seg, idx) =>
               segHandles(seg).map(({ xField, yField, isAnchor }) => {
                 const [sx, sy] = toSVG(seg[xField], seg[yField]);
                 return (
@@ -595,7 +607,7 @@ export default function ShapeLab() {
             )}
 
             {/* Phantom insertion dot */}
-            {phantomPoint && (
+            {showPoints && phantomPoint && (
               <circle
                 cx={phantomPoint.px} cy={phantomPoint.py} r={5}
                 fill="rgba(34,197,94,0.6)" stroke="#16a34a" strokeWidth={1.5}
@@ -619,12 +631,6 @@ export default function ShapeLab() {
                     style={{ padding: '6px 14px', cursor: 'pointer' }}>Copy JSON</button>
             <button onClick={downloadJSON}
                     style={{ padding: '6px 14px', cursor: 'pointer' }}>Download JSON</button>
-            <button onClick={() => mirrorAcrossX('left')}
-                    style={{ padding: '6px 14px', cursor: 'pointer' }}
-                    title="Copy patient-L (screen-right) → mirror onto patient-R (screen-left)">Mirror patient-L → R</button>
-            <button onClick={() => mirrorAcrossX('right')}
-                    style={{ padding: '6px 14px', cursor: 'pointer' }}
-                    title="Copy patient-R (screen-left) → mirror onto patient-L (screen-right)">Mirror patient-R → L</button>
             <label style={{ fontSize: 12, color: '#555' }}>
               Load: <input type="file" accept=".json" onChange={importFile} />
             </label>

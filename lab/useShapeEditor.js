@@ -1,6 +1,5 @@
 import { useState, useCallback, useRef } from 'react';
 import { splitSegmentAt } from './bezier-utils.js';
-import { mirrorSegments } from './mirrorSegments.js';
 
 const HISTORY_LIMIT = 50;
 
@@ -12,7 +11,6 @@ const HISTORY_LIMIT = 50;
 // handlers.deletePoint(segIdx)
 // handlers.isDragging()
 // handlers.undo()         — revert last committed state
-// handlers.mirrorAcrossX(sourceSide)  — mirror 'left'|'right' half onto the other
 export function useShapeEditor(initial, w, h) {
   const [shape, setShapeRaw] = useState(initial);
   const drag = useRef(null);
@@ -89,17 +87,7 @@ export function useShapeEditor(initial, w, h) {
     setShapeRaw(s => ({ ...s, segments: prev }));
   }, []);
 
-  const mirrorAcrossX = useCallback((sourceSide /* 'left' | 'right' */) => {
-    setShapeRaw(prev => {
-      // snapshot BEFORE mutation so undo restores pre-mirror state
-      snapshot(prev.segments);
-      const segs = prev.segments;
-      const centerX = prev.centerX ?? (segs.some(s => s.x !== undefined && s.x < 0) ? 0 : 0.5);
-      return { ...prev, segments: mirrorSegments(segs, sourceSide, centerX) };
-    });
-  }, []);
-
-  return [shape, setShape, { onPointerDown, onPointerMove, onPointerUp, insertPoint, deletePoint, isDragging, undo, mirrorAcrossX }];
+  return [shape, setShape, { onPointerDown, onPointerMove, onPointerUp, insertPoint, deletePoint, isDragging, undo }];
 }
 
 function round(n) { return Math.round(n * 1000) / 1000; }
