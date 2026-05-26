@@ -1,4 +1,4 @@
-// Anatomical paths — maxilla, mandible, nasal cavity, IDN canal.
+// Anatomical paths — maxilla, mandible, nasal cavity, IDN canal. (arch-maxilla v2)
 // Maxilla, mandible, and sinus zones are control-point shapes from shapes-data/.
 // All others remain as hardcoded strings in the 1600×800 viewBox.
 

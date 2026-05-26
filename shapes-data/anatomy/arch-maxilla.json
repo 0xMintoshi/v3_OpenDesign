@@ -1,39 +1,26 @@
 {
   "id": "arch-maxilla",
   "label": "Maxilla (Upper Jaw)",
-  "version": 2,
+  "version": 3,
   "archType": "maxilla",
   "centerX": 0.5,
-  "innerEdgeSpan": [12, 13],
-  "note": "Coords normalized to 1600×800 viewBox. x = rawX/1600, y = rawY/800. Patient-R (segs 2–12) hand-edited; patient-L (segs 13–23) is a pure x→1-x mirror of segs 12→2 in reverse traversal order. No runtime mirrorAcrossX needed.",
+  "openArc": true,
+  "note": "Open arc — outer perimeter only. No bottom edge; that is closed at render time by the cervical scallop in bonePath(). Two sub-paths: sub-path 1 = M(top) → R-side → R-cervical; sub-path 2 = M(L-cervical) → L-side → top. bonePath() finds the mid-M by scanning for the second M, bridges via L commands into/out of scallopRL(). Mirror workflow: mirror each sub-path independently; keep the mid-M endpoint at cervical-level y on both sides.",
   "segments": [
     { "type": "M",  "x": 0.5,    "y": 0.1   },
 
     { "type": "Q",  "x1": 0.438, "y1": 0.1,   "x": 0.338, "y": 0.088 },
-    { "type": "Q",  "x1": 0.177, "y1": 0.074, "x": 0.128, "y": 0.114 },
-    { "type": "Q",  "x1": 0.113, "y1": 0.136, "x": 0.112, "y": 0.155 },
-    { "type": "Q",  "x1": 0.109, "y1": 0.2,   "x": 0.109, "y": 0.221 },
-    { "type": "Q",  "x1": 0.093, "y1": 0.232, "x": 0.087, "y": 0.267 },
-    { "type": "L",  "x": 0.08,   "y": 0.322  },
-    { "type": "L",  "x": 0.084,  "y": 0.366  },
-    { "type": "L",  "x": 0.1,    "y": 0.405  },
-    { "type": "L",  "x": 0.119,  "y": 0.428  },
-    { "type": "L",  "x": 0.143,  "y": 0.438  },
+    { "type": "Q",  "x1": 0.218, "y1": 0.076, "x": 0.194, "y": 0.068 },
+    { "type": "Q",  "x1": 0.157, "y1": 0.065, "x": 0.132, "y": 0.106 },
+    { "type": "Q",  "x1": 0.086, "y1": 0.191, "x": 0.115, "y": 0.323 },
+    { "type": "Q",  "x1": 0.13,  "y1": 0.408, "x": 0.172, "y": 0.429 },
 
-    { "type": "Q",  "x1": 0.313, "y1": 0.438, "x": 0.5,   "y": 0.438 },
+    { "type": "M",  "x": 0.828,  "y": 0.429 },
 
-    { "type": "Q",  "x1": 0.687, "y1": 0.438, "x": 0.857, "y": 0.438 },
-    { "type": "L",  "x": 0.881,  "y": 0.428  },
-    { "type": "L",  "x": 0.9,    "y": 0.405  },
-    { "type": "L",  "x": 0.916,  "y": 0.366  },
-    { "type": "L",  "x": 0.92,   "y": 0.322  },
-    { "type": "L",  "x": 0.913,  "y": 0.267  },
-    { "type": "Q",  "x1": 0.907, "y1": 0.232, "x": 0.891, "y": 0.221 },
-    { "type": "Q",  "x1": 0.891, "y1": 0.2,   "x": 0.888, "y": 0.155 },
-    { "type": "Q",  "x1": 0.887, "y1": 0.136, "x": 0.872, "y": 0.114 },
-    { "type": "Q",  "x1": 0.823, "y1": 0.074, "x": 0.662, "y": 0.088 },
-    { "type": "Q",  "x1": 0.562, "y1": 0.1,   "x": 0.5,   "y": 0.1   },
-
-    { "type": "Z" }
+    { "type": "Q",  "x1": 0.87,  "y1": 0.408, "x": 0.885, "y": 0.323 },
+    { "type": "Q",  "x1": 0.914, "y1": 0.191, "x": 0.868, "y": 0.106 },
+    { "type": "Q",  "x1": 0.843, "y1": 0.065, "x": 0.806, "y": 0.068 },
+    { "type": "Q",  "x1": 0.782, "y1": 0.076, "x": 0.662, "y": 0.088 },
+    { "type": "Q",  "x1": 0.562, "y1": 0.1,   "x": 0.5,   "y": 0.1   }
   ]
 }

@@ -65,19 +65,21 @@ describe('arch shape round-trips', () => {
   it('arch-maxilla produces valid path at 1600×800', async () => {
     const json = await import('../shapes-data/anatomy/arch-maxilla.json');
     const d = shapeToPath(json.default ?? json, 1600, 800);
-    expect(d).toContain('M');
-    expect(d).toContain('Z');
-    // M moved to seam-top: 0.5*1600=800, 0.1*800=80
+    // Open arc: two sub-paths (two M commands), no Z
+    expect(d.match(/\bM\b/g).length).toBe(2);
+    expect(d).not.toContain('Z');
+    // First M at top-center: 0.5*1600=800, 0.1*800=80
     expect(d).toMatch(/^M 800\.\d+ 80\.\d+/);
   });
 
   it('arch-mandible produces valid path at 1600×800', async () => {
     const json = await import('../shapes-data/anatomy/arch-mandible.json');
     const d = shapeToPath(json.default ?? json, 1600, 800);
-    expect(d).toContain('M');
-    expect(d).toContain('Z');
-    // M moved to seam-top: 0.5*1600=800, 0.525*800=420
-    expect(d).toMatch(/^M 800\.\d+ 420\.\d+/);
+    // Open arc: single sub-path (one M), no Z
+    expect(d.match(/\bM\b/g).length).toBe(1);
+    expect(d).not.toContain('Z');
+    // M at L-cervical: 0.138*1600=220.8, 0.513*800=410.4
+    expect(d).toMatch(/^M 220\.\d+ 410\.\d+/);
   });
 
   it('arch-sinus-right produces valid path at 1600×800', async () => {

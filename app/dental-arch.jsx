@@ -1,6 +1,7 @@
 import React from 'react';
 import { shapeRangeToPath } from '../core/shapes.js';
 import archMaxilla from '../shapes-data/anatomy/arch-maxilla.json';
+import archMandible from '../shapes-data/anatomy/arch-mandible.json';
 import { TOOTH_TYPES, QUADRANT, UPPER, LOWER, layoutArch, toothPaths } from '../layout/teeth-data.jsx';
 import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnCanalPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from '../layout/anatomy.jsx';
 import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog, exportLabelPositions } from './treatments.jsx';
@@ -198,14 +199,10 @@ function bonePath(cervical, jaw, farY) {
   if (!cervical.length) return '';
   const peakDir = jaw === 'upper' ? -1 : 1; // gap dip direction (away from bite)
   const peakDepth = 4;
-  const overhang = 14;
-  const cornerR = 24;
   const first = cervical[0];
   const last = cervical[cervical.length - 1];
-  const leftX = first.x - first.w * 0.5 - overhang;
-  const rightX = last.x + last.w * 0.5 + overhang;
 
-  // Scallop segment generators
+  // Scallop R→L: traces from rightmost tooth to leftmost, ending at first.x, first.y
   const scallopRL = () => {
     let s = '';
     for (let i = cervical.length - 2; i >= 0; i--) {
@@ -216,72 +213,39 @@ function bonePath(cervical, jaw, farY) {
     }
     return s;
   };
-  const scallopLR = () => {
-    let s = '';
-    for (let i = 1; i < cervical.length; i++) {
-      const p = cervical[i],pr = cervical[i - 1];
-      const mx = (p.x + pr.x) / 2;
-      const my = (p.y + pr.y) / 2 + peakDir * peakDepth;
-      s += `Q ${mx} ${my} ${p.x} ${p.y} `;
-    }
-    return s;
-  };
 
   if (jaw === 'upper') {
-    const span = archMaxilla.innerEdgeSpan;
-    if (span) {
-      // JSON outer arch + dynamic cervical scallop.
-      // arch-maxilla.json segs [0..span[0]-1] = outer R side from top to R-bottom corner.
-      // segs [span[1]+1..end-1] = outer L side from L-bottom corner back to top. Z excluded.
-      const lastIdx = archMaxilla.segments.length - 2; // exclude Z
-      const outerR = shapeRangeToPath(archMaxilla, 1600, 800, 0, span[0] - 1);
-      const outerL = shapeRangeToPath(archMaxilla, 1600, 800, span[1] + 1, lastIdx);
-      // Bridge endpoints: JSON R-bottom corner endpoint, then L-bottom corner start
-      const rCornerSeg = archMaxilla.segments[span[0] - 1];
-      const rCx = (rCornerSeg.x * 1600).toFixed(2);
-      const rCy = (rCornerSeg.y * 800).toFixed(2);
-      const lStartSeg = archMaxilla.segments[span[1] + 1];
-      const lSx = (lStartSeg.x * 1600).toFixed(2);
-      const lSy = (lStartSeg.y * 800).toFixed(2);
-      return `
-        ${outerR}
-        L ${last.x + last.w * 0.5} ${last.y}
-        L ${last.x} ${last.y}
-        ${scallopRL()}
-        L ${first.x - first.w * 0.5} ${first.y}
-        L ${lSx} ${lSy}
-        ${outerL}
-        Z
-      `;
-    }
-    // Fallback: procedural outline (no innerEdgeSpan on JSON)
-    const leftFloor = first.y;
-    const rightFloor = last.y;
+    // Open-arc JSON: sub-path 1 = M(top) → R-side → R-cervical; sub-path 2 = M(L-cervical) → L-side → top.
+    // Find the mid-M (second M in segments) — it marks the L-cervical jump point.
+    const segs = archMaxilla.segments;
+    const midMIdx = segs.findIndex((s, i) => i > 0 && s.type === 'M');
+    const sub1 = shapeRangeToPath(archMaxilla, 1600, 800, 0, midMIdx - 1);
+    const sub2 = shapeRangeToPath(archMaxilla, 1600, 800, midMIdx + 1, segs.length - 1);
+    const ms = segs[midMIdx];
+    const lSx = (ms.x * 1600).toFixed(2);
+    const lSy = (ms.y * 800).toFixed(2);
     return `
-      M ${leftX} ${farY + 28}
-      Q ${leftX + 2} ${farY + 4} ${leftX + 32} ${farY}
-      L ${rightX - 32} ${farY}
-      Q ${rightX - 2} ${farY + 4} ${rightX} ${farY + 28}
-      L ${rightX - 2} ${rightFloor - 7}
-      Q ${rightX - 8} ${rightFloor + 2} ${last.x + last.w * 0.5} ${rightFloor}
+      ${sub1}
+      L ${last.x + last.w * 0.5} ${last.y}
       L ${last.x} ${last.y}
       ${scallopRL()}
-      L ${first.x - first.w * 0.5} ${leftFloor}
-      Q ${leftX + 8} ${leftFloor + 2} ${leftX} ${leftFloor - 7}
+      L ${first.x - first.w * 0.5} ${first.y}
+      L ${lSx} ${lSy}
+      ${sub2}
       Z
     `;
   }
-  // Mandible — rounded bottom corners.
+  // Mandible — open-arc JSON: M(L-cervical) → down-L → bottom → up-R → R-cervical.
+  const mandSegs = archMandible.segments;
+  const mandStart = mandSegs[0];
+  const mandBody = shapeRangeToPath(archMandible, 1600, 800, 1, mandSegs.length - 1);
   return `
-    M ${leftX} ${first.y}
-    L ${first.x - first.w * 0.5} ${first.y}
-    ${scallopLR()}
+    M ${(mandStart.x * 1600).toFixed(2)} ${(mandStart.y * 800).toFixed(2)}
+    ${mandBody}
     L ${last.x + last.w * 0.5} ${last.y}
-    L ${rightX} ${last.y}
-    L ${rightX} ${farY - cornerR}
-    Q ${rightX} ${farY} ${rightX - cornerR} ${farY}
-    L ${leftX + cornerR} ${farY}
-    Q ${leftX} ${farY} ${leftX} ${farY - cornerR}
+    L ${last.x} ${last.y}
+    ${scallopRL()}
+    L ${first.x - first.w * 0.5} ${first.y}
     Z
   `;
 }
