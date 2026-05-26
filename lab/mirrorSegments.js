@@ -20,7 +20,7 @@ export function mirrorSegments(segs, sourceSide, centerX = 0.5) {
   const mx = x => Math.round((2 * centerX - x) * 1e3) / 1e3;
   const isSeam   = s => s.x !== undefined && Math.abs(s.x - centerX) < eps;
   const isSource = s =>
-    s.type !== 'Z' && s.x !== undefined && !isSeam(s) &&
+    s.type !== 'Z' && s.type !== 'M' && s.x !== undefined && !isSeam(s) &&
     (sourceSide === 'right' ? s.x > centerX : s.x < centerX);
   const isKept = s =>
     s.type === 'M' || s.type === 'Z' || s.x === undefined || isSeam(s) || isSource(s);

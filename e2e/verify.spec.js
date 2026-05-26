@@ -22,9 +22,10 @@ test('lab loads with tooth ghost and crown path', async ({ page }) => {
   const svg = page.locator('svg').first();
   await expect(svg).toBeVisible();
 
-  // At least 3 paths (outline, cervical, crown)
+  // At least 3 paths (outline, cervical, crown) — count grows as features are added
   const paths = svg.locator('path');
-  await expect(paths).toHaveCount(3); // at minimum
+  const pathCount = await paths.count();
+  expect(pathCount).toBeGreaterThanOrEqual(3);
 
   // Control point circles rendered (handles on the 5 non-Z segments)
   const circles = svg.locator('circle');

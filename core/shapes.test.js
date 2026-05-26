@@ -40,8 +40,8 @@ describe('arch shape round-trips', () => {
     const d = shapeToPath(json.default ?? json, 1600, 800);
     expect(d).toContain('M');
     expect(d).toContain('Z');
-    // 0.094*1600=150.4, 0.450*800=360.0
-    expect(d).toMatch(/^M 150\.\d+ 360\.\d+/);
+    // M moved to seam-top: 0.5*1600=800, 0.1*800=80
+    expect(d).toMatch(/^M 800\.\d+ 80\.\d+/);
   });
 
   it('arch-mandible produces valid path at 1600×800', async () => {
@@ -49,8 +49,8 @@ describe('arch shape round-trips', () => {
     const d = shapeToPath(json.default ?? json, 1600, 800);
     expect(d).toContain('M');
     expect(d).toContain('Z');
-    // 0.094*1600=150.4, 0.513*800=410.4
-    expect(d).toMatch(/^M 150\.\d+ 410\.\d+/);
+    // M moved to seam-top: 0.5*1600=800, 0.525*800=420
+    expect(d).toMatch(/^M 800\.\d+ 420\.\d+/);
   });
 
   it('arch-sinus-right produces valid path at 1600×800', async () => {
