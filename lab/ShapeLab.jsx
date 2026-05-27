@@ -567,8 +567,7 @@ export default function ShapeLab() {
                 ))}
                 {scallopStr && (
                   <path d={scallopStr} fill="none" stroke="#f59e0b" strokeWidth={1.2}
-                    strokeDasharray="4 3" opacity={0.7} pointerEvents="none"
-                    transform={`translate(${CX},${CY})`} />
+                    strokeDasharray="4 3" opacity={0.7} pointerEvents="none" />
                 )}
               </>);
             })()}
