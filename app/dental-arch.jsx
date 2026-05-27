@@ -7,6 +7,8 @@ import { chRatioFor, scallopRL, scallopLR, ARCH_LAYOUT, upperBiteY, lowerBiteY }
 import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from '../layout/anatomy.jsx';
 import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog, exportLabelPositions } from './treatments.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
+import { getConflictingTreatmentIds } from '../core/conflict-rules.js';
+import { areContiguous } from '../core/contiguity.js';
 import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
 import { UIStateProvider, useUIState } from '../core/ui-context.jsx';
 import { useClinicTheme } from '../core/use-clinic-theme.js';
@@ -615,14 +617,15 @@ function DentalHeroInner() {
       let next = [...prev];
       if (popover.mode === 'tooth') {
         const targets = popover.target.map((t) => t.id);
-        const exclusive = txId === 'implant-only' || txId === 'implant-crown' ?
-        ['implant-only', 'implant-crown'] :
-        [txId];
+        const exclusive = getConflictingTreatmentIds(txId);
         next = next.map((tx) => {
           if (tx.scope !== 'tooth' || !exclusive.includes(tx.id)) return tx;
           return { ...tx, targets: tx.targets.filter((id) => !targets.includes(id)) };
         }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0);
-        if (txId === 'bridge-span') {
+        if (txId === 'bridge-span' || txId === 'implant-bridge-span') {
+          if (txId === 'implant-bridge-span' && !areContiguous(targets, allTeeth)) {
+            return prev; // non-contiguous selection — no-op
+          }
           const targetsByJaw = popover.target.reduce((groups, tooth) => {
             (groups[tooth.jaw] = groups[tooth.jaw] || []).push(tooth.id);
             return groups;
@@ -648,6 +651,11 @@ function DentalHeroInner() {
             next.push({ id: txId, scope: 'tooth', targets });
           }
         }
+        // Prune span treatments that lost units due to conflict stripping
+        next = next.filter((tx) => {
+          if (tx.id !== 'bridge-span' && tx.id !== 'implant-bridge-span') return true;
+          return tx.targets.length >= 2;
+        });
       } else if (popover.mode === 'sinus') {
         const side = popover.target.side;
         const idx = next.findIndex((tx) => tx.id === txId && tx.scope === 'sinus');
@@ -683,7 +691,11 @@ function DentalHeroInner() {
     setTreatments((prev) => prev.map((tx) => {
       if (tx.scope !== 'tooth' || tx.id !== txId) return tx;
       return { ...tx, targets: tx.targets.filter((id) => id !== toothId) };
-    }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0));
+    }).filter((tx) => {
+      if (tx.scope !== 'tooth') return true;
+      const minTargets = (tx.id === 'bridge-span' || tx.id === 'implant-bridge-span') ? 2 : 1;
+      return tx.targets.length >= minTargets;
+    }));
     if (txId === 'extraction') {
       setPresence((prev) => {
         const next = { ...prev };

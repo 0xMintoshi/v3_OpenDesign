@@ -1,6 +1,6 @@
 import React from 'react';
 import { CrownOverlay } from '../treatment-overlays/CrownOverlay.jsx';
-import { BridgeSpanOverlay } from '../treatment-overlays/BridgeSpanOverlay.jsx';
+import { BridgeSpanOverlay, bridgeContactStrokePath, CONTACT_STROKE_WIDTH } from '../treatment-overlays/BridgeSpanOverlay.jsx';
 import { PartialDentureOverlay } from '../treatment-overlays/PartialDentureOverlay.jsx';
 import { TreatmentLabels } from '../treatment-overlays/TreatmentLabels.jsx';
 import { useChartState } from '../core/chart-context.jsx';
@@ -22,8 +22,9 @@ const TX_GROUPS = [
     label: 'Implant',
     scope: 'tooth',
     items: [
-      { id: 'implant-crown', label: 'Implant + Crown',  hint: 'fixture · abutment · crown' },
-      { id: 'implant-only',  label: 'Implant Only',     hint: 'fixture only · staged restoration' },
+      { id: 'implant-crown',        label: 'Implant + Crown',  hint: 'fixture · abutment · crown' },
+      { id: 'implant-only',         label: 'Implant Only',     hint: 'fixture only · staged restoration' },
+      { id: 'implant-bridge-span',  label: 'Implant Bridge',   hint: 'implant abutments at ends · joined crowns' },
     ],
   },
   {
@@ -80,6 +81,7 @@ const TX_LABEL = {};
 const MISSING_TOOTH_REQUIRED = new Set([
   'implant-crown',
   'implant-only',
+  'implant-bridge-span',
   'socket-preservation',
   'simultaneous-graft',
   'gbr',
@@ -203,10 +205,11 @@ function fittedImplantCrownPath(tooth, crownH) {
     C ${bottomX * 0.94} ${bottomY + 1.0}, ${w * 0.26} ${bottomBulge + 1.2}, 0 ${bottomBulge} Z`;
 }
 
-function FittedImplantOverlay({ tooth, biteY, withCrown, accent }) {
-  const flipY = tooth.jaw === 'lower' ? -1 : 1;
-  const ratios = fittedImplantClassRatios(tooth.type);
-  const crownH = tooth.h * fittedImplantCrownRatio(tooth.type);
+// Shared fixture block: collar + tapered body + threads.
+// Rendered inside a coordinate space already translated to tooth center and
+// flipped for jaw direction. crownH tells it where the crown ends so the
+// collar is placed at the right depth.
+function ImplantFixtureBlock({ tooth, crownH, ratios, accent }) {
   const fixtureW = tooth.w * ratios.fixtureW;
   const fixtureH = tooth.h * ratios.fixtureH;
   const collarW = tooth.w * ratios.collarW;
@@ -214,6 +217,40 @@ function FittedImplantOverlay({ tooth, biteY, withCrown, accent }) {
   const topY = collarY - 2;
   const bottomY = topY - fixtureH;
   const tipW = fixtureW * 0.56;
+
+  return (
+    <g>
+      <rect x={-collarW / 2} y={collarY - 3} width={collarW} height="6" rx="1.4"
+            fill="var(--tooth-fill)" stroke={accent} strokeWidth="1.9" />
+      <path
+        d={`M ${-fixtureW / 2} ${topY}
+            L ${-tipW / 2} ${bottomY + fixtureW * 0.20}
+            Q ${-tipW / 2} ${bottomY}, 0 ${bottomY}
+            Q ${tipW / 2} ${bottomY}, ${tipW / 2} ${bottomY + fixtureW * 0.20}
+            L ${fixtureW / 2} ${topY}
+            Z`}
+        fill="var(--tooth-fill)" stroke={accent} strokeWidth="2.5" strokeLinejoin="round" />
+      {Array.from({ length: ratios.threadCount }).map((_, i) => {
+        const t = (i + 1) / (ratios.threadCount + 1);
+        const yy = topY + (bottomY - topY) * t;
+        const taper = 1 - Math.max(0, (t - 0.65) * 0.55);
+        const tw = Math.max(4, (fixtureW / 2) * taper - 1.6);
+        return (
+          <path
+            key={i}
+            d={`M ${-tw} ${yy} Q 0 ${yy - 2.1}, ${tw} ${yy}`}
+            stroke={accent} strokeWidth="1.0" fill="none" strokeLinecap="round" opacity="1"
+          />
+        );
+      })}
+    </g>
+  );
+}
+
+function FittedImplantOverlay({ tooth, biteY, withCrown, accent }) {
+  const flipY = tooth.jaw === 'lower' ? -1 : 1;
+  const ratios = fittedImplantClassRatios(tooth.type);
+  const crownH = tooth.h * fittedImplantCrownRatio(tooth.type);
 
   return (
     <g
@@ -228,30 +265,50 @@ function FittedImplantOverlay({ tooth, biteY, withCrown, accent }) {
           strokeLinejoin="round"
           strokeLinecap="round" />
       )}
+      <ImplantFixtureBlock tooth={tooth} crownH={crownH} ratios={ratios} accent={accent} />
+    </g>
+  );
+}
 
-      <rect x={-collarW / 2} y={collarY - 3} width={collarW} height="6" rx="1.4"
-            fill="var(--tooth-fill)" stroke={accent} strokeWidth="1.9" />
+export function ImplantBridgeSpanOverlay({ teeth, biteY, accent }) {
+  if (!teeth || teeth.length === 0) return null;
+  const jaw = teeth[0].jaw;
+  const flipY = jaw === 'upper' ? 1 : -1;
+  const sorted = [...teeth].sort((a, b) => a.cx - b.cx);
+  const first = sorted[0];
+  const last = sorted[sorted.length - 1];
 
-      <path
-        d={`M ${-fixtureW / 2} ${topY}
-            L ${-tipW / 2} ${bottomY + fixtureW * 0.20}
-            Q ${-tipW / 2} ${bottomY}, 0 ${bottomY}
-            Q ${tipW / 2} ${bottomY}, ${tipW / 2} ${bottomY + fixtureW * 0.20}
-            L ${fixtureW / 2} ${topY}
-            Z`}
-        fill="var(--tooth-fill)" stroke={accent} strokeWidth="2.5" strokeLinejoin="round" />
-
-      {Array.from({ length: ratios.threadCount }).map((_, i) => {
-        const t = (i + 1) / (ratios.threadCount + 1);
-        const yy = topY + (bottomY - topY) * t;
-        const taper = 1 - Math.max(0, (t - 0.65) * 0.55);
-        const tw = Math.max(4, (fixtureW / 2) * taper - 1.6);
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      {sorted.map((tooth) => {
+        const ratios = fittedImplantClassRatios(tooth.type);
+        const crownH = tooth.h * fittedImplantCrownRatio(tooth.type);
+        const isEndpoint = tooth.id === first.id || tooth.id === last.id;
+        return (
+          <g key={tooth.id}
+             transform={`translate(${tooth.cx}, ${biteY + (tooth.yOffset || 0) * flipY}) scale(1, ${flipY}) rotate(${tooth.tilt || 0})`}>
+            {isEndpoint && <ImplantFixtureBlock tooth={tooth} crownH={crownH} ratios={ratios} accent={accent} />}
+            <path
+              d={fittedImplantCrownPath(tooth, crownH)}
+              fill="none"
+              stroke={accent}
+              strokeWidth={6}
+              strokeLinejoin="round"
+              strokeLinecap="round" />
+          </g>
+        );
+      })}
+      {sorted.slice(0, -1).map((tooth, i) => {
+        const next = sorted[i + 1];
         return (
           <path
-            key={i}
-            d={`M ${-tw} ${yy} Q 0 ${yy - 2.1}, ${tw} ${yy}`}
-            stroke={accent} strokeWidth="1.0" fill="none" strokeLinecap="round" opacity="1"
-          />
+            key={`${tooth.id}-${next.id}-ibridge-contact`}
+            d={bridgeContactStrokePath(tooth, next, biteY, flipY)}
+            fill="none"
+            stroke={accent}
+            strokeWidth={CONTACT_STROKE_WIDTH}
+            strokeLinejoin="round"
+            strokeLinecap="round" />
         );
       })}
     </g>
@@ -627,7 +684,7 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
               if (tx.id === 'crown') {
                 return <CrownOverlay key={i} tooth={tooth} biteY={biteY} accent={accent} />;
               }
-              if (tx.id === 'bridge-span') return null; // rendered as span below
+              if (tx.id === 'bridge-span' || tx.id === 'implant-bridge-span') return null; // rendered as span below
               return null;
             })}
           </g>
@@ -645,6 +702,20 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
         return Object.entries(spanTeethByJaw).map(([jaw, jawTeeth]) => {
           const biteY = jaw === 'upper' ? upperBiteY : lowerBiteY;
           return <BridgeSpanOverlay key={`bs-${i}-${jaw}`} teeth={jawTeeth} biteY={biteY} accent={accent} />;
+        });
+      })}
+
+      {/* Implant bridge spans */}
+      {treatments.filter(t => t.id === 'implant-bridge-span').map((tx, i) => {
+        const spanTeeth = tx.targets.map(id => allTeeth.find(t => t.id === id)).filter(Boolean);
+        if (spanTeeth.length === 0) return null;
+        const spanTeethByJaw = spanTeeth.reduce((groups, tooth) => {
+          (groups[tooth.jaw] = groups[tooth.jaw] || []).push(tooth);
+          return groups;
+        }, {});
+        return Object.entries(spanTeethByJaw).map(([jaw, jawTeeth]) => {
+          const biteY = jaw === 'upper' ? upperBiteY : lowerBiteY;
+          return <ImplantBridgeSpanOverlay key={`ibs-${i}-${jaw}`} teeth={jawTeeth} biteY={biteY} accent={accent} />;
         });
       })}
 

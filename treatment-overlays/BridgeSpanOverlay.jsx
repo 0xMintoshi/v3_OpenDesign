@@ -2,7 +2,7 @@ import React from 'react';
 import { toothPaths } from '../layout/teeth-data.jsx';
 
 const STROKE_WIDTH = 6;
-const CONTACT_STROKE_WIDTH = 9;
+export const CONTACT_STROKE_WIDTH = 9;
 const CONTACT_X = 0.43;
 const CONTACT_TOP = 0.75;
 const CONTACT_BOTTOM = 0.08;
@@ -33,7 +33,7 @@ function midpoint(a, b) {
   };
 }
 
-function bridgeContactStrokePath(tooth, next, biteY, flipY) {
+export function bridgeContactStrokePath(tooth, next, biteY, flipY) {
   const avgDepth = (crownDepth(tooth.type, tooth.h) + crownDepth(next.type, next.h)) / 2;
   const topY = -avgDepth * CONTACT_TOP;
   const bottomY = -avgDepth * CONTACT_BOTTOM;

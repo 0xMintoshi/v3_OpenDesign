@@ -11,6 +11,7 @@ export const VISUAL_REGISTRY = {
   gbr:                  { scope: 'tooth',      category: 'tooth',      label: 'GBR',                      shapeId: null },
   // ── span (multi-tooth, uses tooth scope state model) ─────────────────────
   'bridge-span':        { scope: 'tooth',      category: 'span',       label: 'Bridge',                   shapeId: 'bridge-span' },
+  'implant-bridge-span':{ scope: 'tooth',      category: 'span',       label: 'Implant Bridge',            shapeId: 'bridge-span' },
   // ── sinus-scoped ──────────────────────────────────────────────────────────
   'sinus-lift':         { scope: 'sinus',      category: 'sinus',      label: 'Complex Sinus Lift',       shapeId: null },
   // ── arch-scoped ───────────────────────────────────────────────────────────
