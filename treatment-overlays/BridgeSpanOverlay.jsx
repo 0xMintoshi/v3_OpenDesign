@@ -1,20 +1,20 @@
 import React from 'react';
 import { toothPaths } from '../layout/teeth-data.jsx';
 
-const STROKE_WIDTH = 6;
-export const CONTACT_STROKE_WIDTH = 9;
+const STROKE_WIDTH = 8;
+export const CONTACT_STROKE_WIDTH = 11;
 const CONTACT_X = 0.43;
-const CONTACT_TOP = 0.75;
-const CONTACT_BOTTOM = 0.08;
+export const CONTACT_TOP = 0.5;
+export const CONTACT_BOTTOM = 0.12;
 
-function crownDepth(type, h) {
+export function crownDepth(type, h) {
   if (type === 'wisdomU' || type === 'wisdomL') return h * 0.46;
   if (type === 'molarU' || type === 'molarL') return h * 0.40;
   if (type === 'premolar' || type === 'premolar1') return h * 0.36;
   return h * 0.34;
 }
 
-function bridgeContactPoint(tooth, biteY, flipY, side, y) {
+export function bridgeContactPoint(tooth, biteY, flipY, side, y) {
   const tilt = ((tooth.tilt || 0) * Math.PI) / 180;
   const x = tooth.w * CONTACT_X * side;
   const rx = x * Math.cos(tilt) - y * Math.sin(tilt);

@@ -91,6 +91,20 @@ const TREATMENT_SHAPES = {
     jaw: 'upper',
     ghostContext: { teeth: ['molarU', 'premolar', 'molarU'], arch: null },
   },
+  'complete-denture-upper': {
+    label: 'Complete Denture (Upper)',
+    loader: () => import('../shapes-data/treatments/complete-denture-upper.json'),
+    w: 800, h: 400,
+    jaw: 'upper',
+    ghostContext: { teeth: null, arch: 'arch-maxilla' },
+  },
+  'complete-denture-lower': {
+    label: 'Complete Denture (Lower)',
+    loader: () => import('../shapes-data/treatments/complete-denture-lower.json'),
+    w: 800, h: 400,
+    jaw: 'lower',
+    ghostContext: { teeth: null, arch: 'arch-mandible' },
+  },
   'partial-denture-upper': {
     label: 'Partial Denture (Upper)',
     loader: () => import('../shapes-data/treatments/partial-denture-upper.json'),

@@ -1,6 +1,7 @@
 import React from 'react';
 import { CrownOverlay } from '../treatment-overlays/CrownOverlay.jsx';
-import { BridgeSpanOverlay, bridgeContactStrokePath, CONTACT_STROKE_WIDTH } from '../treatment-overlays/BridgeSpanOverlay.jsx';
+import { BridgeSpanOverlay, bridgeContactStrokePath, CONTACT_STROKE_WIDTH, bridgeContactPoint, crownDepth, CONTACT_TOP, CONTACT_BOTTOM } from '../treatment-overlays/BridgeSpanOverlay.jsx';
+import { CompleteDentureOverlay } from '../treatment-overlays/CompleteDentureOverlay.jsx';
 import { PartialDentureOverlay } from '../treatment-overlays/PartialDentureOverlay.jsx';
 import { TreatmentLabels } from '../treatment-overlays/TreatmentLabels.jsx';
 import { useChartState } from '../core/chart-context.jsx';
@@ -280,35 +281,55 @@ export function ImplantBridgeSpanOverlay({ teeth, biteY, accent }) {
 
   return (
     <g style={{ pointerEvents: 'none' }}>
+      {/* Pass 1: fixtures (bottom layer) */}
       {sorted.map((tooth) => {
         const ratios = fittedImplantClassRatios(tooth.type);
         const crownH = tooth.h * fittedImplantCrownRatio(tooth.type);
         const isEndpoint = tooth.id === first.id || tooth.id === last.id;
+        if (!isEndpoint) return null;
         return (
-          <g key={tooth.id}
+          <g key={`fix-${tooth.id}`}
              transform={`translate(${tooth.cx}, ${biteY + (tooth.yOffset || 0) * flipY}) scale(1, ${flipY}) rotate(${tooth.tilt || 0})`}>
-            {isEndpoint && <ImplantFixtureBlock tooth={tooth} crownH={crownH} ratios={ratios} accent={accent} />}
-            <path
-              d={fittedImplantCrownPath(tooth, crownH)}
-              fill="none"
-              stroke={accent}
-              strokeWidth={6}
-              strokeLinejoin="round"
-              strokeLinecap="round" />
+            <ImplantFixtureBlock tooth={tooth} crownH={crownH} ratios={ratios} accent={accent} />
           </g>
         );
       })}
+      {/* Pass 2: connectors — rendered BELOW crowns so white crown fill masks the overlap */}
       {sorted.slice(0, -1).map((tooth, i) => {
         const next = sorted[i + 1];
+        const avgDepth = (crownDepth(tooth.type, tooth.h) + crownDepth(next.type, next.h)) / 2;
+        const avgCrownH = (tooth.h * fittedImplantCrownRatio(tooth.type) + next.h * fittedImplantCrownRatio(next.type)) / 2;
+        const topY = -avgDepth * CONTACT_TOP;
+        const botY = avgCrownH * 0.10;
+        // contactX 0.43 = 43% from crown center → extends 3.4 units into each crown body;
+        // crowns rendered on top mask the overlap, leaving only the 4-unit interproximal gap visible as accent color
+        const contactX = 0.43;
+        const tl = { x: tooth.cx + tooth.w * contactX, y: biteY + (tooth.yOffset || 0) * flipY + topY * flipY };
+        const tr = { x: next.cx  - next.w  * contactX, y: biteY + (next.yOffset  || 0) * flipY + topY * flipY };
+        const br = { x: next.cx  - next.w  * contactX, y: biteY + (next.yOffset  || 0) * flipY + botY * flipY };
+        const bl = { x: tooth.cx + tooth.w * contactX, y: biteY + (tooth.yOffset || 0) * flipY + botY * flipY };
         return (
           <path
             key={`${tooth.id}-${next.id}-ibridge-contact`}
-            d={bridgeContactStrokePath(tooth, next, biteY, flipY)}
-            fill="none"
-            stroke={accent}
-            strokeWidth={CONTACT_STROKE_WIDTH}
-            strokeLinejoin="round"
-            strokeLinecap="round" />
+            d={`M ${tl.x} ${tl.y} L ${tr.x} ${tr.y} L ${br.x} ${br.y} L ${bl.x} ${bl.y} Z`}
+            fill={accent}
+            stroke="none" />
+        );
+      })}
+      {/* Pass 3: crowns — rendered on top of connectors */}
+      {sorted.map((tooth) => {
+        const crownH = tooth.h * fittedImplantCrownRatio(tooth.type);
+        return (
+          <g key={`crown-${tooth.id}`}
+             transform={`translate(${tooth.cx}, ${biteY + (tooth.yOffset || 0) * flipY}) scale(1, ${flipY}) rotate(${tooth.tilt || 0})`}>
+            <path
+              d={fittedImplantCrownPath(tooth, crownH)}
+              fill="var(--tooth-fill)"
+              stroke={accent}
+              strokeWidth={3}
+              strokeLinejoin="round"
+              strokeLinecap="round" />
+          </g>
         );
       })}
     </g>
@@ -476,51 +497,6 @@ function AlveolectomyBand({ arch, biteY, archWidth, accent }) {
 // Complete denture — outlined denture sitting on edentulous arch (flat)
 // ============================================================================
 
-function CompleteDentureBand({ arch, biteY, archWidth, accent }) {
-  const dir = arch === 'upper' ? -1 : 1;
-  const halfW = archWidth / 2 + 30;
-  const cx = 800;
-
-  // Gingival baseplate
-  const baseTop = biteY + dir * 2;
-  const baseBot = biteY + dir * 56;
-  const basePath = `
-    M ${cx - halfW} ${baseTop}
-    Q ${cx} ${baseTop + dir * 12}, ${cx + halfW} ${baseTop}
-    L ${cx + halfW * 0.88} ${baseBot}
-    Q ${cx} ${baseBot + dir * 20}, ${cx - halfW * 0.88} ${baseBot}
-    Z`;
-
-  // Faux tooth crowns along the baseplate (small rounded shapes)
-  const teethCount = 14;
-  const crowns = [];
-  for (let i = 0; i < teethCount; i++) {
-    const t = i / (teethCount - 1);
-    const cxT = cx - halfW + t * (halfW * 2);
-    // Slight bow toward bite
-    const cyT = baseTop + dir * (4 + Math.sin(t * Math.PI) * 6);
-    const tw = 7 + Math.sin(t * Math.PI) * 4;
-    const th = dir > 0 ? 12 : 12;
-    crowns.push(
-      <ellipse
-        key={i}
-        cx={cxT} cy={cyT + dir * 8}
-        rx={tw / 2} ry={th / 2}
-        fill="var(--tooth-fill)"
-        stroke={accent} strokeWidth="1.1"
-      />
-    );
-  }
-
-  return (
-    <g style={{ pointerEvents: 'none' }}>
-      <path d={basePath} fill={accent} fillOpacity="0.10" />
-      <path d={basePath} fill="none" stroke={accent} strokeWidth="1.4" strokeLinejoin="round" />
-      {crowns}
-    </g>
-  );
-}
-
 // ============================================================================
 // Ortho brackets — visibly large per tooth + curved archwire (flat)
 // ============================================================================
@@ -642,7 +618,7 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
           return <AlveolectomyBand key={`alv-${i}-${arch}`} arch={arch} accent={accent} biteY={biteY} archWidth={archWidth} />;
         }
         if (tx.id === 'complete-denture') {
-          return <CompleteDentureBand key={`den-${i}-${arch}`} arch={arch} accent={accent} biteY={biteY} archWidth={archWidth} />;
+          return <CompleteDentureOverlay key={`den-${i}-${arch}`} jaw={arch} accent={accent} biteY={biteY} archWidth={archWidth} />;
         }
         if (tx.id === 'partial-denture-upper') {
           return <PartialDentureOverlay key={`pdu-${i}`} jaw="upper" accent={accent} />;

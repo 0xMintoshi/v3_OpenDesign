@@ -32,6 +32,7 @@ describe('shapeToPath', () => {
     expect(d).toContain('M');
     expect(d).toContain('Z');
   });
+
 });
 
 describe('shapeRangeToPath', () => {
@@ -118,6 +119,20 @@ describe('phase-4 shape round-trips', () => {
 
   it('partial-denture-lower produces valid path at 1600×800', async () => {
     const json = await import('../shapes-data/treatments/partial-denture-lower.json');
+    const d = shapeToPath(json.default ?? json, 1600, 800);
+    expect(d).toContain('M');
+    expect(d).toContain('Z');
+  });
+
+  it('complete-denture-upper produces valid path at 1600x800', async () => {
+    const json = await import('../shapes-data/treatments/complete-denture-upper.json');
+    const d = shapeToPath(json.default ?? json, 1600, 800);
+    expect(d).toContain('M');
+    expect(d).toContain('Z');
+  });
+
+  it('complete-denture-lower produces valid path at 1600x800', async () => {
+    const json = await import('../shapes-data/treatments/complete-denture-lower.json');
     const d = shapeToPath(json.default ?? json, 1600, 800);
     expect(d).toContain('M');
     expect(d).toContain('Z');
