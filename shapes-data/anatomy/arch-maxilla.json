@@ -7,19 +7,17 @@
   "openArc": true,
   "note": "Open arc — outer perimeter only. No bottom edge; that is closed at render time by the cervical scallop in bonePath(). Two sub-paths: sub-path 1 = M(top) → R-side → R-cervical; sub-path 2 = M(L-cervical) → L-side → top. bonePath() finds the mid-M by scanning for the second M, bridges via L commands into/out of scallopRL(). Mirror workflow: mirror each sub-path independently; keep the mid-M endpoint at cervical-level y on both sides.",
   "segments": [
-    { "type": "M",  "x": 0.5,    "y": 0.1   },
-
+    { "type": "M",  "x": 0.5,   "y": 0.1   },
     { "type": "Q",  "x1": 0.5,   "y1": 0.1,   "x": 0.5,   "y": 0.1   },
     { "type": "Q",  "x1": 0.488, "y1": 0.1,   "x": 0.177, "y": 0.1   },
     { "type": "Q",  "x1": 0.184, "y1": 0.1,   "x": 0.177, "y": 0.1   },
     { "type": "Q",  "x1": 0.139, "y1": 0.099, "x": 0.14,  "y": 0.155 },
-    { "type": "Q",  "x1": 0.14,  "y1": 0.359, "x": 0.14,  "y": 0.359 },
-    { "type": "Q",  "x1": 0.139, "y1": 0.422, "x": 0.172, "y": 0.429 },
+    { "type": "Q",  "x1": 0.14,  "y1": 0.35,  "x": 0.14,  "y": 0.351 },
+    { "type": "Q",  "x1": 0.14,  "y1": 0.391, "x": 0.163, "y": 0.392 },
 
-    { "type": "M",  "x": 0.828,  "y": 0.429 },
-
-    { "type": "Q",  "x1": 0.861, "y1": 0.422, "x": 0.86,  "y": 0.359 },
-    { "type": "Q",  "x1": 0.86,  "y1": 0.359, "x": 0.86,  "y": 0.155 },
+    { "type": "M",  "x": 0.837, "y": 0.392 },
+    { "type": "Q",  "x1": 0.86,  "y1": 0.391, "x": 0.86,  "y": 0.351 },
+    { "type": "Q",  "x1": 0.86,  "y1": 0.35,  "x": 0.86,  "y": 0.155 },
     { "type": "Q",  "x1": 0.861, "y1": 0.099, "x": 0.823, "y": 0.1   },
     { "type": "Q",  "x1": 0.816, "y1": 0.1,   "x": 0.823, "y": 0.1   },
     { "type": "Q",  "x1": 0.512, "y1": 0.1,   "x": 0.5,   "y": 0.1   }
