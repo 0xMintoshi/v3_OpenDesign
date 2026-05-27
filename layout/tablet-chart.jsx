@@ -83,9 +83,6 @@ function TabletTooth({ tooth, jawFlip, presence, isHovered, isSelected, hasTreat
     ? 'var(--clinic-accent, #2563eb)'
     : (hasTreatment ? '#f97316' : '#94a3b8');
 
-  const hitW = Math.max(tw, 55);
-  const hitH = Math.max(th, 55);
-
   return (
     <g
       data-tooth-id={tooth.id}
@@ -95,16 +92,16 @@ function TabletTooth({ tooth, jawFlip, presence, isHovered, isSelected, hasTreat
       onMouseEnter={() => onHover(tooth.id)}
       onMouseLeave={() => onHover(null)}
       onClick={(e) => onSelect({ kind: 'tooth', id: tooth.id }, e, 'click')}>
-      {/* Invisible touch target for WCAG 2.5.8 minimum tap area */}
-      <rect
-        x={-hitW / 2}
-        y={-hitH / 2}
-        width={hitW}
-        height={hitH}
+      {/* Stroke-expansion hit target — stays within the tooth's convex hull */}
+      <path d={outline}
         fill="transparent"
-        stroke="none"
-        style={{ pointerEvents: 'all' }} />
-      <path d={outline} fill={fill} stroke={stroke} strokeWidth={isHovered ? 2 : 1.5} opacity={missing ? 0.2 : 1} />
+        stroke="transparent"
+        strokeWidth="14"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        style={{ pointerEvents: 'visibleStroke' }} />
+      <path d={outline} fill={fill} stroke={stroke} strokeWidth={isHovered ? 2 : 1.5} opacity={missing ? 0.2 : 1}
+        style={{ pointerEvents: 'visiblePainted' }} />
       <path d={cervical} fill="none" stroke={stroke} strokeWidth={isHovered ? 1.5 : 1} opacity={missing ? 0.2 : 1} />
       <text
         y={jawFlip ? (th + 14) : -(th + 6)}

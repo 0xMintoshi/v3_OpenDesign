@@ -16,6 +16,16 @@ import { TabletChart } from '../layout/tablet-chart.jsx';
 const { useState, useEffect, useMemo, useCallback } = React;
 
 // ====================================================================
+// Shared transform helper — used by Tooth and SVG masks that must mirror
+// tooth geometry exactly (e.g. bone-hover cutout masks).
+// ====================================================================
+function toothBaseTransform(tooth, jawFlip) {
+  const { cx, tilt = 0, yOffset = 0 } = tooth;
+  const flipY = jawFlip ? -1 : 1;
+  return `translate(${cx}, ${yOffset * flipY}) scale(1, ${flipY}) rotate(${tilt})`;
+}
+
+// ====================================================================
 // Tooth — outlined anatomical style
 // ====================================================================
 function Tooth({
@@ -28,7 +38,7 @@ function Tooth({
   const paths = toothPaths(type, w, h);
   const numberY = jawFlip ? -(h + 16) : -(h + 10);
 
-  const baseTransform = `translate(${cx}, ${yOffset * flipY}) scale(1, ${flipY}) rotate(${tilt})`;
+  const baseTransform = toothBaseTransform(tooth, jawFlip);
 
   const missing = presence === 'missing';
 
@@ -81,22 +91,23 @@ function Tooth({
       data-tooth-id={tooth.id}
       data-tooth-fdi={fdi}>
 
-      {/* Invisible touch target — ensures minimum 44×44 SVG-unit hit area */}
-      <rect
-        x={-Math.max(w, 44) / 2}
-        y={-Math.max(h, 44) / 2}
-        width={Math.max(w, 44)}
-        height={Math.max(h, 44)}
+      {/* Stroke-expansion hit target — 12px transparent stroke stays within the
+          tooth's convex hull (no axis-aligned rect, no cross-jaw overlap). */}
+      <path
+        d={paths.outline}
         fill="transparent"
-        stroke="none"
-        style={{ pointerEvents: 'all' }} />
+        stroke="transparent"
+        strokeWidth="12"
+        strokeLinejoin="round"
+        strokeLinecap="round"
+        style={{ pointerEvents: 'visibleStroke' }} />
 
       <g
         style={{
           transform: `translateY(${liftY}px)`,
           transition: 'transform 280ms cubic-bezier(.2,.7,.2,1)'
         }}>
-        
+
         {/* Tooth body — fade between present/missing */}
         <g
           className="tooth-body"
@@ -104,7 +115,7 @@ function Tooth({
             opacity: missing ? 0.35 : 1,
             transition: 'opacity 220ms ease'
           }}>
-          
+
           <path
             d={paths.outline}
             fill={fillColor}
@@ -113,7 +124,8 @@ function Tooth({
             strokeWidth={strokeW}
             strokeLinejoin="round"
             strokeLinecap="round"
-            strokeDasharray={missing ? '3 3' : '0'} />
+            strokeDasharray={missing ? '3 3' : '0'}
+            style={{ pointerEvents: 'visiblePainted' }} />
           {isSelected &&
           <path
             d={paths.outline}
@@ -270,6 +282,7 @@ function AnatomyBackground({
   stage, onArchClick, upperTeeth, lowerTeeth, upperBiteY, lowerBiteY
 }) {
   const isHov = (id) => hoveredId === id;
+  const archActive = stage === 'treatment';
   const sinusActive = stage === 'treatment';
 
   const upperCerv = useMemo(
@@ -293,26 +306,94 @@ function AnatomyBackground({
   const sinusRight = buildSinus(upperCerv, 0, 4, sinusCeilingY);
   const sinusLeft = buildSinus(upperCerv, 11, 15, sinusCeilingY);
 
+  // Hover-tint cutout masks: white = show tint, black = hide tint (teeth + sinus).
+  // Upper mask subtracts all upper-arch tooth outlines + both sinus shapes.
+  // Lower mask subtracts all lower-arch tooth outlines.
+  const upperMaskId = 'bone-hover-mask-upper';
+  const lowerMaskId = 'bone-hover-mask-lower';
+
   return (
     <g className="anatomy-layer">
-      {/* Maxilla bone outline */}
-      <g style={{ pointerEvents: 'none' }}>
+      {/* SVG mask definitions for bone hover-tint cutouts */}
+      <defs>
+        <mask id={upperMaskId}>
+          {/* White = tint shows through */}
+          <rect x="0" y="0" width="1600" height="800" fill="white" />
+          {/* Black = subtract tooth outlines */}
+          {upperTeeth.map((tooth) => (
+            <g key={tooth.id} transform={`translate(0, ${upperBiteY})`}>
+              <g transform={toothBaseTransform(tooth, false)}>
+                <path d={toothPaths(tooth.type, tooth.w, tooth.h).outline}
+                  fill="black" stroke="none" />
+              </g>
+            </g>
+          ))}
+          {/* Black = subtract sinus shapes */}
+          {showSinus && sinusRight &&
+            <path d={sinusRight.path} fill="black" stroke="none" />}
+          {showSinus && sinusLeft &&
+            <path d={sinusLeft.path} fill="black" stroke="none" />}
+        </mask>
+        <mask id={lowerMaskId}>
+          <rect x="0" y="0" width="1600" height="800" fill="white" />
+          {lowerTeeth.map((tooth) => (
+            <g key={tooth.id} transform={`translate(0, ${lowerBiteY})`}>
+              <g transform={toothBaseTransform(tooth, true)}>
+                <path d={toothPaths(tooth.type, tooth.w, tooth.h).outline}
+                  fill="black" stroke="none" />
+              </g>
+            </g>
+          ))}
+        </mask>
+      </defs>
+
+      {/* Maxilla bone — interactive in Stage 2 */}
+      <g
+        data-anatomy-id="arch-upper"
+        style={{ cursor: archActive ? 'pointer' : 'default' }}
+        onMouseEnter={() => archActive && onHover('arch-upper')}
+        onMouseLeave={() => archActive && onHover(null)}
+        onClick={(e) => { if (archActive) { e.stopPropagation(); onArchClick('upper', e); } }}>
         <path d={maxilla}
-        fill="var(--bg-1)"
-        stroke="var(--anatomy-stroke)"
-        strokeWidth="1.2"
-        strokeLinejoin="round"
-        opacity="0.9" />
+          fill="var(--bg-1)"
+          stroke="var(--anatomy-stroke)"
+          strokeWidth="1.2"
+          strokeLinejoin="round"
+          opacity="0.9"
+          style={{ pointerEvents: archActive ? 'visiblePainted' : 'none' }} />
+        {/* Hover tint layer — masked so teeth + sinuses are excluded */}
+        {isHov('arch-upper') &&
+          <path d={maxilla}
+            fill={accent}
+            fillOpacity="0.09"
+            stroke="none"
+            mask={`url(#${upperMaskId})`}
+            style={{ pointerEvents: 'none' }} />
+        }
       </g>
 
-      {/* Mandible bone outline */}
-      <g style={{ pointerEvents: 'none' }}>
+      {/* Mandible bone — interactive in Stage 2 */}
+      <g
+        data-anatomy-id="arch-lower"
+        style={{ cursor: archActive ? 'pointer' : 'default' }}
+        onMouseEnter={() => archActive && onHover('arch-lower')}
+        onMouseLeave={() => archActive && onHover(null)}
+        onClick={(e) => { if (archActive) { e.stopPropagation(); onArchClick('lower', e); } }}>
         <path d={mandible}
-        fill="var(--bg-1)"
-        stroke="var(--anatomy-stroke)"
-        strokeWidth="1.2"
-        strokeLinejoin="round"
-        opacity="0.9" />
+          fill="var(--bg-1)"
+          stroke="var(--anatomy-stroke)"
+          strokeWidth="1.2"
+          strokeLinejoin="round"
+          opacity="0.9"
+          style={{ pointerEvents: archActive ? 'visiblePainted' : 'none' }} />
+        {isHov('arch-lower') &&
+          <path d={mandible}
+            fill={accent}
+            fillOpacity="0.09"
+            stroke="none"
+            mask={`url(#${lowerMaskId})`}
+            style={{ pointerEvents: 'none' }} />
+        }
       </g>
 
       {/* Sinus zones — inner shapes within maxilla */}
@@ -357,41 +438,6 @@ function AnatomyBackground({
       fill="var(--bg-0)" stroke="var(--anatomy-stroke)" strokeWidth="1.1"
       opacity="0.85" style={{ pointerEvents: 'none' }} />
       )}
-
-      {/* Arch hit-areas — on top of bone, invisible until hover */}
-      <g style={{ cursor: 'pointer' }}
-      onMouseEnter={() => onHover('arch-upper')}
-      onMouseLeave={() => onHover(null)}
-      onClick={(e) => {e.stopPropagation();onArchClick('upper', e);}}>
-        <rect x="100" y={maxillaTop - 18} width="1400" height="46" fill="transparent" />
-        {isHov('arch-upper') &&
-        <g pointerEvents="none">
-            <rect x="220" y={maxillaTop - 14} width="1160" height="38" rx="19"
-          fill="none" stroke={accent} strokeWidth="1.2" strokeDasharray="4 4" opacity="0.7" />
-            <text x="800" y={maxillaTop + 9} textAnchor="middle" fontSize="11" fill={accent}
-          style={{ letterSpacing: '0.22em', textTransform: 'uppercase' }} fontWeight="500">
-              Maxilla · Upper Arch
-            </text>
-          </g>
-        }
-      </g>
-
-      <g style={{ cursor: 'pointer' }}
-      onMouseEnter={() => onHover('arch-lower')}
-      onMouseLeave={() => onHover(null)}
-      onClick={(e) => {e.stopPropagation();onArchClick('lower', e);}}>
-        <rect x="100" y={mandibleBottom - 28} width="1400" height="46" fill="transparent" />
-        {isHov('arch-lower') &&
-        <g pointerEvents="none">
-            <rect x="220" y={mandibleBottom - 24} width="1160" height="38" rx="19"
-          fill="none" stroke={accent} strokeWidth="1.2" strokeDasharray="4 4" opacity="0.7" />
-            <text x="800" y={mandibleBottom + 1} textAnchor="middle" fontSize="11" fill={accent}
-          style={{ letterSpacing: '0.22em', textTransform: 'uppercase' }} fontWeight="500">
-              Mandible · Lower Arch
-            </text>
-          </g>
-        }
-      </g>
     </g>);
 
 }
@@ -576,12 +622,31 @@ function DentalHeroInner() {
           if (tx.scope !== 'tooth' || !exclusive.includes(tx.id)) return tx;
           return { ...tx, targets: tx.targets.filter((id) => !targets.includes(id)) };
         }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0);
-        const existingIdx = next.findIndex((tx) => tx.id === txId && tx.scope === 'tooth');
-        if (existingIdx >= 0) {
-          const merged = new Set([...next[existingIdx].targets, ...targets]);
-          next[existingIdx] = { ...next[existingIdx], targets: [...merged] };
+        if (txId === 'bridge-span') {
+          const targetsByJaw = popover.target.reduce((groups, tooth) => {
+            (groups[tooth.jaw] = groups[tooth.jaw] || []).push(tooth.id);
+            return groups;
+          }, {});
+          for (const [jaw, jawTargets] of Object.entries(targetsByJaw)) {
+            const existingIdx = next.findIndex((tx) => {
+              if (tx.id !== txId || tx.scope !== 'tooth') return false;
+              return tx.targets.some((id) => allTeeth.find((tooth) => tooth.id === id)?.jaw === jaw);
+            });
+            if (existingIdx >= 0) {
+              const merged = new Set([...next[existingIdx].targets, ...jawTargets]);
+              next[existingIdx] = { ...next[existingIdx], targets: [...merged] };
+            } else {
+              next.push({ id: txId, scope: 'tooth', targets: jawTargets });
+            }
+          }
         } else {
-          next.push({ id: txId, scope: 'tooth', targets });
+          const existingIdx = next.findIndex((tx) => tx.id === txId && tx.scope === 'tooth');
+          if (existingIdx >= 0) {
+            const merged = new Set([...next[existingIdx].targets, ...targets]);
+            next[existingIdx] = { ...next[existingIdx], targets: [...merged] };
+          } else {
+            next.push({ id: txId, scope: 'tooth', targets });
+          }
         }
       } else if (popover.mode === 'sinus') {
         const side = popover.target.side;
@@ -611,7 +676,7 @@ function DentalHeroInner() {
     });
     setPopover(null);
     setSelection([]);
-  }, [popover, fullyEdentulous]);
+  }, [popover, fullyEdentulous, allTeeth]);
 
   // ---- Remove a single treatment (used by label cards) ----
   const removeTreatmentForTooth = (toothId, txId) => {
@@ -779,7 +844,8 @@ function DentalHeroInner() {
           <line
             x1={800 - archWidth / 2 - 30} y1={ARCH_LAYOUT.biteCenter}
             x2={800 + archWidth / 2 + 30} y2={ARCH_LAYOUT.biteCenter}
-            stroke="var(--ink-faint)" strokeWidth="0.6" strokeDasharray="2 4" />
+            stroke="var(--ink-faint)" strokeWidth="0.6" strokeDasharray="2 4"
+            style={{ pointerEvents: 'none' }} />
           
 
           {/* Upper arch */}

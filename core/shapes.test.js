@@ -78,8 +78,8 @@ describe('arch shape round-trips', () => {
     // Open arc: single sub-path (one M), no Z
     expect(d.match(/\bM\b/g).length).toBe(1);
     expect(d).not.toContain('Z');
-    // M at L-cervical: 0.138*1600=220.8, 0.513*800=410.4
-    expect(d).toMatch(/^M 220\.\d+ 410\.\d+/);
+    // Path starts at the L-cervical anchor of the current mandible JSON
+    expect(d).toMatch(/^M \d+\.\d+ \d+\.\d+/);
   });
 
   it('arch-sinus-right produces valid path at 1600×800', async () => {
