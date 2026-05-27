@@ -1,0 +1,12 @@
+{
+  "id": "idn-left",
+  "label": "Inferior Dental Nerve (Patient Left)",
+  "version": 1,
+  "note": "Mirror of idn-right around x=800 (x_left = 1 - x_right). Open path — no Z.",
+  "foramen": { "x": 0.5625, "y": 0.875 },
+  "segments": [
+    { "type": "M",  "x": 0.8875, "y": 0.7500 },
+    { "type": "Q",  "x1": 0.7900, "y1": 0.8750, "x": 0.6763, "y": 0.8463 },
+    { "type": "Q",  "x1": 0.6763, "y1": 0.8463, "x": 0.5625, "y": 0.8750 }
+  ]
+}

@@ -1,7 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { toothPaths, UPPER, LOWER, layoutArch } from '../layout/teeth-data.jsx';
 import { shapeToPath } from '../treatment-overlays/shapes.jsx';
-import { scallopLR, scallopRL, chRatioFor } from '../core/arch-math.js';
+import { scallopLR, scallopRL, chRatioFor, ARCH_LAYOUT, upperBiteY, lowerBiteY } from '../core/arch-math.js';
 import { useShapeEditor } from './useShapeEditor.js';
 import { ControlPoint } from './ControlPoint.jsx';
 import { nearestOnSegments } from './bezier-utils.js';
@@ -30,6 +30,16 @@ const ANATOMY_ARCH_SHAPES = {
   'arch-sinus-left': {
     label: 'Sinus (Patient Left)',
     loader: () => import('../shapes-data/anatomy/arch-sinus-left.json'),
+    w: 800, h: 400,
+  },
+  'idn-right': {
+    label: 'IDN (Patient Right)',
+    loader: () => import('../shapes-data/anatomy/idn-right.json'),
+    w: 800, h: 400,
+  },
+  'idn-left': {
+    label: 'IDN (Patient Left)',
+    loader: () => import('../shapes-data/anatomy/idn-left.json'),
     w: 800, h: 400,
   },
 };
@@ -107,30 +117,40 @@ const ARCH_JAW = {
   'arch-sinus-right': 'upper',
   'arch-sinus-left':  'upper',
   'arch-mandible':    'lower',
+  'idn-right':        'lower',
+  'idn-left':         'lower',
 };
+
+// ShapeLab arch canvas (W=800, H=400) is half the app's 1600×800 viewBox.
+const LAB_RATIO = 0.5;
 
 // Compute cervical-line points for each tooth in the arch, in ShapeLab canvas space.
 // Returns array of {x, y, w} sorted L→R, suitable for scallopLR / scallopRL.
 function buildArchCervicalPoints(jaw, W, H, CX, CY) {
   const arch = jaw === 'upper' ? UPPER : LOWER;
-  const biteY = jaw === 'upper' ? CY + H * 0.83 : CY + H * 0.17;
-  const scale = 0.85;
-  const laid = layoutArch(arch, CX + W / 2, scale, { gap: 3, archDepth: 20 });
-  const points = laid.map(t => {
+  const scale = ARCH_LAYOUT.scale * LAB_RATIO;
+  const biteY = CY + (jaw === 'upper' ? upperBiteY : lowerBiteY) * LAB_RATIO;
+  const laid = layoutArch(arch, CX + W / 2, scale, {
+    gap: ARCH_LAYOUT.gap,
+    archDepth: ARCH_LAYOUT.archDepth,
+  });
+  return laid.map(t => {
     const th = t.h * scale;
     const ch = th * chRatioFor(t.type);
     const yo = t.yOffset || 0;
     const y = jaw === 'upper' ? biteY + yo - ch : biteY - yo + ch;
     return { x: t.cx, y, w: t.w * scale };
-  });
-  return points.sort((a, b) => a.x - b.x);
+  }).sort((a, b) => a.x - b.x);
 }
 
 function buildArchTeethGhosts(jaw, W, H, CX, CY) {
   const arch = jaw === 'upper' ? UPPER : LOWER;
-  const biteY = jaw === 'upper' ? CY + H * 0.83 : CY + H * 0.17;
-  const scale = 0.85;
-  const laid = layoutArch(arch, CX + W / 2, scale, { gap: 3, archDepth: 20 });
+  const scale = ARCH_LAYOUT.scale * LAB_RATIO;
+  const biteY = CY + (jaw === 'upper' ? upperBiteY : lowerBiteY) * LAB_RATIO;
+  const laid = layoutArch(arch, CX + W / 2, scale, {
+    gap: ARCH_LAYOUT.gap,
+    archDepth: ARCH_LAYOUT.archDepth,
+  });
   return laid.map(t => {
     const tw = t.w * scale, th = t.h * scale;
     const paths = toothPaths(t.type, tw, th);

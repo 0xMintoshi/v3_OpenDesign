@@ -3,8 +3,8 @@ import { shapeRangeToPath } from '../core/shapes.js';
 import archMaxilla from '../shapes-data/anatomy/arch-maxilla.json';
 import archMandible from '../shapes-data/anatomy/arch-mandible.json';
 import { TOOTH_TYPES, QUADRANT, UPPER, LOWER, layoutArch, toothPaths } from '../layout/teeth-data.jsx';
-import { chRatioFor, scallopRL, scallopLR } from '../core/arch-math.js';
-import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnCanalPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from '../layout/anatomy.jsx';
+import { chRatioFor, scallopRL, scallopLR, ARCH_LAYOUT, upperBiteY, lowerBiteY } from '../core/arch-math.js';
+import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from '../layout/anatomy.jsx';
 import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog, exportLabelPositions } from './treatments.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
 import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
@@ -267,7 +267,6 @@ function buildSinus(cervical, startIdx, endIdx, ceilingY) {
 // ====================================================================
 function AnatomyBackground({
   accent, hoveredId, onHover, onSelect, showSinus, showIDN,
-  idnCurvature = 0.5, idnLength = 0.5,
   stage, onArchClick, upperTeeth, lowerTeeth, upperBiteY, lowerBiteY
 }) {
   const isHov = (id) => hoveredId === id;
@@ -343,7 +342,7 @@ function AnatomyBackground({
 
       {/* IDN nerve — inside mandible */}
       {showIDN && ['right', 'left'].map((side) => {
-        const path = idnSchematicPath(side, { curvature: idnCurvature, length: idnLength });
+        const path = idnSchematicPath(side);
         return (
           <g key={`idn-${side}`} style={{ pointerEvents: 'none' }}>
             <path d={path} stroke="var(--anatomy-stroke)" strokeWidth="3.5" fill="none"
@@ -353,7 +352,7 @@ function AnatomyBackground({
           </g>);
 
       })}
-      {showIDN && mentalForamenCenters({ length: idnLength }).map(({ cx, cy, side }) =>
+      {showIDN && mentalForamenCenters().map(({ cx, cy, side }) =>
       <circle key={`foramen-${side}`} cx={cx} cy={cy} r="3.5"
       fill="var(--bg-0)" stroke="var(--anatomy-stroke)" strokeWidth="1.1"
       opacity="0.85" style={{ pointerEvents: 'none' }} />
@@ -407,9 +406,7 @@ const DEFAULT_TWEAKS = /*EDITMODE-BEGIN*/{
   "accent": "#2A6FDB",
   "showSinus": true,
   "showIDN": true,
-  "idnCurvature": 0.5,
-  "idnLength": 0.5,
-  "showNumbering": true,
+"showNumbering": true,
   "showLeaders": true,
   "showLayoutGuides": false,
   "manualPlacementMode": false,
@@ -423,14 +420,11 @@ function DentalHeroInner() {
   const { stage, setStage, presence, setPresence, treatments, setTreatments } = useChartState();
   const { hoveredId, setHoveredId, selection, setSelection, popover, setPopover, confirmWipe, setConfirmWipe, exportJson, setExportJson, focusedToothId, setFocusedToothId } = useUIState();
 
-  const scale = 2.2;
-  const biteCenter = 410;
-  const archGap = 50;
-  const upperBiteY = biteCenter - archGap / 2;
-  const lowerBiteY = biteCenter + archGap / 2;
+  const { scale, centerX, archDepth: defaultArchDepth } = ARCH_LAYOUT;
+  const archDepth = t.archDepth ?? defaultArchDepth;
 
-  const upper = useMemo(() => layoutArch(UPPER, 800, scale, { archDepth: t.archDepth }), [t.archDepth]);
-  const lower = useMemo(() => layoutArch(LOWER, 800, scale, { archDepth: t.archDepth }), [t.archDepth]);
+  const upper = useMemo(() => layoutArch(UPPER, centerX, scale, { archDepth }), [archDepth]);
+  const lower = useMemo(() => layoutArch(LOWER, centerX, scale, { archDepth }), [archDepth]);
 
   const scaledUpper = upper.map((x) => ({ ...x, w: x.w * scale, h: x.h * scale }));
   const scaledLower = lower.map((x) => ({ ...x, w: x.w * scale, h: x.h * scale }));
@@ -772,8 +766,6 @@ function DentalHeroInner() {
             onSelect={handleAnatomySelect}
             showSinus={t.showSinus}
             showIDN={t.showIDN}
-            idnCurvature={t.idnCurvature}
-            idnLength={t.idnLength}
             stage={stage}
             onArchClick={handleArchClick}
             upperTeeth={scaledUpper}
@@ -785,8 +777,8 @@ function DentalHeroInner() {
 
           {/* Bite plane indicator */}
           <line
-            x1={800 - archWidth / 2 - 30} y1={biteCenter}
-            x2={800 + archWidth / 2 + 30} y2={biteCenter}
+            x1={800 - archWidth / 2 - 30} y1={ARCH_LAYOUT.biteCenter}
+            x2={800 + archWidth / 2 + 30} y2={ARCH_LAYOUT.biteCenter}
             stroke="var(--ink-faint)" strokeWidth="0.6" strokeDasharray="2 4" />
           
 
@@ -950,10 +942,6 @@ function DentalHeroInner() {
         <TweakSection label="Anatomy">
           <TweakToggle label="Sinus Zones" value={t.showSinus} onChange={(v) => setTweak('showSinus', v)} />
           <TweakToggle label="ID Nerve" value={t.showIDN} onChange={(v) => setTweak('showIDN', v)} />
-          {t.showIDN && <>
-            <TweakSlider label="IDN Curve" value={t.idnCurvature} min={0} max={1} step={0.05} onChange={(v) => setTweak('idnCurvature', v)} />
-            <TweakSlider label="IDN Length" value={t.idnLength} min={0} max={1} step={0.05} onChange={(v) => setTweak('idnLength', v)} />
-          </>}
         </TweakSection>
       </TweaksPanel>
       {exportJson && (

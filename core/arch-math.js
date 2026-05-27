@@ -7,6 +7,17 @@ export function chRatioFor(type) {
   return 0.34;
 }
 
+export const ARCH_LAYOUT = {
+  scale: 2.2,
+  biteCenter: 410,
+  archGap: 50,
+  centerX: 800,   // center of app's 1600-wide viewBox
+  gap: 4,         // matches layoutArch default; ShapeLab previously used 3 (wrong)
+  archDepth: 0,   // intentional: live app DEFAULT_TWEAKS.archDepth = 0
+};
+export const upperBiteY = ARCH_LAYOUT.biteCenter - ARCH_LAYOUT.archGap / 2; // 385
+export const lowerBiteY = ARCH_LAYOUT.biteCenter + ARCH_LAYOUT.archGap / 2; // 435
+
 // Scallop R→L: traces from rightmost tooth to leftmost cervical point.
 // peakDir: -1 for upper (dips away from bite = upward), +1 for lower.
 export function scallopRL(cervical, peakDir, peakDepth = 4) {
