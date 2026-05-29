@@ -102,6 +102,33 @@ describe('arch shape round-trips', () => {
   });
 });
 
+describe('IDN anatomy shape round-trips', () => {
+  it('idn-right produces open path with Q segments at 1600×800', async () => {
+    const json = await import('../shapes-data/anatomy/idn-right.json');
+    const shape = json.default ?? json;
+    const d = shapeToPath(shape, 1600, 800);
+    expect(d).toContain('M');
+    expect(d).toContain('Q');
+    expect(d).not.toContain('Z');
+    // foramen coords in range
+    expect(shape.foramen.x).toBeGreaterThan(0);
+    expect(shape.foramen.x).toBeLessThan(1);
+    expect(shape.foramen.y).toBeGreaterThan(0);
+    expect(shape.foramen.y).toBeLessThan(1);
+  });
+
+  it('idn-left produces open path and mirrors idn-right foramen x', async () => {
+    const r = (await import('../shapes-data/anatomy/idn-right.json')).default ?? await import('../shapes-data/anatomy/idn-right.json');
+    const l = (await import('../shapes-data/anatomy/idn-left.json')).default ?? await import('../shapes-data/anatomy/idn-left.json');
+    const d = shapeToPath(l, 1600, 800);
+    expect(d).toContain('M');
+    expect(d).not.toContain('Z');
+    // left foramen should be mirrored (x sums to 1.0)
+    expect(r.foramen.x + l.foramen.x).toBeCloseTo(1.0, 2);
+    expect(r.foramen.y).toBeCloseTo(l.foramen.y, 2);
+  });
+});
+
 describe('phase-4 shape round-trips', () => {
   it('bridge-span produces valid path at 76×88', async () => {
     const json = await import('../shapes-data/treatments/bridge-span.json');

@@ -313,8 +313,56 @@ export default function ShapeLab() {
 
   const bridgeGhosts = meta.ghostContext?.teeth ? bridgeGhostPaths() : null;
 
-  // Arch ghost for partial denture context
-  const archGhostShape = meta.ghostContext?.arch ? archGhosts[meta.ghostContext.arch] : null;
+  function treatmentAnatomyBackground(jaw, archW, archH, archCX, archCY) {
+    if (!jaw) return null;
+    const anatomyIds = jaw === 'upper'
+      ? ['arch-maxilla', 'arch-sinus-right', 'arch-sinus-left']
+      : ['arch-mandible', 'idn-right', 'idn-left'];
+    const toothGhosts = buildArchTeethGhosts(jaw, archW, archH, archCX, archCY);
+    const cerv = buildArchCervicalPoints(jaw, archW, archH, archCX, archCY);
+    const peakDir = jaw === 'upper' ? -1 : 1;
+    const scallopStr = cerv.length > 1
+      ? `M ${cerv[0].x} ${cerv[0].y} ` + (jaw === 'upper' ? scallopLR(cerv, peakDir) : scallopRL(cerv, peakDir))
+      : '';
+
+    return (
+      <>
+        {anatomyIds.map(id => {
+          const gs = archGhosts[id];
+          const path = gs?.segments?.length ? shapeToPath(gs, archW, archH) : '';
+          return path ? (
+            <path
+              key={id}
+              d={path}
+              fill="none"
+              stroke="#c8c8c8"
+              strokeWidth={1}
+              opacity={id.startsWith('arch-sinus') || id.startsWith('idn') ? 0.32 : 0.42}
+              transform={`translate(${archCX},${archCY})`}
+              pointerEvents="none"
+            />
+          ) : null;
+        })}
+        {toothGhosts.map((g, i) => (
+          <g key={`tooth-${i}`} transform={`translate(${g.tx},${g.ty}) rotate(${g.tilt}) scale(${g.scaleX},${g.scaleY})`} pointerEvents="none">
+            <path d={g.outline}  fill="#e8f0ff" stroke="#8fa6c8" strokeWidth={0.8} opacity={0.28} />
+            <path d={g.cervical} fill="none"    stroke="#879ab8" strokeWidth={0.65} opacity={0.4} />
+          </g>
+        ))}
+        {scallopStr && (
+          <path
+            d={scallopStr}
+            fill="none"
+            stroke="#f59e0b"
+            strokeWidth={1.1}
+            strokeDasharray="4 3"
+            opacity={0.55}
+            pointerEvents="none"
+          />
+        )}
+      </>
+    );
+  }
 
   // Inactive path ghost for tooth template two-path editing
   function inactivePathGhost() {
@@ -326,6 +374,48 @@ export default function ShapeLab() {
   }
 
   const ghostPath = inactivePathGhost();
+
+  function transformShape({ dx = 0, dy = 0, sx = 1, sy = 1 }) {
+    setShape(prev => ({
+      ...prev,
+      segments: prev.segments.map(seg => transformSegment(seg, dx, dy, sx, sy)),
+    }));
+    setSelectedSegIdx(null);
+    setPhantomPoint(null);
+  }
+
+  function resetShapeTransform() {
+    if (!initialShape) return;
+    setShape(initialShape);
+    setSelectedSegIdx(null);
+    setPhantomPoint(null);
+  }
+
+  function transformCoord(value, delta, scale) {
+    return roundCoord(0.5 + (value - 0.5) * scale + delta);
+  }
+
+  function transformSegment(seg, dx, dy, sx, sy) {
+    if (seg.type === 'Z') return seg;
+    const next = { ...seg };
+    if (next.x !== undefined) {
+      next.x = transformCoord(next.x, dx, sx);
+      next.y = transformCoord(next.y, dy, sy);
+    }
+    if (next.x1 !== undefined) {
+      next.x1 = transformCoord(next.x1, dx, sx);
+      next.y1 = transformCoord(next.y1, dy, sy);
+    }
+    if (next.x2 !== undefined) {
+      next.x2 = transformCoord(next.x2, dx, sx);
+      next.y2 = transformCoord(next.y2, dy, sy);
+    }
+    return next;
+  }
+
+  function roundCoord(value) {
+    return Math.round(value * 10000) / 10000;
+  }
 
   // Ctrl+scroll zoom
   useEffect(() => {
@@ -524,6 +614,21 @@ export default function ShapeLab() {
         </button>
       </div>
 
+      <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', padding: '8px 10px', background: '#fff', border: '1px solid #ddd', borderRadius: 8 }}>
+        <strong style={{ fontSize: 12, color: '#444' }}>Whole shape</strong>
+        <button onClick={() => transformShape({ dy: -0.01 })} style={{ padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}>Up</button>
+        <button onClick={() => transformShape({ dy: 0.01 })} style={{ padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}>Down</button>
+        <button onClick={() => transformShape({ dx: -0.01 })} style={{ padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}>Left</button>
+        <button onClick={() => transformShape({ dx: 0.01 })} style={{ padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}>Right</button>
+        <button onClick={() => transformShape({ sx: 0.95, sy: 0.95 })} style={{ padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}>Scale -5%</button>
+        <button onClick={() => transformShape({ sx: 1.05, sy: 1.05 })} style={{ padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}>Scale +5%</button>
+        <button onClick={() => transformShape({ sx: 0.95 })} style={{ padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}>Narrower</button>
+        <button onClick={() => transformShape({ sx: 1.05 })} style={{ padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}>Wider</button>
+        <button onClick={() => transformShape({ sy: 0.95 })} style={{ padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}>Shorter</button>
+        <button onClick={() => transformShape({ sy: 1.05 })} style={{ padding: '4px 10px', cursor: 'pointer', fontSize: 12 }}>Taller</button>
+        <button onClick={resetShapeTransform} style={{ padding: '4px 10px', cursor: 'pointer', fontSize: 12, color: '#666' }}>Reset Shape</button>
+      </div>
+
       {showImport && (
         <ImageImport onTrace={handleTrace} onClose={() => setShowImport(false)} />
       )}
@@ -586,39 +691,8 @@ export default function ShapeLab() {
               </>);
             })()}
 
-            {/* Full anatomy background for crown/bridge/treatment editing */}
-            {isTreatment && !meta.ghostContext?.arch && (() => {
-              const jaw = meta.jaw;
-              if (!jaw) return null;
-              const archId = jaw === 'upper' ? 'arch-maxilla' : 'arch-mandible';
-              const sinusIds = jaw === 'upper' ? ['arch-sinus-right', 'arch-sinus-left'] : [];
-              const archW = 800, archH = 400, archCX = 20, archCY = 20;
-              return (<>
-                {[archId, ...sinusIds].map(id => {
-                  const gs = archGhosts[id];
-                  const path = gs?.segments?.length ? shapeToPath(gs, archW, archH) : '';
-                  return path ? (
-                    <path key={id} d={path} fill="none" stroke="#ccc" strokeWidth={1} opacity={0.4}
-                      transform={`translate(${archCX},${archCY})`} />
-                  ) : null;
-                })}
-                {buildArchTeethGhosts(jaw, archW, archH, archCX, archCY).map((g, i) => (
-                  <g key={i} transform={`translate(${g.tx},${g.ty}) rotate(${g.tilt}) scale(${g.scaleX},${g.scaleY})`}>
-                    <path d={g.outline}  fill="#e8f0ff" stroke="#aac" strokeWidth={0.8} opacity={0.25} />
-                    <path d={g.cervical} fill="none"    stroke="#99b" strokeWidth={0.6} opacity={0.25} />
-                  </g>
-                ))}
-              </>);
-            })()}
-
-            {/* Arch ghost behind partial denture */}
-            {archGhostShape && (() => {
-              const archPath = archGhostShape.segments?.length ? shapeToPath(archGhostShape, W, H) : '';
-              return archPath ? (
-                <path d={archPath} fill="none" stroke="#aac" strokeWidth={1} opacity={0.4}
-                  transform={`translate(${CX}, ${CY})`} />
-              ) : null;
-            })()}
+            {/* Full anatomy background for treatment editing */}
+            {isTreatment && treatmentAnatomyBackground(meta.jaw, 800, 400, 20, 20)}
 
             {/* Ghost tooth reference — single tooth (crown shapes) */}
             {toothRef && (
