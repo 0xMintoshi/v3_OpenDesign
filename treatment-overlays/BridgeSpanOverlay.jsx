@@ -1,8 +1,8 @@
 import React from 'react';
 import { toothPaths } from '../layout/teeth-data.jsx';
 
-const STROKE_WIDTH = 8;
-export const CONTACT_STROKE_WIDTH = 11;
+const STROKE_WIDTH = 5;
+export const CONTACT_STROKE_WIDTH = 7.5;
 const CONTACT_X = 0.43;
 export const CONTACT_TOP = 0.5;
 export const CONTACT_BOTTOM = 0.12;

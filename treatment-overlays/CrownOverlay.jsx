@@ -28,7 +28,7 @@ export function CrownOverlay({ tooth, biteY, accent }) {
         d={paths.outline}
         fill="none"
         stroke={accent}
-        strokeWidth="6"
+        strokeWidth="5"
         strokeLinejoin="round"
         strokeLinecap="round"
         clipPath={`url(#${clipId})`} />
@@ -36,7 +36,7 @@ export function CrownOverlay({ tooth, biteY, accent }) {
         d={paths.cervical}
         fill="none"
         stroke={accent}
-        strokeWidth="6"
+        strokeWidth="5"
         strokeLinejoin="round"
         strokeLinecap="round" />
     </g>
