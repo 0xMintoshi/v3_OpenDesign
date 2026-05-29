@@ -9,6 +9,7 @@ const SVG_H = 800;
 export function CompleteDentureOverlay({ jaw, accent }) {
   const shape = jaw === 'upper' ? completeDentureUpper : completeDentureLower;
   const d = shapeToPath(shape, SVG_W, SVG_H);
+
   if (shape.renderMode === 'filled-line-art') {
     return (
       <g style={{ pointerEvents: 'none' }}>
