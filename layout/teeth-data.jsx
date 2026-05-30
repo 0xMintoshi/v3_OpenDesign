@@ -171,42 +171,28 @@ function premolarCervical(w, h) {
   return `M ${-w*0.42} ${ny} Q 0 ${ny - h*0.065} ${w*0.42} ${ny}`;
 }
 
-// Upper molar — wisdom-style mesial/distal roots with a palatal root from the furcation.
+// Upper molar — two buccal roots + palatal root; 3-root anatomy.
 function molarUOutline(w, h) {
-  const ch = h * 0.40;
-  const ny = -ch;
-  const nw = w * 0.84;
-  const furcation = {
-    meetY: 0.505,
-    innerX: 0.122,
-    innerY: 0.695,
-    neckX: 0.084,
-    neckY: 0.585,
-    midX: 0.043,
-    midY: 0.770,
-    apexX: 0.016,
-    apexY: 0.895,
-    shoulderX: 0.040,
-    shoulderY: 0.535
-  };
   return `
-    M ${w*0.48} ${-ch*0.02}
-    C ${w*0.52} ${-ch*0.4}, ${w*0.52} ${-ch*0.85}, ${nw*0.50} ${ny}
-    C ${w*0.40} ${-ch - h*0.10}, ${w*0.34} ${-h*0.5}, ${w*0.24} ${-h*0.86}
-    C ${w*0.20} ${-h*0.96}, ${w*0.14} ${-h*0.96}, ${w*0.12} ${-h*0.86}
-    C ${w*0.154} ${-h*0.792}, ${w*furcation.innerX} ${-h*furcation.innerY}, ${w*furcation.shoulderX} ${-h*furcation.shoulderY}
-    C ${w*0.026} ${-h*(furcation.meetY + 0.012)}, ${w*0.010} ${-h*(furcation.meetY + 0.004)}, 0 ${-h*furcation.meetY}
-    C ${w*0.026} ${-h*(furcation.meetY + 0.012)}, ${w*furcation.neckX} ${-h*furcation.neckY}, ${w*(furcation.neckX * 0.88)} ${-h*(furcation.neckY + 0.070)}
-    C ${w*furcation.midX} ${-h*furcation.midY}, ${w*(furcation.apexX + 0.018)} ${-h*(furcation.apexY - 0.012)}, ${w*furcation.apexX} ${-h*furcation.apexY}
-    C ${w*(furcation.apexX * 0.36)} ${-h*(furcation.apexY + 0.018)}, ${-w*(furcation.apexX * 0.36)} ${-h*(furcation.apexY + 0.018)}, ${-w*furcation.apexX} ${-h*furcation.apexY}
-    C ${-w*(furcation.apexX + 0.018)} ${-h*(furcation.apexY - 0.012)}, ${-w*furcation.midX} ${-h*furcation.midY}, ${-w*(furcation.neckX * 0.88)} ${-h*(furcation.neckY + 0.070)}
-    C ${-w*furcation.neckX} ${-h*furcation.neckY}, ${-w*0.026} ${-h*(furcation.meetY + 0.012)}, 0 ${-h*furcation.meetY}
-    C ${-w*0.010} ${-h*(furcation.meetY + 0.004)}, ${-w*0.026} ${-h*(furcation.meetY + 0.012)}, ${-w*furcation.shoulderX} ${-h*furcation.shoulderY}
-    C ${-w*furcation.innerX} ${-h*furcation.innerY}, ${-w*0.154} ${-h*0.792}, ${-w*0.12} ${-h*0.86}
-    C ${-w*0.14} ${-h*0.96}, ${-w*0.20} ${-h*0.96}, ${-w*0.24} ${-h*0.86}
-    C ${-w*0.34} ${-h*0.5}, ${-w*0.40} ${-ch - h*0.10}, ${-nw*0.50} ${ny}
-    C ${-w*0.52} ${-ch*0.85}, ${-w*0.52} ${-ch*0.4}, ${-w*0.48} ${-ch*0.02}
-    C ${-w*0.10} ${ch*0.18} ${w*0.10} ${ch*0.18} ${w*0.48} ${-ch*0.02}
+    M ${w*0.46} ${-h*0.012}
+    C ${w*0.53} ${-h*0.02} ${w*0.54} ${-h*0.18} ${w*0.52} ${-h*0.32}
+    C ${w*0.50} ${-h*0.38} ${w*0.46} ${-h*0.42} ${w*0.42} ${-h*0.44}
+    C ${w*0.36} ${-h*0.52} ${w*0.30} ${-h*0.60} ${w*0.24} ${-h*0.86}
+    C ${w*0.20} ${-h*0.96} ${w*0.14} ${-h*0.96} ${w*0.12} ${-h*0.86}
+    C ${w*0.10} ${-h*0.74} ${w*0.06} ${-h*0.60} ${w*0.024} ${-h*0.52}
+    C ${w*0.016} ${-h*0.505} ${w*0.008} ${-h*0.500} ${0} ${-h*0.500}
+    C ${-w*0.008} ${-h*0.500} ${-w*0.016} ${-h*0.505} ${-w*0.024} ${-h*0.52}
+    C ${-w*0.042} ${-h*0.58} ${-w*0.042} ${-h*0.80} ${-w*0.016} ${-h*0.90}
+    C ${-w*0.008} ${-h*0.94} ${w*0.008} ${-h*0.94} ${w*0.016} ${-h*0.90}
+    C ${w*0.042} ${-h*0.80} ${w*0.042} ${-h*0.58} ${w*0.024} ${-h*0.52}
+    C ${w*0.016} ${-h*0.505} ${0} ${-h*0.500} ${0} ${-h*0.500}
+    C ${-w*0.006} ${-h*0.500} ${-w*0.024} ${-h*0.52} ${-w*0.06} ${-h*0.60}
+    C ${-w*0.12} ${-h*0.74} ${-w*0.12} ${-h*0.86} ${-w*0.12} ${-h*0.86}
+    C ${-w*0.14} ${-h*0.96} ${-w*0.20} ${-h*0.96} ${-w*0.24} ${-h*0.86}
+    C ${-w*0.30} ${-h*0.60} ${-w*0.36} ${-h*0.52} ${-w*0.42} ${-h*0.44}
+    C ${-w*0.46} ${-h*0.42} ${-w*0.50} ${-h*0.38} ${-w*0.52} ${-h*0.32}
+    C ${-w*0.54} ${-h*0.18} ${-w*0.53} ${-h*0.02} ${-w*0.46} ${-h*0.012}
+    C ${-w*0.16} ${-h*0.008} ${w*0.16} ${-h*0.008} ${w*0.46} ${-h*0.012}
     Z
   `;
 }
@@ -234,10 +220,8 @@ function molarLOutline(w, h) {
 }
 
 function molarCervical(w, h) {
-  const ch = h * 0.40;
-  const ny = -ch;
-  const nw = w * 0.84;
-  return `M ${-nw*0.48} ${ny} Q 0 ${ny - ch*0.18} ${nw*0.48} ${ny}`;
+  const ny = -h * 0.40;
+  return `M ${-w*0.44} ${ny} Q 0 ${ny - h*0.072} ${w*0.44} ${ny}`;
 }
 
 // Upper wisdom — small, slightly twisted roots (2-3).
