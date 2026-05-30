@@ -187,41 +187,38 @@ function premolarCervical(w, h) {
 }
 
 // Upper molar — wisdom-style mesial/distal roots with a palatal root from the furcation.
+// Crown corners rounded with r≈0.10 cubic Bézier fillets (de Casteljau split).
 function molarUOutline(w, h) {
-  const ch = h * 0.40;
-  const ny = -ch;
-  const nw = w * 0.84;
-  const furcation = {
+  const f = {
     meetY: 0.505,
-    innerX: 0.122,
-    innerY: 0.695,
-    neckX: 0.084,
-    neckY: 0.585,
-    midX: 0.043,
-    midY: 0.770,
-    apexX: 0.016,
-    apexY: 0.895,
-    shoulderX: 0.040,
-    shoulderY: 0.535
+    innerX: 0.122, innerY: 0.695,
+    neckX: 0.084,  neckY: 0.585,
+    midX: 0.043,   midY: 0.770,
+    apexX: 0.016,  apexY: 0.895,
+    shoulderX: 0.040, shoulderY: 0.535,
   };
   return `
-    M ${w*0.48} ${-ch*0.02}
-    C ${w*0.52} ${-ch*0.4}, ${w*0.52} ${-ch*0.85}, ${nw*0.50} ${ny}
-    C ${w*0.40} ${-ch - h*0.10}, ${w*0.34} ${-h*0.5}, ${w*0.24} ${-h*0.86}
-    C ${w*0.20} ${-h*0.96}, ${w*0.14} ${-h*0.96}, ${w*0.12} ${-h*0.86}
-    C ${w*0.154} ${-h*0.792}, ${w*furcation.innerX} ${-h*furcation.innerY}, ${w*furcation.shoulderX} ${-h*furcation.shoulderY}
-    C ${w*0.026} ${-h*(furcation.meetY + 0.012)}, ${w*0.010} ${-h*(furcation.meetY + 0.004)}, 0 ${-h*furcation.meetY}
-    C ${w*0.026} ${-h*(furcation.meetY + 0.012)}, ${w*furcation.neckX} ${-h*furcation.neckY}, ${w*(furcation.neckX * 0.88)} ${-h*(furcation.neckY + 0.070)}
-    C ${w*furcation.midX} ${-h*furcation.midY}, ${w*(furcation.apexX + 0.018)} ${-h*(furcation.apexY - 0.012)}, ${w*furcation.apexX} ${-h*furcation.apexY}
-    C ${w*(furcation.apexX * 0.36)} ${-h*(furcation.apexY + 0.018)}, ${-w*(furcation.apexX * 0.36)} ${-h*(furcation.apexY + 0.018)}, ${-w*furcation.apexX} ${-h*furcation.apexY}
-    C ${-w*(furcation.apexX + 0.018)} ${-h*(furcation.apexY - 0.012)}, ${-w*furcation.midX} ${-h*furcation.midY}, ${-w*(furcation.neckX * 0.88)} ${-h*(furcation.neckY + 0.070)}
-    C ${-w*furcation.neckX} ${-h*furcation.neckY}, ${-w*0.026} ${-h*(furcation.meetY + 0.012)}, 0 ${-h*furcation.meetY}
-    C ${-w*0.010} ${-h*(furcation.meetY + 0.004)}, ${-w*0.026} ${-h*(furcation.meetY + 0.012)}, ${-w*furcation.shoulderX} ${-h*furcation.shoulderY}
-    C ${-w*furcation.innerX} ${-h*furcation.innerY}, ${-w*0.154} ${-h*0.792}, ${-w*0.12} ${-h*0.86}
-    C ${-w*0.14} ${-h*0.96}, ${-w*0.20} ${-h*0.96}, ${-w*0.24} ${-h*0.86}
-    C ${-w*0.34} ${-h*0.5}, ${-w*0.40} ${-ch - h*0.10}, ${-nw*0.50} ${ny}
-    C ${-w*0.52} ${-ch*0.85}, ${-w*0.52} ${-ch*0.4}, ${-w*0.48} ${-ch*0.02}
-    C ${-w*0.10} ${ch*0.18} ${w*0.10} ${ch*0.18} ${w*0.48} ${-ch*0.02}
+    M ${w*0.491} ${-h*0.054}
+    C ${w*0.516} ${-h*0.179} ${w*0.512} ${-h*0.313} ${w*0.447} ${-h*0.379}
+    C ${w*0.433} ${-h*0.393} ${w*0.419} ${-h*0.409} ${w*0.413} ${-h*0.427}
+    C ${w*0.388} ${-h*0.504} ${w*0.33} ${-h*0.536} ${w*0.24} ${-h*0.86}
+    C ${w*0.20} ${-h*0.96} ${w*0.14} ${-h*0.96} ${w*0.12} ${-h*0.86}
+    C ${w*0.154} ${-h*0.792} ${w*f.innerX} ${-h*f.innerY} ${w*f.shoulderX} ${-h*f.shoulderY}
+    C ${w*0.026} ${-h*(f.meetY+0.012)} ${w*0.010} ${-h*(f.meetY+0.004)} 0 ${-h*f.meetY}
+    C ${w*0.026} ${-h*(f.meetY+0.012)} ${w*f.neckX} ${-h*f.neckY} ${w*(f.neckX*0.88)} ${-h*(f.neckY+0.070)}
+    C ${w*f.midX} ${-h*f.midY} ${w*(f.apexX+0.018)} ${-h*(f.apexY-0.012)} ${w*f.apexX} ${-h*f.apexY}
+    C ${w*(f.apexX*0.36)} ${-h*(f.apexY+0.018)} ${-w*(f.apexX*0.36)} ${-h*(f.apexY+0.018)} ${-w*f.apexX} ${-h*f.apexY}
+    C ${-w*(f.apexX+0.018)} ${-h*(f.apexY-0.012)} ${-w*f.midX} ${-h*f.midY} ${-w*(f.neckX*0.88)} ${-h*(f.neckY+0.070)}
+    C ${-w*f.neckX} ${-h*f.neckY} ${-w*0.026} ${-h*(f.meetY+0.012)} 0 ${-h*f.meetY}
+    C ${-w*0.010} ${-h*(f.meetY+0.004)} ${-w*0.026} ${-h*(f.meetY+0.012)} ${-w*f.shoulderX} ${-h*f.shoulderY}
+    C ${-w*f.innerX} ${-h*f.innerY} ${-w*0.154} ${-h*0.792} ${-w*0.12} ${-h*0.86}
+    C ${-w*0.14} ${-h*0.96} ${-w*0.20} ${-h*0.96} ${-w*0.24} ${-h*0.86}
+    C ${-w*0.33} ${-h*0.536} ${-w*0.388} ${-h*0.504} ${-w*0.413} ${-h*0.427}
+    C ${-w*0.419} ${-h*0.409} ${-w*0.433} ${-h*0.393} ${-w*0.447} ${-h*0.379}
+    C ${-w*0.512} ${-h*0.313} ${-w*0.516} ${-h*0.179} ${-w*0.491} ${-h*0.054}
+    C ${-w*0.482} ${-h*0.009} ${-w*0.416} ${h*0.005} ${-w*0.371} ${h*0.014}
+    C ${-w*0.093} ${h*0.065} ${w*0.093} ${h*0.065} ${w*0.371} ${h*0.014}
+    C ${w*0.416} ${h*0.005} ${w*0.482} ${-h*0.009} ${w*0.491} ${-h*0.054}
     Z
   `;
 }
