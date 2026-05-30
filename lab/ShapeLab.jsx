@@ -739,6 +739,7 @@ export default function ShapeLab() {
                     selected={isAnchor && idx === selectedSegIdx}
                     onPointerDown={handleDown(idx, xField, yField)}
                     onContextMenu={isAnchor ? handleContextMenuOnPoint(idx) : undefined}
+                    zoom={zoom}
                   />
                 );
               })
@@ -747,8 +748,8 @@ export default function ShapeLab() {
             {/* Phantom insertion dot */}
             {showPoints && phantomPoint && (
               <circle
-                cx={phantomPoint.px} cy={phantomPoint.py} r={5}
-                fill="rgba(34,197,94,0.6)" stroke="#16a34a" strokeWidth={1.5}
+                cx={phantomPoint.px} cy={phantomPoint.py} r={5 / zoom}
+                fill="rgba(34,197,94,0.6)" stroke="#16a34a" strokeWidth={1.5 / zoom}
                 style={{ cursor: 'copy', pointerEvents: 'none' }}
               />
             )}
