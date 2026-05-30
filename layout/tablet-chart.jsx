@@ -87,7 +87,7 @@ function TabletTooth({ tooth, jawFlip, presence, isHovered, isSelected, hasTreat
     <g
       data-tooth-id={tooth.id}
       data-tooth-fdi={fdi}
-      transform={`translate(${cx}, ${55 + yOffset * flipY}) scale(1, ${flipY}) rotate(${tilt})`}
+      transform={`translate(${cx}, ${55 + yOffset}) scale(1, ${flipY}) rotate(${tilt})`}
       style={{ cursor: 'pointer' }}
       onMouseEnter={() => onHover(tooth.id)}
       onMouseLeave={() => onHover(null)}
