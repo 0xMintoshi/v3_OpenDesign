@@ -192,6 +192,11 @@ export default function ShapeLab() {
   const [showImport, setShowImport] = useState(false);
   const [showPoints, setShowPoints] = useState(true);
 
+  // JSON editor state
+  const [jsonText, setJsonText] = useState('');
+  const [jsonError, setJsonError] = useState(null);
+  const jsonFocused = useRef(false);
+
   // For two-path tooth templates
   const [activePath, setActivePath] = useState('outline'); // 'outline' | 'cervical'
   const [fullToothShape, setFullToothShape] = useState(null);
@@ -542,6 +547,31 @@ export default function ShapeLab() {
   // Download JSON for the active path only (for debugging)
   const jsonPreview = isTooth && fullToothShape ? fullToothShape : shape;
 
+  // Sync textarea from canvas when not focused
+  useEffect(() => {
+    if (!jsonFocused.current) {
+      setJsonText(JSON.stringify(jsonPreview, null, 2));
+      setJsonError(null);
+    }
+  }, [jsonPreview]);
+
+  function handleJsonChange(e) {
+    const text = e.target.value;
+    setJsonText(text);
+    try {
+      const parsed = JSON.parse(text);
+      setJsonError(null);
+      if (isTooth && parsed.outline && parsed.cervical) {
+        setFullToothShape(parsed);
+        setShape(prev => ({ ...prev, segments: parsed[activePath].segments }));
+      } else if (parsed.segments) {
+        setShape(prev => ({ ...prev, segments: parsed.segments }));
+      }
+    } catch {
+      setJsonError('Invalid JSON');
+    }
+  }
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16, padding: 24, fontFamily: 'monospace', background: '#f5f5f5', minHeight: '100vh' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
@@ -762,9 +792,24 @@ export default function ShapeLab() {
             Shape JSON — {jsonPreview.label}
             {isTooth && <span style={{ fontSize: 11, color: '#888', fontWeight: 400 }}> ({activePath} active)</span>}
           </h3>
-          <pre style={{ background: '#1e1e1e', color: '#d4d4d4', padding: 16, borderRadius: 8, overflow: 'auto', fontSize: 12, maxHeight: 420 }}>
-            {JSON.stringify(jsonPreview, null, 2)}
-          </pre>
+          <textarea
+            value={jsonText}
+            onChange={handleJsonChange}
+            onFocus={() => { jsonFocused.current = true; }}
+            onBlur={() => { jsonFocused.current = false; }}
+            spellCheck={false}
+            style={{
+              width: '100%', boxSizing: 'border-box',
+              background: '#1e1e1e', color: jsonError ? '#f87171' : '#d4d4d4',
+              padding: 16, borderRadius: 8, overflow: 'auto', fontSize: 12,
+              maxHeight: 420, minHeight: 180, resize: 'vertical',
+              fontFamily: 'monospace', border: jsonError ? '1.5px solid #f87171' : '1.5px solid #444',
+              outline: 'none',
+            }}
+          />
+          {jsonError && (
+            <div style={{ color: '#f87171', fontSize: 11, marginTop: 4 }}>{jsonError}</div>
+          )}
           <div style={{ display: 'flex', gap: 8, marginTop: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <button onClick={() => navigator.clipboard.writeText(JSON.stringify(jsonPreview, null, 2))}
                     style={{ padding: '6px 14px', cursor: 'pointer' }}>Copy JSON</button>

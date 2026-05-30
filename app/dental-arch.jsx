@@ -468,11 +468,11 @@ function DentalHeroInner() {
   const { stage, setStage, presence, setPresence, treatments, setTreatments } = useChartState();
   const { hoveredId, setHoveredId, selection, setSelection, popover, setPopover, confirmWipe, setConfirmWipe, exportJson, setExportJson, focusedToothId, setFocusedToothId } = useUIState();
 
-  const { scale, centerX, archDepth: defaultArchDepth } = ARCH_LAYOUT;
+  const { scale, centerX, gap, archDepth: defaultArchDepth } = ARCH_LAYOUT;
   const archDepth = t.archDepth ?? defaultArchDepth;
 
-  const upper = useMemo(() => layoutArch(UPPER, centerX, scale, { archDepth }), [archDepth]);
-  const lower = useMemo(() => layoutArch(LOWER, centerX, scale, { archDepth }), [archDepth]);
+  const upper = useMemo(() => layoutArch(UPPER, centerX, scale, { gap, archDepth }), [archDepth]);
+  const lower = useMemo(() => layoutArch(LOWER, centerX, scale, { gap, archDepth }), [archDepth]);
 
   const scaledUpper = upper.map((x) => ({ ...x, w: x.w * scale, h: x.h * scale }));
   const scaledLower = lower.map((x) => ({ ...x, w: x.w * scale, h: x.h * scale }));
