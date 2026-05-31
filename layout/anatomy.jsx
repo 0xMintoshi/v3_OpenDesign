@@ -50,11 +50,18 @@ function idnSchematicPath(side) {
   return shapeToPath(side === 'right' ? idnRight : idnLeft, VW, VH);
 }
 
-// Mental foramen (small dark opening where IDN exits) at end of each canal
+// Mental foramen — placed at the last segment endpoint of each IDN path
+function lastPt(idn) {
+  const segs = idn.segments;
+  const last = segs[segs.length - 1];
+  return { x: last.x, y: last.y };
+}
 function mentalForamenCenters() {
+  const r = lastPt(idnRight);
+  const l = lastPt(idnLeft);
   return [
-    { cx: idnRight.foramen.x * VW, cy: idnRight.foramen.y * VH, side: 'right' },
-    { cx: idnLeft.foramen.x  * VW, cy: idnLeft.foramen.y  * VH, side: 'left'  },
+    { cx: r.x * VW, cy: r.y * VH, side: 'right' },
+    { cx: l.x * VW, cy: l.y * VH, side: 'left'  },
   ];
 }
 
