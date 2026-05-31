@@ -627,24 +627,19 @@ function DentalHeroInner() {
           return { ...tx, targets: tx.targets.filter((id) => !targets.includes(id)) };
         }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0);
         if (txId === 'bridge-span' || txId === 'implant-bridge-span') {
-          if (txId === 'implant-bridge-span' && !areContiguous(targets, allTeeth)) {
-            return prev; // non-contiguous selection — no-op
+          if (!areContiguous(targets, allTeeth)) {
+            return prev; // non-contiguous or cross-jaw selection — no-op
+          }
+          if (targets.length < 2) {
+            return prev; // bridge requires ≥ 2 teeth
           }
           const targetsByJaw = popover.target.reduce((groups, tooth) => {
             (groups[tooth.jaw] = groups[tooth.jaw] || []).push(tooth.id);
             return groups;
           }, {});
           for (const [jaw, jawTargets] of Object.entries(targetsByJaw)) {
-            const existingIdx = next.findIndex((tx) => {
-              if (tx.id !== txId || tx.scope !== 'tooth') return false;
-              return tx.targets.some((id) => allTeeth.find((tooth) => tooth.id === id)?.jaw === jaw);
-            });
-            if (existingIdx >= 0) {
-              const merged = new Set([...next[existingIdx].targets, ...jawTargets]);
-              next[existingIdx] = { ...next[existingIdx], targets: [...merged] };
-            } else {
-              next.push({ id: txId, scope: 'tooth', targets: jawTargets });
-            }
+            if (jawTargets.length < 2) continue; // skip single-tooth jaw groups
+            next.push({ id: txId, scope: 'tooth', targets: jawTargets });
           }
         } else {
           const existingIdx = next.findIndex((tx) => tx.id === txId && tx.scope === 'tooth');

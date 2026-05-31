@@ -25,7 +25,7 @@ const TX_GROUPS = [
     items: [
       { id: 'implant-crown',        label: 'Implant + Crown',  hint: 'fixture · abutment · crown' },
       { id: 'implant-only',         label: 'Implant Only',     hint: 'fixture only · staged restoration' },
-      { id: 'implant-bridge-span',  label: 'Implant Bridge',   hint: 'implant abutments at ends · joined crowns' },
+      { id: 'implant-bridge-span',  label: 'Implant Bridge',   hint: 'implant abutments at ends · joined crowns', requires: 'multi-tooth' },
     ],
   },
   {
@@ -33,7 +33,7 @@ const TX_GROUPS = [
     scope: 'tooth',
     items: [
       { id: 'crown',       label: 'Crown',        hint: 'full-coverage crown · existing tooth', requires: 'present-tooth' },
-      { id: 'bridge-span', label: 'Bridge (span)', hint: 'pontic spanning selected teeth' },
+      { id: 'bridge-span', label: 'Bridge (span)', hint: 'pontic spanning selected teeth', requires: 'multi-tooth' },
     ],
   },
   {
@@ -826,6 +826,9 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
     if (item.requires === 'dentate-patient') {
       return fullyEdentulous !== true;
     }
+    if (item.requires === 'multi-tooth') {
+      return Array.isArray(target) && target.length >= 2;
+    }
     return true;
   };
 
@@ -834,6 +837,7 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
     if (item.requires === 'present-tooth') return 'requires present teeth only';
     if (item.requires === 'missing-tooth') return 'requires missing or extracted teeth';
     if (item.requires === 'dentate-patient') return 'requires at least one present tooth';
+    if (item.requires === 'multi-tooth') return 'select 2+ adjacent teeth first';
     return 'not available for this selection';
   };
 

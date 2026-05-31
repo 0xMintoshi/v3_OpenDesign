@@ -7,6 +7,14 @@ const CONTACT_X = 0.43;
 export const CONTACT_TOP = 0.5;
 export const CONTACT_BOTTOM = 0.12;
 
+// Must match the per-tooth vertical shift applied in dental-arch.jsx Tooth component.
+function getYAdjust(tooth) {
+  const { type, h, jaw } = tooth;
+  const incisorShift = type === 'incisor' ? h * 0.03 : 0;
+  const canineShift  = type === 'canine'  ? h * -0.02 : 0;
+  return jaw === 'upper' ? -(incisorShift + canineShift) : (incisorShift + canineShift);
+}
+
 export function crownDepth(type, h) {
   if (type === 'wisdomU' || type === 'wisdomL') return h * 0.46;
   if (type === 'molarU' || type === 'molarL') return h * 0.40;
@@ -22,7 +30,7 @@ export function bridgeContactPoint(tooth, biteY, flipY, side, y) {
 
   return {
     x: tooth.cx + rx,
-    y: biteY + (tooth.yOffset || 0) * flipY + ry * flipY,
+    y: biteY + (tooth.yOffset || 0) * flipY + getYAdjust(tooth) + ry * flipY,
   };
 }
 
@@ -70,10 +78,11 @@ export function BridgeSpanOverlay({ teeth, biteY, accent }) {
         const paths = toothPaths(type, w, h);
         const depth = crownDepth(type, h);
         const clipId = `bridge-crown-clip-${tooth.id}`;
+        const yAdjust = getYAdjust(tooth);
         return (
           <g
             key={tooth.id}
-            transform={`translate(${cx}, ${biteY + yOffset * flipY}) scale(1, ${flipY}) rotate(${tilt})`}>
+            transform={`translate(${cx}, ${biteY + yOffset * flipY + yAdjust}) scale(1, ${flipY}) rotate(${tilt})`}>
             <defs>
               <clipPath id={clipId}>
                 <rect x={-w * 0.65} y={-depth} width={w * 1.3} height={depth + h * 0.08} />
