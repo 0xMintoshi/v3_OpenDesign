@@ -21,10 +21,10 @@ const { useState, useEffect, useMemo, useCallback } = React;
 // Shared transform helper — used by Tooth and SVG masks that must mirror
 // tooth geometry exactly (e.g. bone-hover cutout masks).
 // ====================================================================
-function toothBaseTransform(tooth, jawFlip) {
+function toothBaseTransform(tooth, jawFlip, yAdjust = 0) {
   const { cx, tilt = 0, yOffset = 0 } = tooth;
   const flipY = jawFlip ? -1 : 1;
-  return `translate(${cx}, ${yOffset * flipY}) scale(1, ${flipY}) rotate(${tilt})`;
+  return `translate(${cx}, ${yOffset * flipY + yAdjust}) scale(1, ${flipY}) rotate(${tilt})`;
 }
 
 // ====================================================================
@@ -40,7 +40,11 @@ function Tooth({
   const paths = toothPaths(type, w, h);
   const numberY = jawFlip ? -(h + 16) : -(h + 10);
 
-  const baseTransform = toothBaseTransform(tooth, jawFlip);
+const incisorShift = type === 'incisor' ? h * 0.03 : 0;
+const canineShift  = type === 'canine'  ? h * -0.02 : 0;
+const yAdjust = tooth.jaw === 'upper' ? -(incisorShift + canineShift) : (incisorShift + canineShift);
+
+  const baseTransform = toothBaseTransform(tooth, jawFlip, yAdjust);
 
   const missing = presence === 'missing';
 

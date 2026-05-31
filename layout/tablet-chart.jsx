@@ -71,8 +71,10 @@ export function TabletChart({ onSelect, onHover }) {
 }
 
 function TabletTooth({ tooth, jawFlip, presence, isHovered, isSelected, hasTreatment, onHover, onSelect }) {
-  const { cx, h, w, type, fdi, tilt = 0, yOffset = 0 } = tooth;
+  const { cx, h, w, type, fdi, jaw, tilt = 0, yOffset = 0 } = tooth;
   const flipY = jawFlip ? -1 : 1;
+  const incisorShift = type === 'incisor' ? h * 0.05 : 0;
+  const yShift = jaw === 'upper' ? -incisorShift : incisorShift;
   const tw = w * 1.15;
   const th = h * 1.15;
   const { outline, cervical } = toothPaths(type, tw, th);
@@ -87,7 +89,7 @@ function TabletTooth({ tooth, jawFlip, presence, isHovered, isSelected, hasTreat
     <g
       data-tooth-id={tooth.id}
       data-tooth-fdi={fdi}
-      transform={`translate(${cx}, ${55 + yOffset}) scale(1, ${flipY}) rotate(${tilt})`}
+      transform={`translate(${cx}, ${55 + yOffset + yShift}) scale(1, ${flipY}) rotate(${tilt})`}
       style={{ cursor: 'pointer' }}
       onMouseEnter={() => onHover(tooth.id)}
       onMouseLeave={() => onHover(null)}
