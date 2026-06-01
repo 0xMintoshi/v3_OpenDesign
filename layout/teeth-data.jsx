@@ -70,19 +70,21 @@ const LOWER = buildArch('lower');
 // Lay teeth out along a subtle arch curve (parabolic).
 function layoutArch(arch, centerX, scale, opts = {}) {
   const gap = opts.gap ?? 4;
+  const gapFrac = opts.gapFrac ?? null; // proportional gap (fraction of tooth width); overrides gap when set
   const archDepth = opts.archDepth ?? 26;     // how much the back teeth sit further from bite line
   const tiltScale = opts.tilt ?? 1;
 
   const widths = arch.map(t => t.w * scale);
-  const totalW = widths.reduce((a,b) => a+b, 0) + gap * (arch.length - 1);
+  const gaps = widths.map(w => gapFrac !== null ? w * gapFrac : gap);
+  const totalW = widths.reduce((a,b) => a+b, 0) + gaps.slice(0, -1).reduce((a,b) => a+b, 0);
   let cursor = centerX - totalW / 2;
   return arch.map((t, i) => {
     const w = widths[i];
     const cx = cursor + w / 2;
-    cursor += w + gap;
+    cursor += w + gaps[i];
     const fromCenter = Math.abs(i - 7.5);
     // Outward tilt: incisors straight, back teeth angle outward
-    const tiltMag = Math.pow(fromCenter / 7.5, 1.5) * 4 * tiltScale;
+    const tiltMag = Math.pow(fromCenter / 7.5, 1.5) * 3 * tiltScale;
     const dir = i < 8 ? -1 : 1;
     const tilt = tiltMag * dir;
     // Subtle arch curve: back teeth pull AWAY from bite line (root further from center)

@@ -30,7 +30,8 @@ export const ARCH_LAYOUT = {
   biteCenter: 410,
   archGap: 50,
   centerX: 800,   // center of app's 1600-wide viewBox
-  gap: 4,         // matches layoutArch default; ShapeLab previously used 3 (wrong)
+  gap: 4,         // fallback absolute gap (px); used only when gapFrac is null
+  gapFrac: 0.08,  // proportional gap: 8% of each tooth's scaled width → equal visual spacing
   archDepth: 0,   // intentional: live app DEFAULT_TWEAKS.archDepth = 0
 };
 export const upperBiteY = ARCH_LAYOUT.biteCenter - ARCH_LAYOUT.archGap / 2; // 385

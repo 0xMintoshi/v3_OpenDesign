@@ -272,10 +272,11 @@ function FittedImplantOverlay({ tooth, biteY, withCrown, accent }) {
   );
 }
 
-// Hourglass connector tuning for implant bridges — mirrors BridgeSpanOverlay constants
-const IBS_OCCLUSO_GINGIVAL_SPAN = 0.15;
-const IBS_OCC_WAIST = 0.8;
-const IBS_GIN_WAIST = 0.3;
+// Hourglass connector tuning for implant bridges
+const IBS_OCCLUSO_GINGIVAL_SPAN = 0.16; // ± fraction of avg crown height around contact centre
+const IBS_OCC_WAIST = 0.1;              // how deep the occlusal V dips (0 = flat)
+const IBS_GIN_WAIST = 0.3;             // how deep the gingival arc dips
+const IBS_CONTACT_HEIGHT = 0.250;        // contact centre: 0 = gingival base, 1 = occlusal tip
 
 function toGlobalImplant(tooth, biteY, flipY, lx, ly) {
   const tilt = ((tooth.tilt || 0) * Math.PI) / 180;
@@ -293,24 +294,28 @@ function implantBridgeConnectorPath(tooth, next, biteY, flipY) {
   const crownPathA = fittedImplantCrownPath(tooth, crownHA);
   const crownPathB = fittedImplantCrownPath(next,  crownHB);
 
+  // x from proximal extreme; y anchored at the true contact zone (not the gingival bulge)
   const cpA = proximalExtreme(crownPathA, +1);
   const cpB = proximalExtreme(crownPathB, -1);
+  const contactYA = -crownHA * IBS_CONTACT_HEIGHT; // local y: negative = toward occlusal
+  const contactYB = -crownHB * IBS_CONTACT_HEIGHT;
 
   const avgDepth = (crownHA + crownHB) / 2;
   const delta = avgDepth * IBS_OCCLUSO_GINGIVAL_SPAN;
 
-  const pA = toGlobalImplant(tooth, biteY, flipY, cpA.x, cpA.y);
-  const pB = toGlobalImplant(next,  biteY, flipY, cpB.x, cpB.y);
-  const midY = (pA.y + pB.y) / 2;
+  // Four corners in global space (per-tooth transform applied)
+  const Ao = toGlobalImplant(tooth, biteY, flipY, cpA.x, contactYA - delta);
+  const Ag = toGlobalImplant(tooth, biteY, flipY, cpA.x, contactYA + delta);
+  const Bo = toGlobalImplant(next,  biteY, flipY, cpB.x, contactYB - delta);
+  const Bg = toGlobalImplant(next,  biteY, flipY, cpB.x, contactYB + delta);
 
-  const Ao = { x: pA.x, y: midY - delta * flipY };
-  const Ag = { x: pA.x, y: midY + delta * flipY };
-  const Bo = { x: pB.x, y: midY - delta * flipY };
-  const Bg = { x: pB.x, y: midY + delta * flipY };
+  // Level horizontal edges across both teeth (eliminates tilt from arch curvature / yOffset)
+  const occY = (Ao.y + Bo.y) / 2;
+  const ginY = (Ag.y + Bg.y) / 2;
 
-  const midOcc     = { x: (Ao.x + Bo.x) / 2, y: (Ao.y + Bo.y) / 2 };
-  const midGin     = { x: (Ag.x + Bg.x) / 2, y: (Ag.y + Bg.y) / 2 };
-  const midContact = { x: (midOcc.x + midGin.x) / 2, y: (midOcc.y + midGin.y) / 2 };
+  const midOcc     = { x: (Ao.x + Bo.x) / 2, y: occY };
+  const midGin     = { x: (Ag.x + Bg.x) / 2, y: ginY };
+  const midContact = { x: (midOcc.x + midGin.x) / 2, y: (occY + ginY) / 2 };
 
   const occApex = {
     x: midOcc.x + (midContact.x - midOcc.x) * IBS_OCC_WAIST,
@@ -323,10 +328,10 @@ function implantBridgeConnectorPath(tooth, next, biteY, flipY) {
 
   const f = (n) => parseFloat(n.toFixed(3));
   return [
-    `M ${f(Ao.x)} ${f(Ao.y)}`,
-    `Q ${f(occApex.x)} ${f(occApex.y)} ${f(Bo.x)} ${f(Bo.y)}`,
-    `L ${f(Bg.x)} ${f(Bg.y)}`,
-    `Q ${f(ginApex.x)} ${f(ginApex.y)} ${f(Ag.x)} ${f(Ag.y)}`,
+    `M ${f(Ao.x)} ${f(occY)}`,
+    `Q ${f(occApex.x)} ${f(occApex.y)} ${f(Bo.x)} ${f(occY)}`,
+    `L ${f(Bg.x)} ${f(ginY)}`,
+    `Q ${f(ginApex.x)} ${f(ginApex.y)} ${f(Ag.x)} ${f(ginY)}`,
     'Z',
   ].join(' ');
 }

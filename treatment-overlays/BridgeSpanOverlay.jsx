@@ -13,9 +13,10 @@ export const CONTACT_TOP = 0.5;
 export const CONTACT_BOTTOM = 0.12;
 
 // Hourglass connector tuning — adjust these for weight/shape
-const OCCLUSO_GINGIVAL_SPAN = 0.30; // fraction of avg crown depth = half-height of connector
-const OCC_WAIST = 0;             // how deep the occlusal V dips (higher = sharper)
+const OCCLUSO_GINGIVAL_SPAN = 0.2; // fraction of avg crown depth = half-height of connector
+const OCC_WAIST = 0.01;             // how deep the occlusal V dips (higher = sharper)
 const GIN_WAIST = 0.3;             // how deep the gingival arc dips (lower = rounder/open)
+const IBS_CONTACT_HEIGHT = 0.60;        // contact centre: 0 = gingival base, 1 = occlusal tip
 
 const crownDepth = _crownDepth;
 
@@ -81,23 +82,29 @@ export function bridgeConnectorPath(tooth, next, biteY, flipY) {
   const crownA = toothPaths(typeA, wA, hA).crown;
   const crownB = toothPaths(typeB, wB, hB).crown;
 
-  // Proximal extreme in each tooth's local space
-  const cpA = proximalExtreme(crownA, +1); // right edge of left tooth
-  const cpB = proximalExtreme(crownB, -1); // left edge of right tooth
+  // x from proximal extreme; y anchored at IBS_CONTACT_HEIGHT (same tuning as implant connector)
+  // Regular crown local space: occlusal = y≈0, gingival = y=-crownDepth
+  // IBS_CONTACT_HEIGHT: 0=gingival, 1=occlusal → y = -crownDepth*(1-h)
+  const cpA = proximalExtreme(crownA, +1);
+  const cpB = proximalExtreme(crownB, -1);
+  const contactYA = -crownDepth(typeA, hA) * (1 - IBS_CONTACT_HEIGHT);
+  const contactYB = -crownDepth(typeB, hB) * (1 - IBS_CONTACT_HEIGHT);
 
   const avgDepth = (crownDepth(typeA, hA) + crownDepth(typeB, hB)) / 2;
-  const delta = avgDepth * OCCLUSO_GINGIVAL_SPAN; // half-height in local y units
+  const delta = avgDepth * OCCLUSO_GINGIVAL_SPAN;
 
-  // Four corners (local), then mapped to global via each tooth's own transform
-  const Ao = toGlobal(tooth, biteY, flipY, cpA.x, cpA.y - delta); // occlusal edge, left tooth
-  const Ag = toGlobal(tooth, biteY, flipY, cpA.x, cpA.y + delta); // gingival edge, left tooth
-  const Bo = toGlobal(next,  biteY, flipY, cpB.x, cpB.y - delta); // occlusal edge, right tooth
-  const Bg = toGlobal(next,  biteY, flipY, cpB.x, cpB.y + delta); // gingival edge, right tooth
+  const Ao = toGlobal(tooth, biteY, flipY, cpA.x, contactYA - delta);
+  const Ag = toGlobal(tooth, biteY, flipY, cpA.x, contactYA + delta);
+  const Bo = toGlobal(next,  biteY, flipY, cpB.x, contactYB - delta);
+  const Bg = toGlobal(next,  biteY, flipY, cpB.x, contactYB + delta);
 
-  // Embrasure apexes — pulled toward the contact midline to create the waist
-  const midOcc = midpoint(Ao, Bo);
-  const midGin = midpoint(Ag, Bg);
-  const midContact = midpoint(midpoint(Ao, Bo), midpoint(Ag, Bg));
+  // Level horizontal edges across both teeth (arch yOffset / tilt can make Ao.y ≠ Bo.y)
+  const occY = (Ao.y + Bo.y) / 2;
+  const ginY = (Ag.y + Bg.y) / 2;
+
+  const midOcc     = { x: (Ao.x + Bo.x) / 2, y: occY };
+  const midGin     = { x: (Ag.x + Bg.x) / 2, y: ginY };
+  const midContact = { x: (midOcc.x + midGin.x) / 2, y: (occY + ginY) / 2 };
 
   const occApex = {
     x: midOcc.x + (midContact.x - midOcc.x) * OCC_WAIST,
@@ -110,10 +117,10 @@ export function bridgeConnectorPath(tooth, next, biteY, flipY) {
 
   const f = (n) => parseFloat(n.toFixed(3));
   return [
-    `M ${f(Ao.x)} ${f(Ao.y)}`,
-    `Q ${f(occApex.x)} ${f(occApex.y)} ${f(Bo.x)} ${f(Bo.y)}`,
-    `L ${f(Bg.x)} ${f(Bg.y)}`,
-    `Q ${f(ginApex.x)} ${f(ginApex.y)} ${f(Ag.x)} ${f(Ag.y)}`,
+    `M ${f(Ao.x)} ${f(occY)}`,
+    `Q ${f(occApex.x)} ${f(occApex.y)} ${f(Bo.x)} ${f(occY)}`,
+    `L ${f(Bg.x)} ${f(ginY)}`,
+    `Q ${f(ginApex.x)} ${f(ginApex.y)} ${f(Ag.x)} ${f(ginY)}`,
     'Z',
   ].join(' ');
 }
