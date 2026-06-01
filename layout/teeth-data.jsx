@@ -82,7 +82,7 @@ function layoutArch(arch, centerX, scale, opts = {}) {
     cursor += w + gap;
     const fromCenter = Math.abs(i - 7.5);
     // Outward tilt: incisors straight, back teeth angle outward
-    const tiltMag = Math.pow(fromCenter / 7.5, 1.5) * 7 * tiltScale;
+    const tiltMag = Math.pow(fromCenter / 7.5, 1.5) * 4 * tiltScale;
     const dir = i < 8 ? -1 : 1;
     const tilt = tiltMag * dir;
     // Subtle arch curve: back teeth pull AWAY from bite line (root further from center)

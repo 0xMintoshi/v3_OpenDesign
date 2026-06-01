@@ -6,7 +6,7 @@ import { proximalExtreme } from '../core/tooth-split.js';
 // Re-export so app/treatments.jsx keeps its existing import path unchanged.
 export { _crownDepth as crownDepth };
 
-const STROKE_WIDTH = 5;
+const STROKE_WIDTH = 3;
 export const CONTACT_STROKE_WIDTH = 7.5;
 const CONTACT_X = 0.43;
 export const CONTACT_TOP = 0.5;
@@ -14,8 +14,8 @@ export const CONTACT_BOTTOM = 0.12;
 
 // Hourglass connector tuning — adjust these for weight/shape
 const OCCLUSO_GINGIVAL_SPAN = 0.30; // fraction of avg crown depth = half-height of connector
-const OCC_WAIST = 0.70;             // how deep the occlusal V dips (higher = sharper)
-const GIN_WAIST = 0.45;             // how deep the gingival arc dips (lower = rounder/open)
+const OCC_WAIST = 0;             // how deep the occlusal V dips (higher = sharper)
+const GIN_WAIST = 0.3;             // how deep the gingival arc dips (lower = rounder/open)
 
 const crownDepth = _crownDepth;
 

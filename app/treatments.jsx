@@ -1,10 +1,11 @@
 import React from 'react';
 import { CrownOverlay } from '../treatment-overlays/CrownOverlay.jsx';
-import { BridgeSpanOverlay, bridgeContactStrokePath, CONTACT_STROKE_WIDTH, bridgeContactPoint, crownDepth, CONTACT_TOP, CONTACT_BOTTOM } from '../treatment-overlays/BridgeSpanOverlay.jsx';
+import { BridgeSpanOverlay, bridgeContactStrokePath, CONTACT_STROKE_WIDTH, bridgeContactPoint, crownDepth } from '../treatment-overlays/BridgeSpanOverlay.jsx';
 import { CompleteDentureOverlay } from '../treatment-overlays/CompleteDentureOverlay.jsx';
 import { PartialDentureOverlay } from '../treatment-overlays/PartialDentureOverlay.jsx';
 import { TreatmentLabels } from '../treatment-overlays/TreatmentLabels.jsx';
 import { useChartState } from '../core/chart-context.jsx';
+import { proximalExtreme } from '../core/tooth-split.js';
 
 
 // ============================================================================
@@ -271,6 +272,65 @@ function FittedImplantOverlay({ tooth, biteY, withCrown, accent }) {
   );
 }
 
+// Hourglass connector tuning for implant bridges — mirrors BridgeSpanOverlay constants
+const IBS_OCCLUSO_GINGIVAL_SPAN = 0.15;
+const IBS_OCC_WAIST = 0.8;
+const IBS_GIN_WAIST = 0.3;
+
+function toGlobalImplant(tooth, biteY, flipY, lx, ly) {
+  const tilt = ((tooth.tilt || 0) * Math.PI) / 180;
+  const rx = lx * Math.cos(tilt) - ly * Math.sin(tilt);
+  const ry = lx * Math.sin(tilt) + ly * Math.cos(tilt);
+  return {
+    x: tooth.cx + rx,
+    y: biteY + (tooth.yOffset || 0) * flipY + ry * flipY,
+  };
+}
+
+function implantBridgeConnectorPath(tooth, next, biteY, flipY) {
+  const crownHA = tooth.h * fittedImplantCrownRatio(tooth.type);
+  const crownHB = next.h  * fittedImplantCrownRatio(next.type);
+  const crownPathA = fittedImplantCrownPath(tooth, crownHA);
+  const crownPathB = fittedImplantCrownPath(next,  crownHB);
+
+  const cpA = proximalExtreme(crownPathA, +1);
+  const cpB = proximalExtreme(crownPathB, -1);
+
+  const avgDepth = (crownHA + crownHB) / 2;
+  const delta = avgDepth * IBS_OCCLUSO_GINGIVAL_SPAN;
+
+  const pA = toGlobalImplant(tooth, biteY, flipY, cpA.x, cpA.y);
+  const pB = toGlobalImplant(next,  biteY, flipY, cpB.x, cpB.y);
+  const midY = (pA.y + pB.y) / 2;
+
+  const Ao = { x: pA.x, y: midY - delta * flipY };
+  const Ag = { x: pA.x, y: midY + delta * flipY };
+  const Bo = { x: pB.x, y: midY - delta * flipY };
+  const Bg = { x: pB.x, y: midY + delta * flipY };
+
+  const midOcc     = { x: (Ao.x + Bo.x) / 2, y: (Ao.y + Bo.y) / 2 };
+  const midGin     = { x: (Ag.x + Bg.x) / 2, y: (Ag.y + Bg.y) / 2 };
+  const midContact = { x: (midOcc.x + midGin.x) / 2, y: (midOcc.y + midGin.y) / 2 };
+
+  const occApex = {
+    x: midOcc.x + (midContact.x - midOcc.x) * IBS_OCC_WAIST,
+    y: midOcc.y + (midContact.y - midOcc.y) * IBS_OCC_WAIST,
+  };
+  const ginApex = {
+    x: midGin.x + (midContact.x - midGin.x) * IBS_GIN_WAIST,
+    y: midGin.y + (midContact.y - midGin.y) * IBS_GIN_WAIST,
+  };
+
+  const f = (n) => parseFloat(n.toFixed(3));
+  return [
+    `M ${f(Ao.x)} ${f(Ao.y)}`,
+    `Q ${f(occApex.x)} ${f(occApex.y)} ${f(Bo.x)} ${f(Bo.y)}`,
+    `L ${f(Bg.x)} ${f(Bg.y)}`,
+    `Q ${f(ginApex.x)} ${f(ginApex.y)} ${f(Ag.x)} ${f(Ag.y)}`,
+    'Z',
+  ].join(' ');
+}
+
 export function ImplantBridgeSpanOverlay({ teeth, biteY, accent }) {
   if (!teeth || teeth.length === 0) return null;
   const jaw = teeth[0].jaw;
@@ -294,24 +354,13 @@ export function ImplantBridgeSpanOverlay({ teeth, biteY, accent }) {
           </g>
         );
       })}
-      {/* Pass 2: connectors — rendered BELOW crowns so white crown fill masks the overlap */}
+      {/* Pass 2: hourglass connectors — rendered BELOW crowns so white crown fill masks the overlap */}
       {sorted.slice(0, -1).map((tooth, i) => {
         const next = sorted[i + 1];
-        const avgDepth = (crownDepth(tooth.type, tooth.h) + crownDepth(next.type, next.h)) / 2;
-        const avgCrownH = (tooth.h * fittedImplantCrownRatio(tooth.type) + next.h * fittedImplantCrownRatio(next.type)) / 2;
-        const topY = -avgDepth * CONTACT_TOP;
-        const botY = avgCrownH * 0.10;
-        // contactX 0.43 = 43% from crown center → extends 3.4 units into each crown body;
-        // crowns rendered on top mask the overlap, leaving only the 4-unit interproximal gap visible as accent color
-        const contactX = 0.43;
-        const tl = { x: tooth.cx + tooth.w * contactX, y: biteY + (tooth.yOffset || 0) * flipY + topY * flipY };
-        const tr = { x: next.cx  - next.w  * contactX, y: biteY + (next.yOffset  || 0) * flipY + topY * flipY };
-        const br = { x: next.cx  - next.w  * contactX, y: biteY + (next.yOffset  || 0) * flipY + botY * flipY };
-        const bl = { x: tooth.cx + tooth.w * contactX, y: biteY + (tooth.yOffset || 0) * flipY + botY * flipY };
         return (
           <path
             key={`${tooth.id}-${next.id}-ibridge-contact`}
-            d={`M ${tl.x} ${tl.y} L ${tr.x} ${tr.y} L ${br.x} ${br.y} L ${bl.x} ${bl.y} Z`}
+            d={implantBridgeConnectorPath(tooth, next, biteY, flipY)}
             fill={accent}
             stroke="none" />
         );
