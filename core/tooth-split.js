@@ -192,3 +192,83 @@ export function proximalExtreme(crownD, side, steps = 24) {
 
   return best;
 }
+
+// Return the x of the crown outline at a specific targetY on the proximal side.
+// side = +1 → right wall (max x);  side = -1 → left wall (min x).
+// Uses sampling + bisection so it is robust to non-monotone Bézier segments.
+// Falls back to null if targetY is outside the crown's y range.
+export function crownXAtY(crownD, targetY, side) {
+  const tokens = crownD.trim().split(/[\s,]+/).filter(Boolean);
+  let i = 0;
+  let p0 = null;
+  let bestX = null;
+
+  function tryX(x) {
+    if (bestX === null || (side === +1 ? x > bestX : x < bestX)) bestX = x;
+  }
+
+  function scanCubic(cp1, cp2, p3) {
+    const STEPS = 16;
+    let prevY = p0.y;
+    for (let k = 1; k <= STEPS; k++) {
+      const t1 = k / STEPS;
+      const t0 = (k - 1) / STEPS;
+      const currY = evalCubicY(p0, cp1, cp2, p3, t1);
+      if ((prevY - targetY) * (currY - targetY) <= 0) {
+        let lo = t0, hi = t1;
+        for (let j = 0; j < 40; j++) {
+          const mid = (lo + hi) / 2;
+          if ((evalCubicY(p0, cp1, cp2, p3, lo) - targetY) * (evalCubicY(p0, cp1, cp2, p3, mid) - targetY) <= 0) hi = mid;
+          else lo = mid;
+        }
+        tryX(evalCubic(p0, cp1, cp2, p3, (lo + hi) / 2).x);
+      }
+      prevY = currY;
+    }
+    return p3;
+  }
+
+  function scanQuadratic(cp, p3) {
+    const STEPS = 16;
+    let prevY = p0.y;
+    for (let k = 1; k <= STEPS; k++) {
+      const t1 = k / STEPS;
+      const t0 = (k - 1) / STEPS;
+      const evalY = (t) => { const mt = 1-t; return mt*mt*p0.y + 2*mt*t*cp.y + t*t*p3.y; };
+      const currY = evalY(t1);
+      if ((prevY - targetY) * (currY - targetY) <= 0) {
+        let lo = t0, hi = t1;
+        for (let j = 0; j < 40; j++) {
+          const mid = (lo + hi) / 2;
+          if ((evalY(lo) - targetY) * (evalY(mid) - targetY) <= 0) hi = mid;
+          else lo = mid;
+        }
+        const tm = (lo + hi) / 2;
+        const mt = 1 - tm;
+        tryX(mt*mt*p0.x + 2*mt*tm*cp.x + tm*tm*p3.x);
+      }
+      prevY = currY;
+    }
+    return p3;
+  }
+
+  while (i < tokens.length) {
+    const cmd = tokens[i++];
+    if (cmd === 'M') {
+      p0 = { x: parseFloat(tokens[i++]), y: parseFloat(tokens[i++]) };
+    } else if (cmd === 'C') {
+      const cp1 = { x: parseFloat(tokens[i++]), y: parseFloat(tokens[i++]) };
+      const cp2 = { x: parseFloat(tokens[i++]), y: parseFloat(tokens[i++]) };
+      const p3  = { x: parseFloat(tokens[i++]), y: parseFloat(tokens[i++]) };
+      p0 = scanCubic(cp1, cp2, p3);
+    } else if (cmd === 'Q') {
+      const cp = { x: parseFloat(tokens[i++]), y: parseFloat(tokens[i++]) };
+      const p3 = { x: parseFloat(tokens[i++]), y: parseFloat(tokens[i++]) };
+      p0 = scanQuadratic(cp, p3);
+    } else if (cmd === 'Z' || cmd === 'z') {
+      break;
+    }
+  }
+
+  return bestX;
+}

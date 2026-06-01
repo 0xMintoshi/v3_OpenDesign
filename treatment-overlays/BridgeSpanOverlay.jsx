@@ -1,20 +1,20 @@
 import React from 'react';
 import { toothPaths } from '../layout/teeth-data.jsx';
 import { crownDepth as _crownDepth } from '../core/arch-math.js';
-import { proximalExtreme } from '../core/tooth-split.js';
+import { proximalExtreme, crownXAtY } from '../core/tooth-split.js';
 
 // Re-export so app/treatments.jsx keeps its existing import path unchanged.
 export { _crownDepth as crownDepth };
 
 const STROKE_WIDTH = 3;
-export const CONTACT_STROKE_WIDTH = 7.5;
+export const CONTACT_STROKE_WIDTH = 8;
 const CONTACT_X = 0.43;
 export const CONTACT_TOP = 0.5;
 export const CONTACT_BOTTOM = 0.12;
 
 // Hourglass connector tuning — adjust these for weight/shape
 const OCCLUSO_GINGIVAL_SPAN = 0.2; // fraction of avg crown depth = half-height of connector
-const OCC_WAIST = 0.01;             // how deep the occlusal V dips (higher = sharper)
+const OCC_WAIST = 0.1;             // how deep the occlusal V dips (higher = sharper)
 const GIN_WAIST = 0.3;             // how deep the gingival arc dips (lower = rounder/open)
 const IBS_CONTACT_HEIGHT = 0.60;        // contact centre: 0 = gingival base, 1 = occlusal tip
 
@@ -82,21 +82,26 @@ export function bridgeConnectorPath(tooth, next, biteY, flipY) {
   const crownA = toothPaths(typeA, wA, hA).crown;
   const crownB = toothPaths(typeB, wB, hB).crown;
 
-  // x from proximal extreme; y anchored at IBS_CONTACT_HEIGHT (same tuning as implant connector)
+  // y anchored at IBS_CONTACT_HEIGHT; x sampled from actual crown outline at each y level
+  // so the connector hugs the crown silhouette exactly (no gap from tapered occlusal shoulder).
   // Regular crown local space: occlusal = y≈0, gingival = y=-crownDepth
-  // IBS_CONTACT_HEIGHT: 0=gingival, 1=occlusal → y = -crownDepth*(1-h)
-  const cpA = proximalExtreme(crownA, +1);
-  const cpB = proximalExtreme(crownB, -1);
   const contactYA = -crownDepth(typeA, hA) * (1 - IBS_CONTACT_HEIGHT);
   const contactYB = -crownDepth(typeB, hB) * (1 - IBS_CONTACT_HEIGHT);
 
   const avgDepth = (crownDepth(typeA, hA) + crownDepth(typeB, hB)) / 2;
   const delta = avgDepth * OCCLUSO_GINGIVAL_SPAN;
 
-  const Ao = toGlobal(tooth, biteY, flipY, cpA.x, contactYA - delta);
-  const Ag = toGlobal(tooth, biteY, flipY, cpA.x, contactYA + delta);
-  const Bo = toGlobal(next,  biteY, flipY, cpB.x, contactYB - delta);
-  const Bg = toGlobal(next,  biteY, flipY, cpB.x, contactYB + delta);
+  const fallbackA = proximalExtreme(crownA, +1).x;
+  const fallbackB = proximalExtreme(crownB, -1).x;
+  const occXA = crownXAtY(crownA, contactYA - delta, +1) ?? fallbackA;
+  const ginXA = crownXAtY(crownA, contactYA + delta, +1) ?? fallbackA;
+  const occXB = crownXAtY(crownB, contactYB - delta, -1) ?? fallbackB;
+  const ginXB = crownXAtY(crownB, contactYB + delta, -1) ?? fallbackB;
+
+  const Ao = toGlobal(tooth, biteY, flipY, occXA, contactYA - delta);
+  const Ag = toGlobal(tooth, biteY, flipY, ginXA, contactYA + delta);
+  const Bo = toGlobal(next,  biteY, flipY, occXB, contactYB - delta);
+  const Bg = toGlobal(next,  biteY, flipY, ginXB, contactYB + delta);
 
   // Level horizontal edges across both teeth (arch yOffset / tilt can make Ao.y ≠ Bo.y)
   const occY = (Ao.y + Bo.y) / 2;
