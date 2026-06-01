@@ -16,7 +16,7 @@ export const CONTACT_BOTTOM = 0.12;
 const OCCLUSO_GINGIVAL_SPAN = 0.2; // fraction of avg crown depth = half-height of connector
 const OCC_WAIST = 0.1;             // how deep the occlusal V dips (higher = sharper)
 const GIN_WAIST = 0.3;             // how deep the gingival arc dips (lower = rounder/open)
-const IBS_CONTACT_HEIGHT = 0.60;        // contact centre: 0 = gingival base, 1 = occlusal tip
+const IBS_CONTACT_HEIGHT = 0.65;        // contact centre: 0 = gingival base, 1 = occlusal tip
 
 const crownDepth = _crownDepth;
 
