@@ -6,6 +6,7 @@ import { PartialDentureOverlay } from '../treatment-overlays/PartialDentureOverl
 import { TreatmentLabels } from '../treatment-overlays/TreatmentLabels.jsx';
 import { useChartState } from '../core/chart-context.jsx';
 import { proximalExtreme } from '../core/tooth-split.js';
+import { toothPaths } from '../layout/teeth-data.jsx';
 
 
 // ============================================================================
@@ -626,17 +627,28 @@ function OrthoAligners({ upper, lower, upperBiteY, lowerBiteY, archWidth, accent
 // Extraction overlay — red cross on the crown, only shown when sole treatment
 // ============================================================================
 
-function ExtractionOverlay({ x, y, w, h, jaw }) {
+function ExtractionOverlay({ x, y, w, h, jaw, type }) {
   const flipY = jaw === 'upper' ? 1 : -1;
-  const arm = w * 0.30;
-  const cy = -h * 0.26; // crown center
+  const paths = toothPaths(type, w, h);
+  const halfLen = proximalExtreme(paths.crown, +1).x * 0.68;
+  const thick = halfLen * 0.44;
+  const rx = thick / 2;
+  const cy = -crownDepth(type, h) / 2;
   const RED = '#d93025';
+  const clipId = `ext-clip-${type}-${x.toFixed(0)}`;
   return (
     <g transform={`translate(${x}, ${y}) scale(1, ${flipY})`} style={{ pointerEvents: 'none' }}>
-      <line x1={-arm} y1={cy - arm} x2={arm} y2={cy + arm}
-            stroke={RED} strokeWidth="3.5" strokeLinecap="round" opacity="0.88" />
-      <line x1={arm} y1={cy - arm} x2={-arm} y2={cy + arm}
-            stroke={RED} strokeWidth="3.5" strokeLinecap="round" opacity="0.88" />
+      <defs>
+        <clipPath id={clipId}>
+          <path d={paths.crown} />
+        </clipPath>
+      </defs>
+      <g clipPath={`url(#${clipId})`}>
+        <rect x={-halfLen} y={cy - rx} width={halfLen * 2} height={thick}
+              rx={rx} fill={RED} transform="rotate(45, 0, 0)" />
+        <rect x={-halfLen} y={cy - rx} width={halfLen * 2} height={thick}
+              rx={rx} fill={RED} transform="rotate(-45, 0, 0)" />
+      </g>
     </g>
   );
 }
@@ -698,7 +710,7 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
         return (
           <g key={toothId}>
             {extractionOnly && (
-              <ExtractionOverlay x={tooth.cx} y={biteY} w={tooth.w} h={tooth.h} jaw={tooth.jaw} />
+              <ExtractionOverlay x={tooth.cx} y={biteY} w={tooth.w} h={tooth.h} jaw={tooth.jaw} type={tooth.type} />
             )}
             {list.map((tx, i) => {
               if (tx.id === 'extraction') return null; // visual handled above
