@@ -7,6 +7,7 @@ import { TreatmentLabels } from '../treatment-overlays/TreatmentLabels.jsx';
 import { useChartState } from '../core/chart-context.jsx';
 import { proximalExtreme } from '../core/tooth-split.js';
 import { toothPaths } from '../layout/teeth-data.jsx';
+import { toothYAdjust } from '../core/marquee-select.js';
 
 
 // ============================================================================
@@ -645,9 +646,9 @@ function ExtractionOverlay({ x, y, w, h, jaw, type }) {
       </defs>
       <g clipPath={`url(#${clipId})`}>
         <rect x={-halfLen} y={cy - rx} width={halfLen * 2} height={thick}
-              rx={rx} fill={RED} transform="rotate(45, 0, 0)" />
+              rx={rx} fill={RED} transform={`rotate(45, 0, ${cy})`} />
         <rect x={-halfLen} y={cy - rx} width={halfLen * 2} height={thick}
-              rx={rx} fill={RED} transform="rotate(-45, 0, 0)" />
+              rx={rx} fill={RED} transform={`rotate(-45, 0, ${cy})`} />
       </g>
     </g>
   );
@@ -710,7 +711,7 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
         return (
           <g key={toothId}>
             {extractionOnly && (
-              <ExtractionOverlay x={tooth.cx} y={biteY} w={tooth.w} h={tooth.h} jaw={tooth.jaw} type={tooth.type} />
+              <ExtractionOverlay x={tooth.cx} y={biteY + toothYAdjust(tooth)} w={tooth.w} h={tooth.h} jaw={tooth.jaw} type={tooth.type} />
             )}
             {list.map((tx, i) => {
               if (tx.id === 'extraction') return null; // visual handled above

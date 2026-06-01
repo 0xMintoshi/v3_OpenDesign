@@ -3,7 +3,7 @@ import {
   ARC_CX, ARC_CY, ARC_RX, ARC_RY,
   arcPoint, fdiToZone, connectorPath,
 } from '../core/label-connector.js';
-import { chRatioFor } from '../core/arch-math.js';
+import { crownDepth } from '../core/arch-math.js';
 
 // Zone-based treatment label cards + orthogonal leader lines (SVG-native).
 // Extracted from app/treatments.jsx — pure rendering, no catalog knowledge.
@@ -173,12 +173,16 @@ export function TreatmentLabels({ treatments, allTeeth, upperBiteY, lowerBiteY, 
     const fdi = parseInt(toothId.split('-')[1]);
     labels.push({
       kind: 'tooth', toothId, items,
-      anchor: {
-        x: tooth.cx,
-        y: isUpper
-          ? upperBiteY + (tooth.yOffset || 0) - tooth.h * chRatioFor(tooth.type)
-          : lowerBiteY - (tooth.yOffset || 0) + tooth.h * chRatioFor(tooth.type),
-      },
+      anchor: (() => {
+        const tiltRad = ((tooth.tilt || 0) * Math.PI) / 180;
+        const anchorDepth = crownDepth(tooth.type, tooth.h) + 0.07 * tooth.h;
+        return {
+          x: tooth.cx + anchorDepth * Math.sin(tiltRad),
+          y: isUpper
+            ? upperBiteY + (tooth.yOffset || 0) - anchorDepth
+            : lowerBiteY - (tooth.yOffset || 0) + anchorDepth,
+        };
+      })(),
       zone: fdiToZone(fdi),
       fdi,
       jaw: tooth.jaw,
