@@ -13,9 +13,10 @@ export const CONTACT_TOP = 0.5;
 export const CONTACT_BOTTOM = 0.12;
 
 // Hourglass connector tuning — adjust these for weight/shape
-const OCCLUSO_GINGIVAL_SPAN = 0.30; // fraction of avg crown depth = half-height of connector
-const OCC_WAIST = 0.70;             // how deep the occlusal V dips (higher = sharper)
-const GIN_WAIST = 0.45;             // how deep the gingival arc dips (lower = rounder/open)
+const OCC_SPAN  = 0.15;  // occlusal rise above contact point (fraction of avg crown depth)
+const GIN_SPAN  = 0.70;  // gingival extension below contact toward cervical
+const OCC_WAIST = 0.70;  // how deep the occlusal V dips (higher = sharper)
+const GIN_WAIST = 0.38;  // how deep the gingival arc dips (lower = rounder/more open)
 
 const crownDepth = _crownDepth;
 
@@ -86,13 +87,14 @@ export function bridgeConnectorPath(tooth, next, biteY, flipY) {
   const cpB = proximalExtreme(crownB, -1); // left edge of right tooth
 
   const avgDepth = (crownDepth(typeA, hA) + crownDepth(typeB, hB)) / 2;
-  const delta = avgDepth * OCCLUSO_GINGIVAL_SPAN; // half-height in local y units
+  const deltaOcc = avgDepth * OCC_SPAN; // small rise above contact toward occlusal
+  const deltaGin = avgDepth * GIN_SPAN; // large extension toward cervical/gingival
 
   // Four corners (local), then mapped to global via each tooth's own transform
-  const Ao = toGlobal(tooth, biteY, flipY, cpA.x, cpA.y - delta); // occlusal edge, left tooth
-  const Ag = toGlobal(tooth, biteY, flipY, cpA.x, cpA.y + delta); // gingival edge, left tooth
-  const Bo = toGlobal(next,  biteY, flipY, cpB.x, cpB.y - delta); // occlusal edge, right tooth
-  const Bg = toGlobal(next,  biteY, flipY, cpB.x, cpB.y + delta); // gingival edge, right tooth
+  const Ao = toGlobal(tooth, biteY, flipY, cpA.x, cpA.y - deltaOcc); // occlusal edge, left tooth
+  const Ag = toGlobal(tooth, biteY, flipY, cpA.x, cpA.y + deltaGin); // gingival edge, left tooth
+  const Bo = toGlobal(next,  biteY, flipY, cpB.x, cpB.y - deltaOcc); // occlusal edge, right tooth
+  const Bg = toGlobal(next,  biteY, flipY, cpB.x, cpB.y + deltaGin); // gingival edge, right tooth
 
   // Embrasure apexes — pulled toward the contact midline to create the waist
   const midOcc = midpoint(Ao, Bo);
