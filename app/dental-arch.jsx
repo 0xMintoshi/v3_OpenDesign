@@ -14,8 +14,9 @@ import { UIStateProvider, useUIState } from '../core/ui-context.jsx';
 import { useClinicTheme } from '../core/use-clinic-theme.js';
 import { useIsTablet } from '../layout/use-is-tablet.js';
 import { TabletChart } from '../layout/tablet-chart.jsx';
+import { toothYAdjust, toothBBoxes, computeMarquee } from '../core/marquee-select.js';
 
-const { useState, useEffect, useMemo, useCallback } = React;
+const { useState, useEffect, useMemo, useCallback, useRef } = React;
 
 // ====================================================================
 // Shared transform helper — used by Tooth and SVG masks that must mirror
@@ -40,10 +41,7 @@ function Tooth({
   const paths = toothPaths(type, w, h);
   const numberY = jawFlip ? -(h + 16) : -(h + 10);
 
-const incisorShift = type === 'incisor' ? h * 0.03 : 0;
-const canineShift  = type === 'canine'  ? h * -0.02 : 0;
-const yAdjust = tooth.jaw === 'upper' ? -(incisorShift + canineShift) : (incisorShift + canineShift);
-
+  const yAdjust = toothYAdjust(tooth);
   const baseTransform = toothBaseTransform(tooth, jawFlip, yAdjust);
 
   const missing = presence === 'missing';
@@ -157,11 +155,6 @@ const yAdjust = tooth.jaw === 'upper' ? -(incisorShift + canineShift) : (incisor
           }
         </g>
 
-        {/* Treatment dot — small accent badge if this tooth has a treatment */}
-        {hasTreatment &&
-        <circle cx={w * 0.30} cy={-h * 0.96} r="2.4" fill={accent}
-        stroke="var(--bg-0)" strokeWidth="0.8" />
-        }
 
         {/* Number badge */}
         {(showNumber || isHovered || isSelected) &&
@@ -472,6 +465,12 @@ function DentalHeroInner() {
   const { stage, setStage, presence, setPresence, treatments, setTreatments } = useChartState();
   const { hoveredId, setHoveredId, selection, setSelection, popover, setPopover, confirmWipe, setConfirmWipe, exportJson, setExportJson, focusedToothId, setFocusedToothId } = useUIState();
 
+  // Marquee drag-to-select
+  const svgRef = useRef(null);
+  const dragRef = useRef(null);        // { startClient, startPt, lockedArch, moved } during drag
+  const suppressClickRef = useRef(false);
+  const [marquee, setMarquee] = useState(null); // { rect, hits: Set } | null
+
   const { scale, centerX, gap, gapFrac, archDepth: defaultArchDepth } = ARCH_LAYOUT;
   const archDepth = t.archDepth ?? defaultArchDepth;
 
@@ -530,6 +529,81 @@ function DentalHeroInner() {
     });
   }, [selection, openTreatmentForTeeth]);
 
+  // ---- Marquee drag-to-select ----
+  const bboxes = useMemo(
+    () => toothBBoxes(allTeeth, upperBiteY, lowerBiteY),
+    [allTeeth]
+  );
+
+  function clientToSvg(evt) {
+    const svg = svgRef.current;
+    if (!svg) return { x: 0, y: 0 };
+    const ctm = svg.getScreenCTM();
+    if (!ctm) return { x: 0, y: 0 };
+    const pt = new DOMPoint(evt.clientX, evt.clientY).matrixTransform(ctm.inverse());
+    return { x: pt.x, y: pt.y };
+  }
+
+  function handleSvgPointerDown(evt) {
+    if (stage !== 'treatment' || evt.button !== 0) return;
+    dragRef.current = {
+      startClient: { x: evt.clientX, y: evt.clientY },
+      startPt: clientToSvg(evt),
+      lockedArch: null,
+      moved: false,
+    };
+  }
+
+  function handleSvgPointerMove(evt) {
+    if (!dragRef.current) return;
+    const { startClient, startPt } = dragRef.current;
+    const dx = evt.clientX - startClient.x;
+    const dy = evt.clientY - startClient.y;
+    if (!dragRef.current.moved && Math.hypot(dx, dy) < 4) return;
+    if (!dragRef.current.moved) {
+      dragRef.current.moved = true;
+      svgRef.current?.setPointerCapture(evt.pointerId);
+    }
+    const cur = clientToSvg(evt);
+    const rect = {
+      minX: Math.min(startPt.x, cur.x),
+      maxX: Math.max(startPt.x, cur.x),
+      minY: Math.min(startPt.y, cur.y),
+      maxY: Math.max(startPt.y, cur.y),
+    };
+    const { lockedArch, hits } = computeMarquee({
+      bboxes,
+      rect,
+      startPt,
+      lockedArch: dragRef.current.lockedArch,
+    });
+    dragRef.current.lockedArch = lockedArch;
+    setMarquee({ rect, hits: new Set(hits) });
+  }
+
+  function handleSvgPointerUp(evt) {
+    if (!dragRef.current) return;
+    if (dragRef.current.moved && marquee) {
+      const hits = Array.from(marquee.hits);
+      const additive = evt.ctrlKey || evt.metaKey;
+      setSelection((prev) =>
+        additive ? Array.from(new Set([...prev, ...hits])) : hits
+      );
+      suppressClickRef.current = true;
+    }
+    svgRef.current?.releasePointerCapture(evt.pointerId);
+    dragRef.current = null;
+    setMarquee(null);
+  }
+
+  function handleSvgKeyDown(evt) {
+    // Cancel in-progress drag on Escape
+    if (evt.key === 'Escape' && dragRef.current?.moved) {
+      dragRef.current = null;
+      setMarquee(null);
+    }
+  }
+
   // ---- Tooth click handler ----
   const handleToothSelect = useCallback((ref, evt, gesture) => {
     if (stage === 'baseline') {
@@ -549,6 +623,9 @@ function DentalHeroInner() {
       }
       return;
     }
+
+    // Swallow the click that fires at the end of a marquee drag.
+    if (suppressClickRef.current) return;
 
     evt.stopPropagation();
     const id = ref.id;
@@ -803,17 +880,23 @@ function DentalHeroInner() {
 
       <div className="stage">
         <svg
+          ref={svgRef}
           className="arch-svg"
           viewBox="0 0 1600 800"
           preserveAspectRatio="xMidYMid meet"
           aria-label="Dental chart"
           onClick={() => {
+            if (suppressClickRef.current) { suppressClickRef.current = false; return; }
             if (stage === 'treatment') {
               setSelection([]);
               setPopover(null);
             }
           }}
+          onPointerDown={handleSvgPointerDown}
+          onPointerMove={handleSvgPointerMove}
+          onPointerUp={handleSvgPointerUp}
           onKeyDown={(e) => {
+            handleSvgKeyDown(e);
             const allIds = [...scaledUpper.map((t) => t.id), ...scaledLower.map((t) => t.id)];
             const upperIds = scaledUpper.map((t) => t.id);
             const lowerIds = scaledLower.map((t) => t.id);
@@ -832,7 +915,7 @@ function DentalHeroInner() {
               document.querySelector(`[data-tooth-id="${nextId}"]`)?.focus();
             }
           }}
-          style={{ height: "988px" }}>
+          style={{ height: "988px", touchAction: 'none' }}>
           
           {/* Anatomy: maxilla + mandible bone outlines, sinus zones inside maxilla, IDN, arch hit-areas */}
           <AnatomyBackground
@@ -871,7 +954,7 @@ function DentalHeroInner() {
                     accent={t.accent}
                     isHovered={hoveredId === tooth.id}
                     isSelected={selection.includes(tooth.id)}
-                    isInDrag={false}
+                    isInDrag={marquee?.hits.has(tooth.id) ?? false}
                     presence={presence[tooth.id] === 'missing' ? 'missing' : 'present'}
                     onHover={setHoveredId}
                     onSelect={handleToothSelect}
@@ -918,6 +1001,21 @@ function DentalHeroInner() {
             accent={t.accent} />
 
           }
+
+          {/* Marquee selection rect */}
+          {marquee && (
+            <rect
+              x={marquee.rect.minX}
+              y={marquee.rect.minY}
+              width={marquee.rect.maxX - marquee.rect.minX}
+              height={marquee.rect.maxY - marquee.rect.minY}
+              fill={t.accent}
+              fillOpacity="0.08"
+              stroke={t.accent}
+              strokeWidth="1"
+              strokeDasharray="4 3"
+              style={{ pointerEvents: 'none' }} />
+          )}
 
           {/* Treatment labels with leader lines (Stage 2) */}
            {stage === 'treatment' && t.showLeaders &&

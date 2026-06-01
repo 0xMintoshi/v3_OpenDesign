@@ -6,7 +6,7 @@ import { proximalExtreme, crownXAtY } from '../core/tooth-split.js';
 // Re-export so app/treatments.jsx keeps its existing import path unchanged.
 export { _crownDepth as crownDepth };
 
-const STROKE_WIDTH = 3;
+const STROKE_WIDTH = 4;
 export const CONTACT_STROKE_WIDTH = 8;
 const CONTACT_X = 0.43;
 export const CONTACT_TOP = 0.5;

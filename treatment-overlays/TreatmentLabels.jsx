@@ -3,6 +3,7 @@ import {
   ARC_CX, ARC_CY, ARC_RX, ARC_RY,
   arcPoint, fdiToZone, connectorPath,
 } from '../core/label-connector.js';
+import { chRatioFor } from '../core/arch-math.js';
 
 // Zone-based treatment label cards + orthogonal leader lines (SVG-native).
 // Extracted from app/treatments.jsx — pure rendering, no catalog knowledge.
@@ -174,8 +175,9 @@ export function TreatmentLabels({ treatments, allTeeth, upperBiteY, lowerBiteY, 
       kind: 'tooth', toothId, items,
       anchor: {
         x: tooth.cx,
-        y: isUpper ? upperBiteY - tooth.h * 0.55 + (tooth.yOffset || 0)
-                   : lowerBiteY + tooth.h * 0.55 - (tooth.yOffset || 0),
+        y: isUpper
+          ? upperBiteY + (tooth.yOffset || 0) - tooth.h * chRatioFor(tooth.type)
+          : lowerBiteY - (tooth.yOffset || 0) + tooth.h * chRatioFor(tooth.type),
       },
       zone: fdiToZone(fdi),
       fdi,
@@ -625,42 +627,68 @@ export function TreatmentLabels({ treatments, allTeeth, upperBiteY, lowerBiteY, 
         const { path } = connectorPath(l.cx, l.cy, LABEL_W / 2, l.height / 2, l.anchor.x, l.anchor.y);
         return (
           <g key={`led-${i}`}>
-            <path d={path} stroke={accent} strokeWidth="1.1" fill="none"
-                  opacity="0.5" strokeLinejoin="round" />
-            <circle cx={l.anchor.x} cy={l.anchor.y} r="2.4" fill={accent} />
+            {/* Airy leader line */}
+            <path d={path} stroke={accent} strokeWidth="0.9" fill="none"
+                  opacity="0.28" strokeLinejoin="round" strokeLinecap="round" />
+            {/* Ring-style anchor dot — outer ring + inner fill */}
+            <circle cx={l.anchor.x} cy={l.anchor.y} r="3.5"
+                    fill="none" stroke={accent} strokeWidth="1.3" opacity="0.65" />
+            <circle cx={l.anchor.x} cy={l.anchor.y} r="1.2" fill={accent} />
           </g>
         );
       })}
 
-      {/* Label cards */}
+      {/* Label cards — Double-Bezel architecture */}
       {finalPositioned.map((l, i) => {
         const x = l.cx - LABEL_W / 2;
         const y = l.cy - l.height / 2;
+        const h = l.height;
+        const inset = 1.5;
         return (
-           <g key={`lab-${i}`}
-              transform={`translate(${x}, ${y})`}
-              onDoubleClick={() => toggleLock(l._labelKey)}
-              style={{ pointerEvents: manualPlacementMode ? 'all' : 'auto', cursor: manualPlacementMode ? (l._locked ? 'not-allowed' : 'grab') : 'default' }}>
-             <rect x="0" y="0" width={LABEL_W} height={l.height}
-                   rx="8" fill="var(--card-bg)"
-                   stroke="var(--card-border)" strokeWidth="1"
-                   onPointerDown={(e) => startDrag(e, l._labelKey, l.cx, l.cy)}
-                   style={{ touchAction: 'none', filter: 'drop-shadow(0 6px 16px rgba(20,30,50,0.12))' }} />
-            <text x="12" y="16" fontSize="10" fill={accent}
-                  fontFamily="var(--sans)" fontWeight="600"
+          <g key={`lab-${i}`}
+             transform={`translate(${x}, ${y})`}
+             onDoubleClick={() => toggleLock(l._labelKey)}
+             style={{ pointerEvents: manualPlacementMode ? 'all' : 'auto', cursor: manualPlacementMode ? (l._locked ? 'not-allowed' : 'grab') : 'default' }}>
+
+            {/* Outer shell — tinted tray with diffused ambient shadow */}
+            <rect x="0" y="0" width={LABEL_W} height={h}
+                  rx="10"
+                  fill="rgba(0,0,0,0.032)"
+                  stroke="rgba(0,0,0,0.055)" strokeWidth="0.75"
+                  onPointerDown={(e) => startDrag(e, l._labelKey, l.cx, l.cy)}
+                  style={{ touchAction: 'none', filter: 'drop-shadow(0 8px 28px rgba(18,28,48,0.09)) drop-shadow(0 2px 6px rgba(18,28,48,0.05))' }} />
+
+            {/* Inner core — white glass plate, concentric radius */}
+            <rect x={inset} y={inset} width={LABEL_W - inset * 2} height={h - inset * 2}
+                  rx="8.5" fill="var(--card-bg)"
+                  style={{ pointerEvents: 'none' }} />
+
+            {/* Bevel highlight — top-edge shimmer */}
+            <rect x={inset + 1} y={inset + 1} width={LABEL_W - inset * 2 - 2} height="1.5"
+                  rx="1" fill="rgba(255,255,255,0.7)"
+                  style={{ pointerEvents: 'none' }} />
+
+            {/* Eyebrow label */}
+            <text x="13" y="17" fontSize="9" fill={accent}
+                  fontFamily="var(--sans)" fontWeight="700"
                   pointerEvents="none"
-                  style={{ letterSpacing: '0.06em', textTransform: 'uppercase' }}>
-              {l.kind === 'tooth'     ? `Tooth ${l.toothId.split('-')[1]}` :
-               l.kind === 'sinus'    ? `Sinus · ${l.target === 'right' ? 'R' : 'L'}` :
-               l.kind === 'arch'     ? (l.target === 'upper' ? 'Maxilla' : 'Mandible') :
-                                       'Full mouth'}
+                  style={{ letterSpacing: '0.09em', textTransform: 'uppercase' }}>
+              {l.kind === 'tooth'  ? `Tooth ${l.toothId.split('-')[1]}` :
+               l.kind === 'sinus'  ? `Sinus · ${l.target === 'right' ? 'R' : 'L'}` :
+               l.kind === 'arch'   ? (l.target === 'upper' ? 'Maxilla' : 'Mandible') :
+                                     'Full mouth'}
             </text>
+
+            {/* Hairline divider between eyebrow and items */}
+            <line x1="13" y1="24" x2={LABEL_W - 13} y2="24"
+                  stroke={accent} strokeWidth="0.5" opacity="0.18" />
+
             {l.items.map((txId, j) => {
-              const yy = 36 + j * 18;
+              const yy = 37 + j * 18;
               return (
                 <g key={j}>
-                  <text x="12" y={yy} fontSize="12.5" fill="var(--ink)"
-                        fontFamily="var(--sans)" pointerEvents="none">
+                  <text x="13" y={yy} fontSize="12" fill="var(--ink)"
+                        fontFamily="var(--sans)" fontWeight="400" pointerEvents="none">
                     {txLabel[txId] || txId}
                   </text>
                   <g style={{ cursor: 'pointer' }}
@@ -673,9 +701,9 @@ export function TreatmentLabels({ treatments, allTeeth, upperBiteY, lowerBiteY, 
                      }}>
                     <circle cx={LABEL_W - 14} cy={yy - 4} r="8" fill="transparent" />
                     <line x1={LABEL_W - 18} y1={yy - 8} x2={LABEL_W - 10} y2={yy}
-                          stroke="var(--ink-muted)" strokeWidth="1.4" strokeLinecap="round" />
+                          stroke="var(--ink-muted)" strokeWidth="1.2" strokeLinecap="round" />
                     <line x1={LABEL_W - 10} y1={yy - 8} x2={LABEL_W - 18} y2={yy}
-                          stroke="var(--ink-muted)" strokeWidth="1.4" strokeLinecap="round" />
+                          stroke="var(--ink-muted)" strokeWidth="1.2" strokeLinecap="round" />
                   </g>
                 </g>
               );
