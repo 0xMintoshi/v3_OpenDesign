@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseOutline, splitToothAtCervical } from './tooth-split.js';
+import { parseOutline, splitToothAtCervical, proximalExtreme } from './tooth-split.js';
 import { CERVICAL } from './arch-math.js';
 
 // Minimal synthetic outline: a symmetric rectangular-ish closed path
@@ -76,6 +76,21 @@ describe('splitToothAtCervical — synthetic outline', () => {
     // outline entirely above cervicalY = 0 (no crossing)
     const flat = 'M 10 -1 C 10 -1 -10 -1 -10 -1 C -10 -1 10 -1 10 -1 Z';
     expect(() => splitToothAtCervical(flat, -50, 5)).toThrow('tooth-split');
+  });
+});
+
+describe('proximalExtreme', () => {
+  it('returns max-x vertex for side=+1', () => {
+    // Rectangle: right side at x=50, left at x=-50, top at y=-100, base at y=0
+    const d = 'M 50 0 C 50 -33 50 -66 50 -100 C 25 -100 -25 -100 -50 -100 C -50 -66 -50 -33 -50 0 C -25 0 25 0 50 0 Z';
+    const pt = proximalExtreme(d, +1);
+    expect(pt.x).toBeCloseTo(50, 0);
+  });
+
+  it('returns min-x vertex for side=-1', () => {
+    const d = 'M 50 0 C 50 -33 50 -66 50 -100 C 25 -100 -25 -100 -50 -100 C -50 -66 -50 -33 -50 0 C -25 0 25 0 50 0 Z';
+    const pt = proximalExtreme(d, -1);
+    expect(pt.x).toBeCloseTo(-50, 0);
   });
 });
 

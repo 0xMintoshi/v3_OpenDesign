@@ -10,6 +10,15 @@ function evalCubicY(p0, cp1, cp2, p3, t) {
   return mt * mt * mt * p0.y + 3 * mt * mt * t * cp1.y + 3 * mt * t * t * cp2.y + t * t * t * p3.y;
 }
 
+function evalCubic(p0, cp1, cp2, p3, t) {
+  const mt = 1 - t;
+  const mt2 = mt * mt, t2 = t * t;
+  return {
+    x: mt2 * mt * p0.x + 3 * mt2 * t * cp1.x + 3 * mt * t2 * cp2.x + t2 * t * p3.x,
+    y: mt2 * mt * p0.y + 3 * mt2 * t * cp1.y + 3 * mt * t2 * cp2.y + t2 * t * p3.y,
+  };
+}
+
 function bisectCubicY(p0, cp1, cp2, p3, targetY, tol = 1e-7) {
   let lo = 0, hi = 1;
   const f = (t) => evalCubicY(p0, cp1, cp2, p3, t) - targetY;
@@ -134,4 +143,52 @@ export function splitToothAtCervical(outlineD, cervicalY, dipY) {
   const cervical = `M ${pt(Pr)} ${boundaryFwd}`;
 
   return { crown: crownD, root: rootD, cervical };
+}
+
+function evalQuadratic(p0, cp, p3, t) {
+  const mt = 1 - t;
+  return {
+    x: mt * mt * p0.x + 2 * mt * t * cp.x + t * t * p3.x,
+    y: mt * mt * p0.y + 2 * mt * t * cp.y + t * t * p3.y,
+  };
+}
+
+// Walk the crown d-string and return the extreme-x point on one proximal side.
+// side = +1 → max x (right edge of tooth);  side = -1 → min x (left edge).
+// Coords are tooth-local (same space as the outline function output).
+// Handles M, C, Q, Z — crown paths include a Q from the cervical boundary.
+export function proximalExtreme(crownD, side, steps = 24) {
+  const tokens = crownD.trim().split(/[\s,]+/).filter(Boolean);
+  let i = 0;
+  let p0 = null;
+  let best = null;
+  let bestScore = -Infinity;
+
+  const sample = (pt) => {
+    const score = side * pt.x;
+    if (score > bestScore) { bestScore = score; best = { x: pt.x, y: pt.y }; }
+  };
+
+  while (i < tokens.length) {
+    const cmd = tokens[i++];
+    if (cmd === 'M') {
+      p0 = { x: parseFloat(tokens[i++]), y: parseFloat(tokens[i++]) };
+      sample(p0);
+    } else if (cmd === 'C') {
+      const cp1 = { x: parseFloat(tokens[i++]), y: parseFloat(tokens[i++]) };
+      const cp2 = { x: parseFloat(tokens[i++]), y: parseFloat(tokens[i++]) };
+      const p3  = { x: parseFloat(tokens[i++]), y: parseFloat(tokens[i++]) };
+      for (let k = 1; k <= steps; k++) sample(evalCubic(p0, cp1, cp2, p3, k / steps));
+      p0 = p3;
+    } else if (cmd === 'Q') {
+      const cp = { x: parseFloat(tokens[i++]), y: parseFloat(tokens[i++]) };
+      const p3 = { x: parseFloat(tokens[i++]), y: parseFloat(tokens[i++]) };
+      for (let k = 1; k <= steps; k++) sample(evalQuadratic(p0, cp, p3, k / steps));
+      p0 = p3;
+    } else if (cmd === 'Z' || cmd === 'z') {
+      break;
+    }
+  }
+
+  return best;
 }
