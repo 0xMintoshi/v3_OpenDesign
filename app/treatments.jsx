@@ -346,20 +346,7 @@ export function ImplantBridgeSpanOverlay({ teeth, biteY, accent }) {
 
   return (
     <g style={{ pointerEvents: 'none' }}>
-      {/* Pass 1: fixtures (bottom layer) */}
-      {sorted.map((tooth) => {
-        const ratios = fittedImplantClassRatios(tooth.type);
-        const crownH = tooth.h * fittedImplantCrownRatio(tooth.type);
-        const isEndpoint = tooth.id === first.id || tooth.id === last.id;
-        if (!isEndpoint) return null;
-        return (
-          <g key={`fix-${tooth.id}`}
-             transform={`translate(${tooth.cx}, ${biteY + (tooth.yOffset || 0) * flipY}) scale(1, ${flipY}) rotate(${tooth.tilt || 0})`}>
-            <ImplantFixtureBlock tooth={tooth} crownH={crownH} ratios={ratios} accent={accent} />
-          </g>
-        );
-      })}
-      {/* Pass 2: hourglass connectors — rendered BELOW crowns so white crown fill masks the overlap */}
+      {/* Pass 1: hourglass connectors — bottom layer */}
       {sorted.slice(0, -1).map((tooth, i) => {
         const next = sorted[i + 1];
         return (
@@ -370,7 +357,7 @@ export function ImplantBridgeSpanOverlay({ teeth, biteY, accent }) {
             stroke="none" />
         );
       })}
-      {/* Pass 3: crowns — rendered on top of connectors */}
+      {/* Pass 2: crowns — white fill masks connector overlap */}
       {sorted.map((tooth) => {
         const crownH = tooth.h * fittedImplantCrownRatio(tooth.type);
         return (
@@ -383,6 +370,19 @@ export function ImplantBridgeSpanOverlay({ teeth, biteY, accent }) {
               strokeWidth={3}
               strokeLinejoin="round"
               strokeLinecap="round" />
+          </g>
+        );
+      })}
+      {/* Pass 3: fixtures + abutment — top layer so collar sits above crown */}
+      {sorted.map((tooth) => {
+        const ratios = fittedImplantClassRatios(tooth.type);
+        const crownH = tooth.h * fittedImplantCrownRatio(tooth.type);
+        const isEndpoint = tooth.id === first.id || tooth.id === last.id;
+        if (!isEndpoint) return null;
+        return (
+          <g key={`fix-${tooth.id}`}
+             transform={`translate(${tooth.cx}, ${biteY + (tooth.yOffset || 0) * flipY}) scale(1, ${flipY}) rotate(${tooth.tilt || 0})`}>
+            <ImplantFixtureBlock tooth={tooth} crownH={crownH} ratios={ratios} accent={accent} />
           </g>
         );
       })}
