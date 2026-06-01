@@ -1,5 +1,23 @@
 // Shared arch geometry helpers — used by both app/ and lab/.
 
+// Crown/root boundary per tooth type.
+// y: boundary as fraction of h (negative = apical from bite)
+// dip: how far the boundary curve sags apically (fraction of h)
+export const CERVICAL = {
+  incisor:   { y: 0.34, dip: 0.055 },
+  canine:    { y: 0.34, dip: 0.062 },
+  premolar:  { y: 0.36, dip: 0.065 },
+  premolar1: { y: 0.36, dip: 0.065 },
+  molarU:    { y: 0.40, dip: 0.072 },
+  molarL:    { y: 0.40, dip: 0.072 },
+  wisdomU:   { y: 0.46, dip: 0.083 },
+  wisdomL:   { y: 0.46, dip: 0.083 },
+};
+
+export function crownDepth(type, h) {
+  return (CERVICAL[type]?.y ?? 0.34) * h;
+}
+
 export function chRatioFor(type) {
   if (type === 'wisdomU' || type === 'wisdomL') return 0.46;
   if (type === 'molarU' || type === 'molarL') return 0.40;

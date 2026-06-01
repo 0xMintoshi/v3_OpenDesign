@@ -1,10 +1,14 @@
 // =========================================================================
 // Tooth path generators v2 — outlined anatomical style (modern flat schematic).
-// Each tooth returns { outline, cervical } where:
-//   - outline: closed silhouette (crown + root, single path)
-//   - cervical: open arc that visually separates crown from root
+// Each tooth returns { outline, cervical, crown, root } where:
+//   - outline: closed silhouette (crown + root, single path) — unchanged
+//   - cervical: corrected open arc landing exactly on the wall at the neck
+//   - crown: closed shape for the crown portion only
+//   - root: closed shape for the root portion only
 // Origin at biting edge (y=0). Root extends into negative y.
 // =========================================================================
+import { CERVICAL } from '../core/arch-math.js';
+import { splitToothAtCervical } from '../core/tooth-split.js';
 
 const TOOTH_TYPES = {
   central:   { w: 28, h: 88,  type: 'incisor',   name: 'Central Incisor',  roots: 1 },
@@ -106,11 +110,6 @@ function incisorOutline(w, h) {
   `;
 }
 
-function incisorCervical(w, h) {
-  const ny = -h * 0.34;
-  return `M ${-w*0.40} ${ny} Q 0 ${ny - h*0.055} ${w*0.40} ${ny}`;
-}
-
 function canineOutline(w, h) {
   const ch = h * 0.34;
   const ny = -ch;
@@ -127,11 +126,6 @@ function canineOutline(w, h) {
     C ${w*0.27} ${-h*0.016}, ${w*0.40} ${-h*0.020}, ${w*0.44} ${-h*0.058}
     Z
   `;
-}
-
-function canineCervical(w, h) {
-  const ny = -h * 0.34;
-  return `M ${-w*0.40} ${ny} Q 0 ${ny - h*0.062} ${w*0.40} ${ny}`;
 }
 
 // Premolar with a single root (lower / 2nd upper).
@@ -174,13 +168,6 @@ function premolarBifurcOutline(w, h) {
     C ${w*0.27} ${-h*0.016}, ${w*0.40} ${-h*0.020}, ${w*0.44} ${-h*0.058}
     Z
   `;
-}
-
-function premolarCervical(w, h) {
-  const ch = h * 0.36;
-  const ny = -ch;
-  const nw = w * 0.78;
-  return `M ${-nw*0.48} ${ny} Q 0 ${ny - ch*0.18} ${nw*0.48} ${ny}`;
 }
 
 // Upper molar — shape edited in ShapeLab 2026-05-30.
@@ -234,13 +221,6 @@ function molarLOutline(w, h) {
   `;
 }
 
-function molarCervical(w, h) {
-  const ch = h * 0.40;
-  const ny = -ch;
-  const nw = w * 0.84;
-  return `M ${-nw*0.48} ${ny} Q 0 ${ny - ch*0.18} ${nw*0.48} ${ny}`;
-}
-
 // Upper wisdom — small, slightly twisted roots (2-3).
 // Crown corners rounded with r≈0.10 cubic Bézier fillets (de Casteljau split).
 function wisdomUOutline(w, h) {
@@ -286,25 +266,32 @@ function wisdomLOutline(w, h) {
   `;
 }
 
-function wisdomCervical(w, h) {
-  const ch = h * 0.46;
-  const ny = -ch;
-  const nw = w * 0.84;
-  return `M ${-nw*0.48} ${ny} Q 0 ${ny - ch*0.18} ${nw*0.48} ${ny}`;
-}
+const OUTLINE_FN = {
+  incisor:   incisorOutline,
+  canine:    canineOutline,
+  premolar:  premolarOutline,
+  premolar1: premolarBifurcOutline,
+  molarU:    molarUOutline,
+  molarL:    molarLOutline,
+  wisdomU:   wisdomUOutline,
+  wisdomL:   wisdomLOutline,
+};
+
+const _pathCache = new Map();
 
 function toothPaths(type, w, h) {
-  switch (type) {
-    case 'incisor':   return { outline: incisorOutline(w, h),       cervical: incisorCervical(w, h) };
-    case 'canine':    return { outline: canineOutline(w, h),        cervical: canineCervical(w, h) };
-    case 'premolar':  return { outline: premolarOutline(w, h),      cervical: premolarCervical(w, h) };
-    case 'premolar1': return { outline: premolarBifurcOutline(w, h),cervical: premolarCervical(w, h) };
-    case 'molarU':    return { outline: molarUOutline(w, h),        cervical: molarCervical(w, h) };
-    case 'molarL':    return { outline: molarLOutline(w, h),        cervical: molarCervical(w, h) };
-    case 'wisdomU':   return { outline: wisdomUOutline(w, h),       cervical: wisdomCervical(w, h) };
-    case 'wisdomL':   return { outline: wisdomLOutline(w, h),       cervical: wisdomCervical(w, h) };
-    default:          return { outline: incisorOutline(w, h),       cervical: incisorCervical(w, h) };
-  }
+  const key = `${type}|${w}|${h}`;
+  const hit = _pathCache.get(key);
+  if (hit) return hit;
+
+  const outlineFn = OUTLINE_FN[type] ?? incisorOutline;
+  const outline   = outlineFn(w, h);
+  const { y, dip } = CERVICAL[type] ?? CERVICAL.incisor;
+  const { crown, root, cervical } = splitToothAtCervical(outline, -y * h, dip * h);
+
+  const result = { outline, cervical, crown, root };
+  _pathCache.set(key, result);
+  return result;
 }
 
 Object.assign(window, {

@@ -1,5 +1,9 @@
 import React from 'react';
 import { toothPaths } from '../layout/teeth-data.jsx';
+import { crownDepth as _crownDepth } from '../core/arch-math.js';
+
+// Re-export so app/treatments.jsx keeps its existing import path unchanged.
+export { _crownDepth as crownDepth };
 
 const STROKE_WIDTH = 5;
 export const CONTACT_STROKE_WIDTH = 7.5;
@@ -15,12 +19,7 @@ function getYAdjust(tooth) {
   return jaw === 'upper' ? -(incisorShift + canineShift) : (incisorShift + canineShift);
 }
 
-export function crownDepth(type, h) {
-  if (type === 'wisdomU' || type === 'wisdomL') return h * 0.46;
-  if (type === 'molarU' || type === 'molarL') return h * 0.40;
-  if (type === 'premolar' || type === 'premolar1') return h * 0.36;
-  return h * 0.34;
-}
+const crownDepth = _crownDepth;
 
 export function bridgeContactPoint(tooth, biteY, flipY, side, y) {
   const tilt = ((tooth.tilt || 0) * Math.PI) / 180;
@@ -76,28 +75,13 @@ export function BridgeSpanOverlay({ teeth, biteY, accent }) {
       {sorted.map((tooth) => {
         const { cx, w, h, type, tilt = 0, yOffset = 0 } = tooth;
         const paths = toothPaths(type, w, h);
-        const depth = crownDepth(type, h);
-        const clipId = `bridge-crown-clip-${tooth.id}`;
         const yAdjust = getYAdjust(tooth);
         return (
           <g
             key={tooth.id}
             transform={`translate(${cx}, ${biteY + yOffset * flipY + yAdjust}) scale(1, ${flipY}) rotate(${tilt})`}>
-            <defs>
-              <clipPath id={clipId}>
-                <rect x={-w * 0.65} y={-depth} width={w * 1.3} height={depth + h * 0.08} />
-              </clipPath>
-            </defs>
             <path
-              d={paths.outline}
-              fill="none"
-              stroke={accent}
-              strokeWidth={STROKE_WIDTH}
-              strokeLinejoin="round"
-              strokeLinecap="round"
-              clipPath={`url(#${clipId})`} />
-            <path
-              d={paths.cervical}
+              d={paths.crown}
               fill="none"
               stroke={accent}
               strokeWidth={STROKE_WIDTH}
