@@ -42,9 +42,14 @@ describe('getConflictingTreatmentIds', () => {
     expect(result).toContain('implant-crown');
   });
 
-  it('extraction returns only itself', () => {
+  it('extraction strips all prosthetics and itself', () => {
     const result = getConflictingTreatmentIds('extraction');
-    expect(result).toEqual(['extraction']);
+    expect(result).toContain('extraction');
+    expect(result).toContain('implant-only');
+    expect(result).toContain('implant-crown');
+    expect(result).toContain('implant-bridge-span');
+    expect(result).toContain('crown');
+    expect(result).toContain('bridge-span');
   });
 
   it('gbr returns only itself', () => {

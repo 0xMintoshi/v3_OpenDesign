@@ -887,7 +887,12 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
       return allPresent === true;
     }
     if (item.requires === 'missing-tooth') {
-      return allMissing === true;
+      if (!allMissing) return false;
+      if (item.id === 'implant-bridge-span') return Array.isArray(target) && target.length >= 2;
+      return true;
+    }
+    if (item.id === 'partial-denture-upper' || item.id === 'partial-denture-lower') {
+      return mode === 'arch' && !target.edentulous;
     }
     if (item.requires === 'dentate-patient') {
       return fullyEdentulous !== true;
@@ -901,7 +906,13 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
   const unavailableHint = (item) => {
     if (item.requires === 'edentulous-arch') return 'requires edentulous arch';
     if (item.requires === 'present-tooth') return 'requires present teeth only';
-    if (item.requires === 'missing-tooth') return 'requires missing or extracted teeth';
+    if (item.requires === 'missing-tooth') {
+      if (item.id === 'implant-bridge-span' && allMissing) return 'select 2+ adjacent missing teeth';
+      return 'requires missing or extracted teeth';
+    }
+    if (item.id === 'partial-denture-upper' || item.id === 'partial-denture-lower') {
+      return 'not available for edentulous arch — use Complete Denture';
+    }
     if (item.requires === 'dentate-patient') return 'requires at least one present tooth';
     if (item.requires === 'multi-tooth') return 'select 2+ adjacent teeth first';
     return 'not available for this selection';
