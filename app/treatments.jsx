@@ -74,7 +74,7 @@ const ARCH_GROUPS = [
     label: 'Orthodontics · full mouth',
     scope: 'full-mouth',
     items: [
-      { id: 'ortho-brackets', label: 'Brackets + Archwire', hint: 'fixed appliance, both arches',
+      { id: 'ortho-brackets', label: 'Metal Braces',         hint: 'fixed appliance, both arches',
         requires: 'dentate-patient' },
       { id: 'ortho-aligners', label: 'Clear Aligners',      hint: 'removable shells, both arches',
         requires: 'dentate-patient' },
@@ -555,35 +555,65 @@ function AlveolectomyBand({ arch, biteY, archWidth, accent }) {
 // ============================================================================
 
 // ============================================================================
-// Ortho brackets — visibly large per tooth + curved archwire (flat)
+// Metal Braces — crown-centred brackets (honours tilt + yOffset) + archwire
+// threading through the middle of each bracket's sides
 // ============================================================================
 
-function OrthoBrackets({ teeth, biteY, jaw, accent }) {
-  const dir = jaw === 'upper' ? -1 : 1;
-  const bracketY = biteY + dir * 36;          // mid-crown
-  const sorted = [...teeth].sort((a, b) => a.cx - b.cx);
-  if (!sorted.length) return null;
+function OrthoBrackets({ teeth, biteY, jaw, accent, presence }) {
+  const flipY = jaw === 'upper' ? 1 : -1;
+  const BW = 13.2, BH = 9.9;   // +10% vs old 12×9
+  const halfW = BW / 2, halfH = BH / 2;
 
-  // Archwire — smooth curve passing through brackets with natural curvature
-  // (the wire bows slightly toward the bite line at the center)
-  const first = sorted[0], last = sorted[sorted.length - 1];
-  const midX = (first.cx + last.cx) / 2;
-  const midY = bracketY + dir * 4;            // gentle natural curve
-  const wire = `M ${first.cx} ${bracketY} Q ${midX} ${midY}, ${last.cx} ${bracketY}`;
+  // Only present teeth get brackets; missing teeth skip but wire bridges gap
+  const present = [...teeth]
+    .filter(t => presence?.[t.id] !== 'missing')
+    .sort((a, b) => a.cx - b.cx);
+  if (!present.length) return null;
+
+  // Map a point in a tooth's local crown frame to global SVG coords.
+  // Crown-local frame: origin at tooth base on bite line, +y apical (into root).
+  // Crown midpoint is at local (0, -crownDepth/2) before flipY/tilt.
+  const toGlobal = (t, lx, ly) => {
+    const rad = ((t.tilt ?? 0) * Math.PI) / 180;
+    const Ty  = biteY + (t.yOffset ?? 0) * flipY + toothYAdjust(t);
+    // rotate(tilt) then scale(1, flipY)
+    const rx = lx * Math.cos(rad) - ly * Math.sin(rad);
+    const ry = lx * Math.sin(rad) + ly * Math.cos(rad);
+    return { x: t.cx + rx, y: Ty + flipY * ry };
+  };
+
+  // For each present tooth, compute left/right midpoints of the bracket sides
+  const nodes = present.map(t => {
+    const cyLocal = -crownDepth(t.type, t.h) / 2;
+    return {
+      t,
+      left:  toGlobal(t, -halfW, cyLocal),
+      right: toGlobal(t, +halfW, cyLocal),
+      Ty:    biteY + (t.yOffset ?? 0) * flipY + toothYAdjust(t),
+      cyLocal,
+    };
+  });
+
+  // Archwire: left-mid → right-mid per bracket, then right-mid → next left-mid across gap
+  let wire = `M ${nodes[0].left.x} ${nodes[0].left.y} L ${nodes[0].right.x} ${nodes[0].right.y}`;
+  for (let i = 1; i < nodes.length; i++) {
+    wire += ` L ${nodes[i].left.x} ${nodes[i].left.y} L ${nodes[i].right.x} ${nodes[i].right.y}`;
+  }
 
   return (
     <g style={{ pointerEvents: 'none' }}>
       {/* Archwire */}
-      <path d={wire} stroke={accent} strokeWidth="2.0" fill="none" strokeLinecap="round" />
-      {/* Brackets (larger than v1) */}
-      {sorted.map(t => (
-        <g key={t.id}>
-          {/* Wing tie marks */}
-          <rect x={t.cx - 6} y={bracketY - 4.5} width="12" height="9" rx="1.6"
+      <path d={wire} stroke={accent} strokeWidth="2.0" fill="none"
+            strokeLinecap="round" strokeLinejoin="round" />
+      {/* Brackets — each rendered in tooth-local space so they inherit tilt */}
+      {nodes.map(({ t, Ty, cyLocal }) => (
+        <g key={t.id}
+           transform={`translate(${t.cx}, ${Ty}) scale(1, ${flipY}) rotate(${t.tilt ?? 0})`}>
+          <rect x={-halfW} y={cyLocal - halfH} width={BW} height={BH} rx="1.6"
                 fill="var(--tooth-fill)" stroke={accent} strokeWidth="1.3" />
-          <line x1={t.cx - 6} y1={bracketY} x2={t.cx + 6} y2={bracketY}
+          <line x1={-halfW} y1={cyLocal} x2={halfW} y2={cyLocal}
                 stroke={accent} strokeWidth="0.9" opacity="0.55" />
-          <line x1={t.cx} y1={bracketY - 4.5} x2={t.cx} y2={bracketY + 4.5}
+          <line x1={0} y1={cyLocal - halfH} x2={0} y2={cyLocal + halfH}
                 stroke={accent} strokeWidth="0.9" opacity="0.55" />
         </g>
       ))}
@@ -660,7 +690,7 @@ function ExtractionOverlay({ x, y, w, h, jaw, type }) {
 // ============================================================================
 
 function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent }) {
-  const { treatments } = useChartState();
+  const { treatments, presence } = useChartState();
   const byTooth = {};
   for (const tx of treatments) {
     if (tx.scope === 'tooth') {
@@ -768,8 +798,8 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
         if (tx.id === 'ortho-brackets') {
           return (
             <g key={i}>
-              <OrthoBrackets teeth={upperTeeth} biteY={upperBiteY} jaw="upper" accent={accent} />
-              <OrthoBrackets teeth={lowerTeeth} biteY={lowerBiteY} jaw="lower" accent={accent} />
+              <OrthoBrackets teeth={upperTeeth} biteY={upperBiteY} jaw="upper" accent={accent} presence={presence} />
+              <OrthoBrackets teeth={lowerTeeth} biteY={lowerBiteY} jaw="lower" accent={accent} presence={presence} />
             </g>
           );
         }

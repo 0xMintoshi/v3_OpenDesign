@@ -20,7 +20,7 @@ export const VISUAL_REGISTRY = {
   'partial-denture-upper': { scope: 'arch',    category: 'arch',       label: 'Partial Denture (Upper)',  shapeId: 'partial-denture-upper' },
   'partial-denture-lower': { scope: 'arch',    category: 'arch',       label: 'Partial Denture (Lower)',  shapeId: 'partial-denture-lower' },
   // ── full-mouth-scoped ─────────────────────────────────────────────────────
-  'ortho-brackets':     { scope: 'full-mouth', category: 'full-mouth', label: 'Brackets + Archwire',      shapeId: null },
+  'ortho-brackets':     { scope: 'full-mouth', category: 'full-mouth', label: 'Metal Braces',             shapeId: null },
   'ortho-aligners':     { scope: 'full-mouth', category: 'full-mouth', label: 'Clear Aligners',           shapeId: null },
 };
 
