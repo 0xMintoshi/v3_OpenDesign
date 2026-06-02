@@ -397,23 +397,69 @@ export function ImplantBridgeSpanOverlay({ teeth, biteY, accent }) {
 // ============================================================================
 // Bone graft overlay
 // ============================================================================
-function BoneGraftOverlay({ x, y, w, h, jaw, variant, accent }) {
+// socket-preservation: sparse dots clipped to the tooth's root outline (contained socket cavity)
+// simultaneous-graft:  medium-dense ridge field lifted apically (top edge matches GBR)
+// gbr:                 widest + densest ridge field
+function BoneGraftOverlay({ tooth, biteY, variant, accent }) {
+  const { cx, w, h, jaw, type, tilt = 0, yOffset = 0 } = tooth;
   const flipY = jaw === 'upper' ? 1 : -1;
-  // Footprint
+
+  // ── Socket Preservation: root-outline clip ──────────────────────────────
+  if (variant === 'socket-preservation') {
+    const paths = toothPaths(type, w, h);
+    const incisorShift = type === 'incisor' ? h * 0.03 : 0;
+    const canineShift  = type === 'canine'  ? h * -0.02 : 0;
+    const yAdjust = jaw === 'upper' ? -(incisorShift + canineShift) : (incisorShift + canineShift);
+    const clipId = `socket-clip-${tooth.id}`;
+
+    // Sparse dot grid over tooth-local box; confine with clip to root shape
+    const density = 1.0;
+    const cols = Math.round(10 * density);
+    const rows = Math.round(14 * density);
+    const seedX = Math.round(Math.abs(cx) * 1.37 + 13) % 10000;
+    function rnd(i) { return ((seedX + i * 9301 + 49297) % 233280) / 233280; }
+    const dots = [];
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const px = (c / Math.max(1, cols - 1) - 0.5) * w + (rnd(r * cols + c) - 0.5) * 2.6;
+        const py = -(r / Math.max(1, rows - 1)) * h * 0.80 - 2 + (rnd(r * cols + c + 99) - 0.5) * 2;
+        const radius = 0.9 + rnd(r * cols + c + 200) * 0.6;
+        dots.push({ px, py, radius });
+      }
+    }
+
+    return (
+      <g transform={`translate(${cx}, ${biteY + yOffset * flipY + yAdjust}) scale(1, ${flipY}) rotate(${tilt})`}
+         style={{ pointerEvents: 'none' }}>
+        <defs>
+          <clipPath id={clipId}>
+            <path d={paths.root} />
+          </clipPath>
+        </defs>
+        <path d={paths.root} fill={accent} fillOpacity="0.06"
+              stroke={accent} strokeWidth="1.0" strokeDasharray="3 3" opacity="0.8" />
+        <g clipPath={`url(#${clipId})`}>
+          {dots.map((d, i) => (
+            <circle key={i} cx={d.px} cy={d.py} r={d.radius} fill={accent} opacity={0.75} />
+          ))}
+        </g>
+      </g>
+    );
+  }
+
+  // ── Ridge-field variants (simultaneous-graft + gbr) ─────────────────────
   const isGBR = variant === 'gbr';
-  const fieldW = w * (isGBR ? 1.6 : 0.92);
-  const fieldH = h * (isGBR ? 0.55 : 0.40);
+  const fieldW = w * (isGBR ? 1.4 : 0.92);
+  const GBR_FIELD_H = h * 0.57;
+  const fieldH = isGBR ? GBR_FIELD_H : h * 0.40;
+  // Lift simultaneous so its top edge matches GBR's top
+  const yShift = isGBR ? 0 : (GBR_FIELD_H - fieldH) * 1.02;
 
-  // Density (dots per unit area, expressed as grid resolution)
-  const density = variant === 'socket-preservation' ? 1.0
-                : variant === 'simultaneous-graft'  ? 1.6
-                : /* gbr */                           1.9;
-
+  const density = variant === 'simultaneous-graft' ? 1.8 : /* gbr */ 3;
   const cols = Math.round(11 * density);
   const rows = Math.round(6 * density);
 
-  // Deterministic jitter per (x,row,col) pair
-  const seedX = Math.round(Math.abs(x) * 1.37 + (variant.charCodeAt(0) * 13)) % 10000;
+  const seedX = Math.round(Math.abs(cx) * 1.37 + (variant.charCodeAt(0) * 13)) % 10000;
   function rnd(i) { return ((seedX + i * 9301 + 49297) % 233280) / 233280; }
 
   const dots = [];
@@ -423,14 +469,12 @@ function BoneGraftOverlay({ x, y, w, h, jaw, variant, accent }) {
       const py = -(r / Math.max(1, rows - 1)) * fieldH - 1 + (rnd(r * cols + c + 99) - 0.5) * 2;
       const xn = px / (fieldW / 2);
       const yn = py / fieldH;
-      // Confine to arched region
       if (xn * xn + yn * yn * 0.55 > 1) continue;
       const radius = 0.9 + rnd(r * cols + c + 200) * 0.6;
       dots.push({ px, py, radius });
     }
   }
 
-  // Boundary outline (dashed) — shows the graft footprint
   const boundary = `
     M ${-fieldW/2 + 4} ${-2}
     L ${-fieldW/2 + 4} ${-fieldH * 0.5}
@@ -441,22 +485,14 @@ function BoneGraftOverlay({ x, y, w, h, jaw, variant, accent }) {
   `;
 
   return (
-    <g transform={`translate(${x}, ${y}) scale(1, ${flipY})`} style={{ pointerEvents: 'none' }}>
-      {/* Boundary */}
-      <path d={boundary} fill={accent} fillOpacity="0.06"
-            stroke={accent} strokeWidth="1.0" strokeDasharray={isGBR ? '5 3' : '3 3'} opacity="0.8" />
-      {/* Particulate */}
-      {dots.map((d, i) => (
-        <circle key={i} cx={d.px} cy={d.py} r={d.radius}
-                fill={accent} opacity={0.75} />
-      ))}
-      {/* GBR membrane line — slight curve outside the graft */}
-      {isGBR && (
-        <path
-          d={`M ${-fieldW*0.5 + 3} ${-fieldH*0.40} Q 0 ${-fieldH*1.18}, ${fieldW*0.5 - 3} ${-fieldH*0.40}`}
-          fill="none" stroke={accent} strokeWidth="1.4" strokeDasharray="2 3" opacity="0.85"
-        />
-      )}
+    <g transform={`translate(${cx}, ${biteY}) scale(1, ${flipY})`} style={{ pointerEvents: 'none' }}>
+      <g transform={`translate(0, ${-yShift})`}>
+        <path d={boundary} fill={accent} fillOpacity="0.06"
+              stroke={accent} strokeWidth="1.0" strokeDasharray={isGBR ? '5 3' : '3 3'} opacity="0.8" />
+        {dots.map((d, i) => (
+          <circle key={i} cx={d.px} cy={d.py} r={d.radius} fill={accent} opacity={0.75} />
+        ))}
+      </g>
     </g>
   );
 }
@@ -758,6 +794,7 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
         <SinusLiftOverlay key={`sl-${i}-${side}`} side={side} accent={accent} />
       ))}
 
+
       {/* Per tooth */}
       {Object.entries(byTooth).map(([toothId, list]) => {
         const tooth = allTeeth.find(x => x.id === toothId);
@@ -777,9 +814,7 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
                                              withCrown={tx.id === 'implant-crown'} accent={accent} />;
               }
               if (tx.id === 'gbr' || tx.id === 'socket-preservation' || tx.id === 'simultaneous-graft') {
-                return <BoneGraftOverlay key={i} x={tooth.cx} y={biteY}
-                                         w={tooth.w} h={tooth.h} jaw={tooth.jaw}
-                                         variant={tx.id} accent={accent} />;
+                return null; // rendered in bone-graft pass above
               }
               if (tx.id === 'crown') {
                 return <CrownOverlay key={i} tooth={tooth} biteY={biteY} accent={accent} />;
@@ -1058,8 +1093,36 @@ Object.assign(window, {
   TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog,
 });
 
+// Bone grafts rendered behind tooth outlines — must be placed below AnatomyBackground
+// but above the Tooth components in dental-arch.jsx.
+function BoneGraftLayer({ allTeeth, upperBiteY, lowerBiteY, accent }) {
+  const { treatments } = useChartState();
+  const byTooth = {};
+  for (const tx of treatments) {
+    if (tx.scope === 'tooth' &&
+        (tx.id === 'gbr' || tx.id === 'socket-preservation' || tx.id === 'simultaneous-graft')) {
+      for (const id of tx.targets) {
+        (byTooth[id] = byTooth[id] || []).push(tx);
+      }
+    }
+  }
+  return (
+    <g className="bone-graft-layer" style={{ pointerEvents: 'none' }}>
+      {Object.entries(byTooth).map(([toothId, list]) => {
+        const tooth = allTeeth.find(x => x.id === toothId);
+        if (!tooth) return null;
+        const biteY = tooth.jaw === 'upper' ? upperBiteY : lowerBiteY;
+        return list.map((tx, i) => (
+          <BoneGraftOverlay key={`graft-${toothId}-${i}`} tooth={tooth} biteY={biteY}
+                            variant={tx.id} accent={accent} />
+        ));
+      })}
+    </g>
+  );
+}
+
 export {
   TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL,
-  TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog,
+  TreatmentLayer, BoneGraftLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog,
 };
 export { exportLabelPositions, setLabelPositions } from '../treatment-overlays/TreatmentLabels.jsx';

@@ -42,25 +42,26 @@ export function fdiToZone(fdi) {
   return 'u-ant';
 }
 
-// Return { path, ex, ey } — an SVG path string for the L-bend connector.
+// Return { path, ex, ey } — an SVG path string for the smooth quadratic connector.
 // bx/by: label box centre, hw/hh: half-width/height, ax/ay: tooth anchor.
-// Connector exits at midpoint of one of 4 box sides (perpendicular), then
-// makes one bend to reach the anchor.
+// Exits perpendicular from the nearest box edge then curves gently to the anchor.
 export function connectorPath(bx, by, hw, hh, ax, ay) {
   const dx = ax - bx, dy = ay - by;
-  // Compare normalized distances: which face is the anchor "more on"?
+  // Which face is the anchor "more towards"? (normalized distance comparison)
   const useVerticalSide = Math.abs(dx) * hh >= Math.abs(dy) * hw;
-  let ex, ey, path;
+  let ex, ey;
   if (useVerticalSide) {
-    // Exit from left or right midpoint; leave horizontally, then turn vertical
     ex = bx + (dx > 0 ? hw : -hw);
     ey = by;
-    path = `M ${ex} ${ey} L ${ax} ${ey} L ${ax} ${ay}`;
   } else {
-    // Exit from top or bottom midpoint; leave vertically, then turn horizontal
     ex = bx;
     ey = by + (dy > 0 ? hh : -hh);
-    path = `M ${ex} ${ey} L ${ex} ${ay} L ${ax} ${ay}`;
   }
+  // Control point: perpendicular-exit → anchor-direction bow (rounded L).
+  // Vertical-side exit: leave horizontally, arrive vertically.
+  // Horizontal-side exit: leave vertically, arrive horizontally.
+  const cpx = useVerticalSide ? ax : ex;
+  const cpy = useVerticalSide ? ey : ay;
+  const path = `M ${ex} ${ey} Q ${cpx} ${cpy} ${ax} ${ay}`;
   return { path, ex, ey };
 }

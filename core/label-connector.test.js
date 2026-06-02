@@ -113,10 +113,14 @@ describe('connectorPath', () => {
     expect(typeof result.path).toBe('string');
     expect(result.path).toMatch(/^M /);
   });
-  it('path contains exactly two L segments (one bend)', () => {
+  it('path is a smooth quadratic (M…Q…, no L segments)', () => {
     const { path } = connectorPath(800, 400, 75, 20, 600, 300);
-    const lCount = (path.match(/\bL\b/g) || []).length;
-    expect(lCount).toBe(2);
+    expect(path).toMatch(/Q /);
+    expect(path).not.toMatch(/\bL\b/);
+    // Path ends at the anchor point
+    const parts = path.trim().split(/\s+/);
+    expect(parseFloat(parts[parts.length - 2])).toBeCloseTo(600, 4);
+    expect(parseFloat(parts[parts.length - 1])).toBeCloseTo(300, 4);
   });
   it('returns ex and ey exit-point numbers', () => {
     const result = connectorPath(800, 400, 75, 20, 600, 300);

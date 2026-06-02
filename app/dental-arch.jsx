@@ -5,7 +5,7 @@ import archMandible from '../shapes-data/anatomy/arch-mandible.json';
 import { TOOTH_TYPES, QUADRANT, UPPER, LOWER, layoutArch, toothPaths } from '../layout/teeth-data.jsx';
 import { chRatioFor, scallopRL, scallopLR, ARCH_LAYOUT, upperBiteY, lowerBiteY, cervicalPoints } from '../core/arch-math.js';
 import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from '../layout/anatomy.jsx';
-import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog, exportLabelPositions } from './treatments.jsx';
+import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, BoneGraftLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog, exportLabelPositions } from './treatments.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
 import { getConflictingTreatmentIds } from '../core/conflict-rules.js';
 import { areContiguous } from '../core/contiguity.js';
@@ -751,14 +751,18 @@ function DentalHeroInner() {
 
   // ---- Remove a single treatment (used by label cards) ----
   const removeTreatmentForTooth = (toothId, txId) => {
+    const isSpan = txId === 'bridge-span' || txId === 'implant-bridge-span';
+    if (isSpan) {
+      // Remove the entire span that contains this tooth
+      setTreatments((prev) => prev.filter((tx) =>
+        !(tx.scope === 'tooth' && tx.id === txId && tx.targets.includes(toothId))
+      ));
+      return;
+    }
     setTreatments((prev) => prev.map((tx) => {
       if (tx.scope !== 'tooth' || tx.id !== txId) return tx;
       return { ...tx, targets: tx.targets.filter((id) => id !== toothId) };
-    }).filter((tx) => {
-      if (tx.scope !== 'tooth') return true;
-      const minTargets = (tx.id === 'bridge-span' || tx.id === 'implant-bridge-span') ? 2 : 1;
-      return tx.targets.length >= minTargets;
-    }));
+    }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length >= 1));
     if (txId === 'extraction') {
       setPresence((prev) => {
         const next = { ...prev };
@@ -773,6 +777,16 @@ function DentalHeroInner() {
       if (tx.scope === 'full-mouth') return null;
       return { ...tx, targets: tx.targets.filter((x) => x !== target) };
     }).filter(Boolean).filter((tx) => tx.scope === 'full-mouth' || tx.targets.length > 0));
+  };
+
+  // Remove an entire span treatment (bridge / implant-bridge) by dropping the tx record
+  // whose id matches and whose targets overlap the given set — matches exactly one jaw-group.
+  const removeSpanTreatment = (txId, targets) => {
+    const targetSet = new Set(targets);
+    setTreatments((prev) => prev.filter((tx) => {
+      if (tx.scope !== 'tooth' || tx.id !== txId) return true;
+      return !tx.targets.some((id) => targetSet.has(id));
+    }));
   };
 
   const handleConfirmWipe = () => {
@@ -929,6 +943,14 @@ function DentalHeroInner() {
             style={{ pointerEvents: 'none' }} />
           
 
+          {/* Bone grafts — behind tooth outlines */}
+          {stage === 'treatment' &&
+          <BoneGraftLayer
+            allTeeth={allTeeth}
+            upperBiteY={upperBiteY}
+            lowerBiteY={lowerBiteY}
+            accent={t.accent} />}
+
           {/* Upper arch */}
           <g aria-label="Upper arch">
             {scaledUpper.map((tooth, i) => {
@@ -1016,7 +1038,8 @@ function DentalHeroInner() {
              manualPlacementMode={t.manualPlacementMode}
              txLabel={TX_LABEL}
              onRemoveTooth={removeTreatmentForTooth}
-             onRemoveOther={removeNonToothTreatment} />
+             onRemoveOther={removeNonToothTreatment}
+             onRemoveSpan={removeSpanTreatment} />
 
           }
         </svg>
