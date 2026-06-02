@@ -221,10 +221,8 @@ function bonePath(cervical, jaw, farY) {
     const lSy = (ms.y * 800).toFixed(2);
     return `
       ${sub1}
-      L ${first.x - first.w * 0.5} ${first.y}
       L ${first.x} ${first.y}
       ${scallopLR(cervical, -1)}
-      L ${last.x + last.w * 0.5} ${last.y}
       L ${lSx} ${lSy}
       ${sub2}
       Z
@@ -234,13 +232,14 @@ function bonePath(cervical, jaw, farY) {
   const mandSegs = archMandible.segments;
   const mandStart = mandSegs[0];
   const mandBody = shapeRangeToPath(archMandible, 1600, 800, 1, mandSegs.length - 1);
+  const mandStartX = (mandStart.x * 1600).toFixed(2);
+  const mandStartY = (mandStart.y * 800).toFixed(2);
   return `
-    M ${(mandStart.x * 1600).toFixed(2)} ${(mandStart.y * 800).toFixed(2)}
+    M ${mandStartX} ${mandStartY}
     ${mandBody}
-    L ${last.x + last.w * 0.5} ${last.y}
-    L ${last.x} ${last.y}
+    Q ${last.x + last.w * 0.5} ${last.y} ${last.x} ${last.y}
     ${scallopRL(cervical, 1)}
-    L ${first.x - first.w * 0.5} ${first.y}
+    Q ${first.x - first.w * 0.5} ${first.y} ${mandStartX} ${mandStartY}
     Z
   `;
 }
@@ -254,7 +253,7 @@ function buildSinus(cervical, startIdx, endIdx, ceilingY) {
   const leftX = teeth[0].x - teeth[0].w * 0.45 + 6;
   const rightX = teeth[teeth.length - 1].x + teeth[teeth.length - 1].w * 0.45 - 6;
   const maxCerv = Math.max(...teeth.map((t) => t.y)); // deepest cervical (closest to bite)
-  const floorY = maxCerv - 26; // floor sits in bone, above teeth
+  const floorY = maxCerv - 45; // floor sits in bone, above teeth
   const midX = (leftX + rightX) / 2;
   const midCY = (floorY + ceilingY) / 2;
   const cy = midCY + (floorY - midCY) * 0.15; // label slightly below midline
