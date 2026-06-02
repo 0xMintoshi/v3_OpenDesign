@@ -37,6 +37,26 @@ export const ARCH_LAYOUT = {
 export const upperBiteY = ARCH_LAYOUT.biteCenter - ARCH_LAYOUT.archGap / 2; // 385
 export const lowerBiteY = ARCH_LAYOUT.biteCenter + ARCH_LAYOUT.archGap / 2; // 435
 
+// Cervical (crown–root junction) screen-y for each tooth in the arch.
+// Accounts for per-tooth yOffset (arch curvature) and jaw orientation.
+export function cervicalPoints(teeth, biteY, jaw) {
+  const sorted = [...teeth].sort((a, b) => a.cx - b.cx);
+  return sorted.map((t) => {
+    const ch = t.h * chRatioFor(t.type);
+    const yo = t.yOffset || 0;
+    const y = jaw === 'upper' ? biteY + yo - ch : biteY - yo + ch;
+    return { x: t.cx, y, w: t.w, fdi: t.fdi };
+  });
+}
+
+// Y of the alveolar crest for the alveolectomy upper far edge: sinus floor level.
+// Uses posterior teeth (deepest cervical y among a set) minus the clearance used in buildSinus.
+export function sinusFloorY(cervical, clearance = 45) {
+  const posterior = cervical.filter((_, i) => i <= 4 || i >= cervical.length - 5);
+  const maxCerv = Math.max(...posterior.map(t => t.y));
+  return maxCerv - clearance;
+}
+
 // Scallop R→L: traces from rightmost tooth to leftmost cervical point.
 // peakDir: -1 for upper (dips away from bite = upward), +1 for lower.
 export function scallopRL(cervical, peakDir, peakDepth = 4) {

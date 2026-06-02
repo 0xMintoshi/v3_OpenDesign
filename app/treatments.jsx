@@ -9,6 +9,7 @@ import { useChartState } from '../core/chart-context.jsx';
 import { proximalExtreme } from '../core/tooth-split.js';
 import { toothPaths } from '../layout/teeth-data.jsx';
 import { toothYAdjust } from '../core/marquee-select.js';
+import { cervicalPoints, scallopRL, sinusFloorY } from '../core/arch-math.js';
 
 
 // ============================================================================
@@ -465,15 +466,16 @@ function BoneGraftOverlay({ x, y, w, h, jaw, variant, accent }) {
 // ============================================================================
 
 function SinusLiftOverlay({ side, accent }) {
-  const cx = side === 'right' ? 460 : 1140;
-  const baseY = 248;       // natural sinus floor (just below ellipse bottom)
-  const liftY = 168;       // lifted membrane crest
-  const w = 200;
+  const cx = side === 'right' ? 450 : 1150;
+  const baseY = 268;       // natural sinus floor (just below ellipse bottom)
+  const liftY = 160;       // lifted membrane crest
+  const w = 320;
 
-  const dome = `M ${cx - w/2} ${baseY} Q ${cx} ${liftY}, ${cx + w/2} ${baseY}`;
+  const cpY = 2 * liftY - baseY;
+  const dome = `M ${cx - w/2} ${baseY} Q ${cx} ${cpY}, ${cx + w/2} ${baseY}`;
   const fillRegion = `
     M ${cx - w/2} ${baseY}
-    Q ${cx} ${liftY}, ${cx + w/2} ${baseY}
+    Q ${cx} ${cpY}, ${cx + w/2} ${baseY}
     L ${cx + w/2 - 4} ${baseY + 6}
     Q ${cx} ${baseY + 8}, ${cx - w/2 + 4} ${baseY + 6}
     Z
@@ -508,44 +510,67 @@ function SinusLiftOverlay({ side, accent }) {
       ))}
       {/* Lifted membrane line */}
       <path d={dome} stroke={accent} strokeWidth="1.8" fill="none" strokeLinecap="round" />
-      {/* Label */}
-      <text x={cx} y={liftY - 8} textAnchor="middle"
-            fontSize="10" fill={accent} fontFamily="var(--sans)"
-            fontWeight="500"
-            style={{ letterSpacing: '0.18em', textTransform: 'uppercase' }}>
-        Sinus Lift
-      </text>
+
     </g>
   );
 }
 
 // ============================================================================
-// Alveolectomy band — flat hatched strip along the ridge of the chosen arch
+// Alveolectomy band — grey region from bone scallop crest to flat resection line.
+// Upper: fixed depth above highest crest point. Lower: fixed depth below lowest crest point.
 // ============================================================================
 
-function AlveolectomyBand({ arch, biteY, archWidth, accent }) {
-  const dir = arch === 'upper' ? -1 : 1;
-  const halfW = archWidth / 2 + 30;
-  const cx = 800;
-  const y0 = biteY + dir * 4;
-  const y1 = biteY + dir * 28;
+const ALVEOLECTOMY_UPPER_DEPTH = 10; // px above highest crest point; tunable
+const ALVEOLECTOMY_LOWER_DEPTH = 10; // px below lowest crest point; tunable
+const WISDOM_FDI = new Set([18, 28, 38, 48]);
+
+function AlveolectomyBand({ arch, teeth, biteY }) {
+  const isUpper = arch === 'upper';
+  // Stop at second molars — exclude wisdom teeth (t.id is "upper-18" etc; use t.fdi)
+  const bandTeeth = teeth.filter(t => !WISDOM_FDI.has(t.fdi));
+  const cervical = cervicalPoints(bandTeeth, biteY, arch);
+  if (!cervical.length) return null;
+
+  const first = cervical[0];
+  const last  = cervical[cervical.length - 1];
+  const leftX  = first.x - first.w * 0.55;
+  const rightX = last.x  + last.w  * 0.55;
+
+  const farY = isUpper
+    ? Math.min(...cervical.map(t => t.y)) - ALVEOLECTOMY_UPPER_DEPTH
+    : Math.max(...cervical.map(t => t.y)) + ALVEOLECTOMY_LOWER_DEPTH;
+
+  // rDir: direction from flat edge into the band (+1 upper goes down, -1 lower goes up).
+  const peakDir = isUpper ? -1 : 1;
+  const rDir = isUpper ? 1 : -1;
+  const r = 14;
+
   const bandPath = `
-    M ${cx - halfW} ${y0}
-    Q ${cx} ${y0 + dir * 10}, ${cx + halfW} ${y0}
-    L ${cx + halfW * 0.92} ${y1}
-    Q ${cx} ${y1 + dir * 10}, ${cx - halfW * 0.92} ${y1}
+    M ${leftX + r} ${farY}
+    L ${rightX - r} ${farY}
+    Q ${rightX} ${farY} ${rightX} ${farY + rDir * r}
+    L ${rightX} ${last.y}
+    L ${last.x + last.w * 0.5} ${last.y}
+    ${scallopRL(cervical, peakDir)}
+    L ${first.x - first.w * 0.5} ${first.y}
+    L ${leftX} ${farY + rDir * r}
+    Q ${leftX} ${farY} ${leftX + r} ${farY}
     Z`;
-  const hatchId = `alv-hatch-${arch}`;
+
+  // Scallop-only path: erase the bone's solid crest line, replace with dotted.
+  const scallopPath = `
+    M ${rightX} ${last.y}
+    L ${last.x + last.w * 0.5} ${last.y}
+    ${scallopRL(cervical, peakDir)}
+    L ${first.x - first.w * 0.5} ${first.y}
+    L ${leftX} ${first.y}`;
+
   return (
     <g style={{ pointerEvents: 'none' }}>
-      <defs>
-        <pattern id={hatchId} width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-          <line x1="0" y1="0" x2="0" y2="7" stroke={accent} strokeWidth="0.9" opacity="0.65" />
-        </pattern>
-      </defs>
-      <path d={bandPath} fill={`url(#${hatchId})`} opacity="0.9" />
-      <path d={bandPath} fill="none" stroke={accent} strokeWidth="1.2"
-            strokeDasharray="4 3" opacity="0.85" />
+      <path d={bandPath} fill="#aaaaaa" fillOpacity="0.28" stroke="none" />
+      {/* Erase solid bone scallop, replace with dotted resection line */}
+      <path d={scallopPath} fill="none" stroke="var(--bg-1)" strokeWidth="4" />
+      <path d={scallopPath} fill="none" stroke="#888888" strokeWidth="1.4" strokeOpacity="0.70" strokeDasharray="4 3" />
     </g>
   );
 }
@@ -561,7 +586,7 @@ function AlveolectomyBand({ arch, biteY, archWidth, accent }) {
 
 function OrthoBrackets({ teeth, biteY, jaw, accent, presence }) {
   const flipY = jaw === 'upper' ? 1 : -1;
-  const BW = 13.2, BH = 9.9;   // +10% vs old 12×9
+  const BW = 14.52, BH = 10.89; // +20% vs old 12×9
   const halfW = BW / 2, halfH = BH / 2;
 
   // Only present teeth get brackets; missing teeth skip but wire bridges gap
@@ -713,7 +738,8 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
       {archTx.map((tx, i) => tx.targets.map(arch => {
         const biteY = arch === 'upper' ? upperBiteY : lowerBiteY;
         if (tx.id === 'alveolectomy') {
-          return <AlveolectomyBand key={`alv-${i}-${arch}`} arch={arch} accent={accent} biteY={biteY} archWidth={archWidth} />;
+          const teeth = arch === 'upper' ? upperTeeth : lowerTeeth;
+          return <AlveolectomyBand key={`alv-${i}-${arch}`} arch={arch} teeth={teeth} biteY={biteY} />;
         }
         if (tx.id === 'complete-denture') {
           return <CompleteDentureOverlay key={`den-${i}-${arch}`} jaw={arch} accent={accent} biteY={biteY} archWidth={archWidth} />;

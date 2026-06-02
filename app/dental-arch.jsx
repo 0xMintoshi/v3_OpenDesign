@@ -3,7 +3,7 @@ import { shapeRangeToPath } from '../core/shapes.js';
 import archMaxilla from '../shapes-data/anatomy/arch-maxilla.json';
 import archMandible from '../shapes-data/anatomy/arch-mandible.json';
 import { TOOTH_TYPES, QUADRANT, UPPER, LOWER, layoutArch, toothPaths } from '../layout/teeth-data.jsx';
-import { chRatioFor, scallopRL, scallopLR, ARCH_LAYOUT, upperBiteY, lowerBiteY } from '../core/arch-math.js';
+import { chRatioFor, scallopRL, scallopLR, ARCH_LAYOUT, upperBiteY, lowerBiteY, cervicalPoints } from '../core/arch-math.js';
 import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from '../layout/anatomy.jsx';
 import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog, exportLabelPositions } from './treatments.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
@@ -185,18 +185,6 @@ const ANATOMY_INFO = {
   'sinus-right': { name: 'Right Maxillary Sinus', side: 'right', code: 'MS-R' },
   'sinus-left': { name: 'Left Maxillary Sinus', side: 'left', code: 'MS-L' }
 };
-
-// Cervical (crown–root junction) screen-y for each tooth in the arch.
-// Accounts for per-tooth yOffset (arch curvature) and jaw orientation.
-function cervicalPoints(teeth, biteY, jaw) {
-  const sorted = [...teeth].sort((a, b) => a.cx - b.cx);
-  return sorted.map((t) => {
-    const ch = t.h * chRatioFor(t.type);
-    const yo = t.yOffset || 0;
-    const y = jaw === 'upper' ? biteY + yo - ch : biteY - yo + ch;
-    return { x: t.cx, y, w: t.w, fdi: t.fdi };
-  });
-}
 
 export { cervicalPoints, chRatioFor, scallopRL, scallopLR };
 
