@@ -6,6 +6,7 @@ import { useShapeEditor } from './useShapeEditor.js';
 import { ControlPoint } from './ControlPoint.jsx';
 import { nearestOnSegments } from './bezier-utils.js';
 import { ImageImport } from './ImageImport.jsx';
+import { buildTrayPath } from '../treatment-overlays/ClearAlignerOverlay.jsx';
 
 // Shape catalog — id → { label, loader, w, h, toothRef?, ghostContext? }
 // w/h: display pixel dimensions in the lab canvas.
@@ -121,10 +122,19 @@ const TREATMENT_SHAPES = {
   },
 };
 
-const ALL_SHAPES = { ...ANATOMY_ARCH_SHAPES, ...ANATOMY_TEETH_SHAPES, ...TREATMENT_SHAPES };
+// Aligner tray — procedural (no JSON). Rendered live from buildTrayPath.
+const ALIGNER_SHAPES = {
+  'aligner-upper': { label: 'Aligner — Upper', jaw: 'upper', w: 800, h: 400,
+    loader: () => Promise.resolve({ segments: [] }) },
+  'aligner-lower': { label: 'Aligner — Lower', jaw: 'lower', w: 800, h: 400,
+    loader: () => Promise.resolve({ segments: [] }) },
+};
 
-const ARCH_SHAPE_IDS = new Set(Object.keys(ANATOMY_ARCH_SHAPES));
+const ALL_SHAPES = { ...ANATOMY_ARCH_SHAPES, ...ANATOMY_TEETH_SHAPES, ...TREATMENT_SHAPES, ...ALIGNER_SHAPES };
+
+const ARCH_SHAPE_IDS  = new Set(Object.keys(ANATOMY_ARCH_SHAPES));
 const TOOTH_SHAPE_IDS = new Set(Object.keys(ANATOMY_TEETH_SHAPES));
+const ALIGNER_IDS     = new Set(Object.keys(ALIGNER_SHAPES));
 
 const ARCH_JAW = {
   'arch-maxilla':     'upper',
@@ -176,6 +186,27 @@ function buildArchTeethGhosts(jaw, W, H, CX, CY) {
   });
 }
 
+// Build the aligner tray path in ShapeLab canvas space.
+function buildAlignerPath(jaw, W, H, CX, CY) {
+  const arch = jaw === 'upper' ? UPPER : LOWER;
+  const scale = ARCH_LAYOUT.scale * LAB_RATIO;
+  const biteY = CY + (jaw === 'upper' ? upperBiteY : lowerBiteY) * LAB_RATIO;
+  const laid = layoutArch(arch, CX + W / 2, scale, {
+    gap: ARCH_LAYOUT.gap,
+    gapFrac: ARCH_LAYOUT.gapFrac,
+    archDepth: ARCH_LAYOUT.archDepth,
+  });
+  const teeth = laid.map(t => ({
+    cx: t.cx,
+    w: t.w * scale,
+    h: t.h * scale,
+    type: t.type,
+    yOffset: t.yOffset,
+    tilt: t.tilt,
+  }));
+  return buildTrayPath(teeth, biteY, jaw);
+}
+
 const DEFAULT_SHAPE_ID = 'crown-molar-upper';
 const LOADING_SHAPE = { id: 'loading', label: 'Loading…', segments: [] };
 
@@ -208,14 +239,15 @@ export default function ShapeLab() {
   const W = meta.w;
   const H = meta.h;
 
-  const isArch = ARCH_SHAPE_IDS.has(selectedId);
-  const isTooth = TOOTH_SHAPE_IDS.has(selectedId);
-  const isTreatment = !isArch && !isTooth;
-  // Arch and treatment shapes use arch-sized canvas so anatomy context fits.
-  const CANVAS_W = (isArch || isTreatment) ? 840 : 400;
-  const CANVAS_H = (isArch || isTreatment) ? 440 : 380;
-  const CX = isArch ? 20 : (isTreatment ? 20 : 200);
-  const CY = isArch ? 20 : (isTreatment ? 20 : 130);
+  const isArch      = ARCH_SHAPE_IDS.has(selectedId);
+  const isTooth     = TOOTH_SHAPE_IDS.has(selectedId);
+  const isAligner   = ALIGNER_IDS.has(selectedId);
+  const isTreatment = !isArch && !isTooth && !isAligner;
+  // Arch, treatment, and aligner shapes use arch-sized canvas so anatomy context fits.
+  const CANVAS_W = (isArch || isTreatment || isAligner) ? 840 : 400;
+  const CANVAS_H = (isArch || isTreatment || isAligner) ? 440 : 380;
+  const CX = (isArch || isAligner) ? 20 : (isTreatment ? 20 : 200);
+  const CY = (isArch || isAligner) ? 20 : (isTreatment ? 20 : 130);
 
   // Load the selected shape
   useEffect(() => {
@@ -596,6 +628,11 @@ export default function ShapeLab() {
               <option key={id} value={id}>{s.label}</option>
             ))}
           </optgroup>
+          <optgroup label="Aligner Tray (live preview)">
+            {Object.entries(ALIGNER_SHAPES).map(([id, s]) => (
+              <option key={id} value={id}>{s.label}</option>
+            ))}
+          </optgroup>
         </select>
       </div>
 
@@ -724,6 +761,28 @@ export default function ShapeLab() {
             {/* Full anatomy background for treatment editing */}
             {isTreatment && treatmentAnatomyBackground(meta.jaw, 800, 400, 20, 20)}
 
+            {/* Aligner tray — procedural live preview */}
+            {isAligner && (() => {
+              const jaw = meta.jaw;
+              const ghosts = buildArchTeethGhosts(jaw, W, H, CX, CY);
+              const alignerD = buildAlignerPath(jaw, W, H, CX, CY);
+              return (<>
+                {ghosts.map((g, i) => (
+                  <g key={i} transform={`translate(${g.tx},${g.ty}) rotate(${g.tilt}) scale(${g.scaleX},${g.scaleY})`}>
+                    <path d={g.outline}  fill="#e8f0ff" stroke="#aac" strokeWidth={0.8} opacity={0.35} />
+                    <path d={g.cervical} fill="none"    stroke="#99b" strokeWidth={0.6} opacity={0.35} />
+                  </g>
+                ))}
+                {alignerD && (
+                  <path
+                    d={alignerD}
+                    fill="rgba(59,130,246,0.10)" stroke="#3b82f6" strokeWidth={1.5}
+                    strokeLinejoin="round" strokeLinecap="round" pointerEvents="none"
+                  />
+                )}
+              </>);
+            })()}
+
             {/* Ghost tooth reference — single tooth (crown shapes) */}
             {toothRef && (
               <g transform={`translate(${CX}, ${CY})`}>
@@ -832,6 +891,13 @@ export default function ShapeLab() {
               Replace shapes-data/anatomy/teeth/{selectedId}.json to persist.<br/>
               This template applies to all FDI positions that use it.<br/>
               Left-side FDI positions are rendered as a mirror at runtime.
+            </p>
+          ) : isAligner ? (
+            <p style={{ fontSize: 11, color: '#888', marginTop: 12, lineHeight: 1.5 }}>
+              Live preview — procedurally generated from tooth shapes.<br/>
+              Tune constants (END_OUT, OCC_EMBRASURE_LIFT, etc.) in<br/>
+              treatment-overlays/ClearAlignerOverlay.jsx lines 7–22.<br/>
+              HMR updates the preview instantly on save.
             </p>
           ) : (
             <p style={{ fontSize: 11, color: '#888', marginTop: 12, lineHeight: 1.5 }}>

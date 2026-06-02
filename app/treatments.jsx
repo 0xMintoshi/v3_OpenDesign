@@ -4,6 +4,7 @@ import { BridgeSpanOverlay, bridgeContactStrokePath, CONTACT_STROKE_WIDTH, bridg
 import { CompleteDentureOverlay } from '../treatment-overlays/CompleteDentureOverlay.jsx';
 import { PartialDentureOverlay } from '../treatment-overlays/PartialDentureOverlay.jsx';
 import { TreatmentLabels } from '../treatment-overlays/TreatmentLabels.jsx';
+import { ClearAlignerOverlay } from '../treatment-overlays/ClearAlignerOverlay.jsx';
 import { useChartState } from '../core/chart-context.jsx';
 import { proximalExtreme } from '../core/tooth-split.js';
 import { toothPaths } from '../layout/teeth-data.jsx';
@@ -773,9 +774,9 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
           );
         }
         if (tx.id === 'ortho-aligners') {
-          return <OrthoAligners key={i} upper={upperTeeth} lower={lowerTeeth}
-                                upperBiteY={upperBiteY} lowerBiteY={lowerBiteY}
-                                archWidth={archWidth} accent={accent} />;
+          return <ClearAlignerOverlay key={i} upper={upperTeeth} lower={lowerTeeth}
+                                     upperBiteY={upperBiteY} lowerBiteY={lowerBiteY}
+                                     accent={accent} />;
         }
         return null;
       })}
