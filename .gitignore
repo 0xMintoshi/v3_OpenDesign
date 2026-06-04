@@ -41,3 +41,14 @@ build/
 .od/
 .opendesign/
 
+# Loose screenshots / scratch images at repo ROOT only.
+# Subfolder images (screenshots/, uploads/, shapes-data/references/, etc.)
+# stay tracked. To deliberately commit a root image: `git add -f <file>`.
+/*.png
+/*.jpg
+/*.jpeg
+
+# Windows reserved-name artifact, created when `2>nul`/`>nul` is run under
+# git-bash (treats `nul` as a literal filename instead of the null device).
+/nul
+
