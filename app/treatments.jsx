@@ -451,13 +451,16 @@ function BoneGraftOverlay({ tooth, biteY, variant, accent }) {
 
   // ── Ridge-field variants (simultaneous-graft + gbr) ─────────────────────
   const isGBR = variant === 'gbr';
-  const fieldW = w * (isGBR ? 1.4 : 0.92);
-  const GBR_FIELD_H = h * 0.57;
+  const GBR_CORONAL_INSET = 60;   // increase to push GBR field apically (away from crown)
+  const SIM_CORONAL_INSET = 45;   // same for simultaneous
+  const coronalInset = isGBR ? GBR_CORONAL_INSET : SIM_CORONAL_INSET;
+  const fieldW = w * (isGBR ? 1.2 : 0.85);
+  const GBR_FIELD_H = h * 0.5;
   const fieldH = isGBR ? GBR_FIELD_H : h * 0.40;
   // Lift simultaneous so its top edge matches GBR's top
   const yShift = isGBR ? 0 : (GBR_FIELD_H - fieldH) * 1.02;
 
-  const density = variant === 'simultaneous-graft' ? 1.8 : /* gbr */ 3;
+  const density = variant === 'simultaneous-graft' ? 1.5 : /* gbr */ 3;
   const cols = Math.round(11 * density);
   const rows = Math.round(6 * density);
 
@@ -488,7 +491,7 @@ function BoneGraftOverlay({ tooth, biteY, variant, accent }) {
 
   return (
     <g transform={`translate(${cx}, ${biteY}) scale(1, ${flipY})`} style={{ pointerEvents: 'none' }}>
-      <g transform={`translate(0, ${-yShift})`}>
+      <g transform={`translate(0, ${-(yShift + coronalInset)})`}>
         <path d={boundary} fill={accent} fillOpacity="0.06"
               stroke={accent} strokeWidth="1.0" strokeDasharray={isGBR ? '5 3' : '3 3'} opacity="0.8" />
         {dots.map((d, i) => (
