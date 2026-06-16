@@ -1,0 +1,90 @@
+<h2>Extraction Mark — Visual Direction</h2>
+<p class="subtitle">Which style feels right for the extraction treatment indicator?</p>
+
+<div class="cards">
+
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f8f9fa;display:flex;align-items:center;justify-content:center;padding:24px;">
+      <svg width="160" height="160" viewBox="-80 -80 160 160">
+        <!-- Tooth silhouette -->
+        <path d="M-22,-60 C-22,-60 -30,-40 -28,0 C-26,20 -20,40 -14,55 C-10,65 10,65 14,55 C20,40 26,20 28,0 C30,-40 22,-60 22,-60 C14,-68 -14,-68 -22,-60 Z"
+              fill="#e8edf2" stroke="#c0c8d0" stroke-width="1.5"/>
+        <!-- Cervical line -->
+        <path d="M-28,0 Q0,8 28,0" fill="none" stroke="#c0c8d0" stroke-width="1"/>
+        <!-- Current: simple X -->
+        <line x1="-18" y1="-42" x2="18" y2="-14" stroke="#d93025" stroke-width="3.5" stroke-linecap="round" opacity="0.88"/>
+        <line x1="18" y1="-42" x2="-18" y2="-14" stroke="#d93025" stroke-width="3.5" stroke-linecap="round" opacity="0.88"/>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>A — Current (baseline)</h3>
+      <p>Simple thin ×, fixed position. No crown awareness.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f8f9fa;display:flex;align-items:center;justify-content:center;padding:24px;">
+      <svg width="160" height="160" viewBox="-80 -80 160 160">
+        <!-- Tooth silhouette -->
+        <path d="M-22,-60 C-22,-60 -30,-40 -28,0 C-26,20 -20,40 -14,55 C-10,65 10,65 14,55 C20,40 26,20 28,0 C30,-40 22,-60 22,-60 C14,-68 -14,-68 -22,-60 Z"
+              fill="#e8edf2" stroke="#c0c8d0" stroke-width="1.5"/>
+        <path d="M-28,0 Q0,8 28,0" fill="none" stroke="#c0c8d0" stroke-width="1"/>
+        <!-- Bold X with background circle -->
+        <circle cx="0" cy="-28" r="22" fill="#d93025" opacity="0.12"/>
+        <circle cx="0" cy="-28" r="22" fill="none" stroke="#d93025" stroke-width="1.5" opacity="0.4"/>
+        <line x1="-12" y1="-40" x2="12" y2="-16" stroke="#d93025" stroke-width="5" stroke-linecap="round"/>
+        <line x1="12" y1="-40" x2="-12" y2="-16" stroke="#d93025" stroke-width="5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>B — Ringed ×</h3>
+      <p>Bold × inside a translucent red circle centred on the crown. Clear, contained, visually distinct.</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="c" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f8f9fa;display:flex;align-items:center;justify-content:center;padding:24px;">
+      <svg width="160" height="160" viewBox="-80 -80 160 160">
+        <!-- Tooth silhouette — dimmed/greyed to suggest removal -->
+        <path d="M-22,-60 C-22,-60 -30,-40 -28,0 C-26,20 -20,40 -14,55 C-10,65 10,65 14,55 C20,40 26,20 28,0 C30,-40 22,-60 22,-60 C14,-68 -14,-68 -22,-60 Z"
+              fill="#dce1e7" stroke="#adb5bd" stroke-width="1.5" opacity="0.5"/>
+        <path d="M-28,0 Q0,8 28,0" fill="none" stroke="#adb5bd" stroke-width="1" opacity="0.5"/>
+        <!-- Strikethrough diagonal band across crown -->
+        <clipPath id="crownClip">
+          <path d="M-22,-60 C-22,-60 -30,-40 -28,0 C-24,6 24,6 28,0 C30,-40 22,-60 22,-60 C14,-68 -14,-68 -22,-60 Z"/>
+        </clipPath>
+        <rect x="-40" y="-80" width="80" height="12" fill="#d93025" opacity="0.75" transform="rotate(-38, 0, -28)" clip-path="url(#crownClip)"/>
+        <!-- X on top -->
+        <line x1="-16" y1="-44" x2="16" y2="-12" stroke="#d93025" stroke-width="4.5" stroke-linecap="round"/>
+        <line x1="16" y1="-44" x2="-16" y2="-12" stroke="#d93025" stroke-width="4.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>C — Faded tooth + bold ×</h3>
+      <p>Crown dims to suggest removal; thick × reinforces the intent. Communicates "this tooth is gone."</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="d" onclick="toggleSelect(this)">
+    <div class="card-image" style="background:#f8f9fa;display:flex;align-items:center;justify-content:center;padding:24px;">
+      <svg width="160" height="160" viewBox="-80 -80 160 160">
+        <!-- Tooth silhouette -->
+        <path d="M-22,-60 C-22,-60 -30,-40 -28,0 C-26,20 -20,40 -14,55 C-10,65 10,65 14,55 C20,40 26,20 28,0 C30,-40 22,-60 22,-60 C14,-68 -14,-68 -22,-60 Z"
+              fill="#e8edf2" stroke="#c0c8d0" stroke-width="1.5"/>
+        <path d="M-28,0 Q0,8 28,0" fill="none" stroke="#c0c8d0" stroke-width="1"/>
+        <!-- Rounded-corner cross (plus-rotated): thick arms with rounded caps -->
+        <g transform="translate(0,-28) rotate(45)">
+          <rect x="-5" y="-20" width="10" height="40" rx="5" fill="#d93025"/>
+          <rect x="-20" y="-5" width="40" height="10" rx="5" fill="#d93025"/>
+        </g>
+      </svg>
+    </div>
+    <div class="card-body">
+      <h3>D — Pill-arm ×</h3>
+      <p>Rounded rectangular arms, thicker weight. Feels bold and medical, less "sketch mark."</p>
+    </div>
+  </div>
+
+</div>
+
+<p class="subtitle" style="margin-top:16px">All options would be repositioned to sit flush over the crown centre (not a fixed offset). Click to select your preferred direction.</p>
