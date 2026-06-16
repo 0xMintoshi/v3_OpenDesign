@@ -10,6 +10,8 @@ import { proximalExtreme } from '../core/tooth-split.js';
 import { toothPaths } from '../layout/teeth-data.jsx';
 import { toothYAdjust } from '../core/marquee-select.js';
 import { cervicalPoints, scallopRL, sinusFloorY } from '../core/arch-math.js';
+import archSinusR from '../shapes-data/anatomy/arch-sinus-right.json';
+import archSinusL from '../shapes-data/anatomy/arch-sinus-left.json';
 
 
 // ============================================================================
@@ -501,11 +503,37 @@ function BoneGraftOverlay({ tooth, biteY, variant, accent }) {
 // Sinus lift — dense graft inside lifted membrane (flat schematic)
 // ============================================================================
 
+// ── Sinus lift tuning (adjust values only) ──────────────────────────────────
+const SINUS_LIFT_FRAC     = 0.60;  // fraction of sinus height the membrane lifts
+const SINUS_FLOOR_OFFSET  = -35;     // px: shift entire overlay up (negative) or down (positive)
+const SINUS_LIFT_DOT_COLS = 22;
+const SINUS_LIFT_DOT_ROWS = 6;
+// ─────────────────────────────────────────────────────────────────────────────
+
+const VW = 1600, VH = 800;
+
+function sinusBoundsFor(side) {
+  const shape = side === 'right' ? archSinusR : archSinusL;
+  const xs = [], ys = [];
+  for (const s of shape.segments) {
+    if (s.x  !== undefined) { xs.push(s.x  * VW); ys.push(s.y  * VH); }
+    if (s.y1 !== undefined) {                      ys.push(s.y1 * VH); }
+  }
+  const xMin = Math.min(...xs), xMax = Math.max(...xs);
+  return {
+    cx:     (xMin + xMax) / 2,
+    xMin,
+    xMax,
+    floorY: Math.max(...ys),
+    ceilY:  Math.min(...ys),
+  };
+}
+
 function SinusLiftOverlay({ side, accent }) {
-  const cx = side === 'right' ? 450 : 1150;
-  const baseY = 268;       // natural sinus floor (just below ellipse bottom)
-  const liftY = 160;       // lifted membrane crest
-  const w = 320;
+  const { cx, xMin, xMax, floorY, ceilY } = sinusBoundsFor(side);
+  const baseY = floorY + SINUS_FLOOR_OFFSET;
+  const liftY = floorY + SINUS_FLOOR_OFFSET - (floorY - ceilY) * SINUS_LIFT_FRAC;
+  const w     = xMax - xMin;
 
   const cpY = 2 * liftY - baseY;
   const dome = `M ${cx - w/2} ${baseY} Q ${cx} ${cpY}, ${cx + w/2} ${baseY}`;
@@ -519,7 +547,7 @@ function SinusLiftOverlay({ side, accent }) {
 
   // Dense graft particulate inside dome
   const dots = [];
-  const cols = 22, rows = 6;
+  const cols = SINUS_LIFT_DOT_COLS, rows = SINUS_LIFT_DOT_ROWS;
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const t = c / (cols - 1);
