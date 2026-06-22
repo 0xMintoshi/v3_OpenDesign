@@ -10,6 +10,7 @@ import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggl
 import { getConflictingTreatmentIds } from '../core/conflict-rules.js';
 import { areContiguous } from '../core/contiguity.js';
 import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
+import { emit } from '../core/iframe-bridge.js';
 import { UIStateProvider, useUIState } from '../core/ui-context.jsx';
 import { useClinicTheme } from '../core/use-clinic-theme.js';
 import { useIsTablet } from '../layout/use-is-tablet.js';
@@ -441,7 +442,7 @@ const DEFAULT_TWEAKS = /*EDITMODE-BEGIN*/{
 "showNumbering": true,
   "showLeaders": true,
   "showLayoutGuides": false,
-  "manualPlacementMode": false,
+  "manualPlacementMode": true,
   "archDepth": 0
 } /*EDITMODE-END*/;
 
@@ -449,8 +450,20 @@ function DentalHeroInner() {
   useClinicTheme();
   const [t, setTweak] = useTweaks(DEFAULT_TWEAKS);
 
-  const { stage, setStage, presence, setPresence, treatments, setTreatments } = useChartState();
+  const { stage, setStage, presence, setPresence, treatments, setTreatments, loaded } = useChartState();
   const { hoveredId, setHoveredId, selection, setSelection, popover, setPopover, confirmWipe, setConfirmWipe, exportJson, setExportJson, focusedToothId, setFocusedToothId } = useUIState();
+
+  // Emit to parent quotation app when chart state is ready (Firestore loaded).
+  useEffect(() => {
+    if (loaded) emit('CHART_READY', {});
+  }, [loaded]);
+
+  // Broadcast full treatments array on every change, but only after Firestore load
+  // so the parent never receives an empty [] that wipes its quote items.
+  useEffect(() => {
+    if (!loaded) return;
+    emit('CHART_TREATMENT_APPLIED_BATCH', { treatments });
+  }, [treatments, loaded]);
 
   // Marquee drag-to-select
   const svgRef = useRef(null);
@@ -801,6 +814,7 @@ function DentalHeroInner() {
 
   const handleAdvance = () => {setStage('treatment');setSelection([]);setPopover(null);};
   const handleBack = () => {setStage('baseline');setSelection([]);setPopover(null);};
+  const handleExportPlan = () => emit('NAVIGATE_SUMMARY', {});
 
   useEffect(() => {
     if (stage !== 'treatment') return undefined;
@@ -1072,7 +1086,8 @@ function DentalHeroInner() {
           showLeaders={t.showLeaders}
           onToggleLeaders={() => setTweak('showLeaders', !t.showLeaders)}
           selectionCount={selection.length}
-          selectionStats={selectionStats} />
+          selectionStats={selectionStats}
+          onExportPlan={handleExportPlan} />
 
         }
       </footer>
@@ -1105,29 +1120,11 @@ function DentalHeroInner() {
       
 
       <TweaksPanel>
-        <TweakSection label="Display">
-          <TweakRadio label="Theme" value={t.theme} onChange={(v) => setTweak('theme', v)}
-          options={[
-          { value: 'flat', label: 'Flat' },
-          { value: 'dark', label: 'Dark' }]
-          } />
-          <TweakColor label="Accent" value={t.accent} onChange={(v) => setTweak('accent', v)}
-          options={['#2A6FDB', '#1F8A5B', '#D97757', '#8B5CF6', '#0F172A']} />
-          <TweakToggle label="Show FDI Numbers" value={t.showNumbering} onChange={(v) => setTweak('showNumbering', v)} />
-          <div className="twk-row twk-row-actions">
-            <div className="twk-lbl"><span>Manual Placement Mode</span></div>
-            <div className="twk-attached">
-              <TweakButton label="Export" secondary={true} className="twk-btn-export" onClick={handleExportLabelPositions} />
-              <button type="button" className="twk-toggle" data-on={t.manualPlacementMode ? '1' : '0'}
-                role="switch" aria-checked={!!t.manualPlacementMode}
-                onClick={() => setTweak('manualPlacementMode', !t.manualPlacementMode)}><i /></button>
-            </div>
-          </div>
-        </TweakSection>
-        <TweakSection label="Anatomy">
-          <TweakToggle label="Sinus Zones" value={t.showSinus} onChange={(v) => setTweak('showSinus', v)} />
-          <TweakToggle label="ID Nerve" value={t.showIDN} onChange={(v) => setTweak('showIDN', v)} />
-        </TweakSection>
+        <TweakColor label="Accent" value={t.accent} onChange={(v) => setTweak('accent', v)}
+        options={['#2A6FDB', '#1F8A5B', '#D97757', '#8B5CF6', '#0F172A']} />
+        <TweakToggle label="FDI Numbers" value={t.showNumbering} onChange={(v) => setTweak('showNumbering', v)} />
+        <TweakToggle label="Sinus Zones" value={t.showSinus} onChange={(v) => setTweak('showSinus', v)} />
+        <TweakToggle label="ID Nerve" value={t.showIDN} onChange={(v) => setTweak('showIDN', v)} />
       </TweaksPanel>
       {exportJson && (
         <>
@@ -1209,7 +1206,7 @@ function SelectionActionBar({ accent, count, stats, onApply, onClear }) {
 
 }
 
-function TreatmentFooter({ accent, treatments, onBack, onClear, showLeaders, onToggleLeaders, selectionCount, selectionStats }) {
+function TreatmentFooter({ accent, treatments, onBack, onClear, showLeaders, onToggleLeaders, selectionCount, selectionStats, onExportPlan }) {
   const count = treatments.reduce((sum, tx) => {
     if (tx.scope === 'full-mouth') return sum + 1;
     return sum + tx.targets.length;
@@ -1228,8 +1225,8 @@ function TreatmentFooter({ accent, treatments, onBack, onClear, showLeaders, onT
         {treatments.length > 0 &&
         <button className="btn-ghost footer-btn" onClick={onClear}>Clear Plan</button>
         }
-        <button className="btn-primary footer-btn" style={{ background: accent }}>
-          Export Plan <span className="arrow">→</span>
+        <button className="btn-primary footer-btn" style={{ background: accent }} onClick={onExportPlan}>
+          Summary <span className="arrow">→</span>
         </button>
       </div>
     </>);
