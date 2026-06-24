@@ -69,8 +69,6 @@ const ARCH_GROUPS = [
         requires: 'edentulous-arch' },
       { id: 'complete-denture',      label: 'Complete Denture',       hint: 'full prosthesis on this arch',
         requires: 'edentulous-arch' },
-      { id: 'partial-denture-upper', label: 'Partial Denture (Upper)', hint: 'removable partial · upper arch' },
-      { id: 'partial-denture-lower', label: 'Partial Denture (Lower)', hint: 'removable partial · lower arch' },
     ],
   },
   {

@@ -14,12 +14,18 @@ export function ChartStateProvider({ children, patientId }) {
   // Load on mount
   React.useEffect(() => {
     if (!patientId) return;
+    // 5s fallback so the chart renders even if Firestore hangs or denies auth
+    const fallback = setTimeout(() => setLoaded(true), 5000);
     loadChart(patientId).then((data) => {
       if (data) {
         setStage(data.stage ?? 'baseline');
         setPresence(data.presence ?? {});
         setTreatments(data.treatments ?? []);
       }
+    }).catch(() => {
+      // Firestore unavailable — chart still renders, just no persisted state
+    }).finally(() => {
+      clearTimeout(fallback);
       setLoaded(true);
     });
   }, [patientId]);

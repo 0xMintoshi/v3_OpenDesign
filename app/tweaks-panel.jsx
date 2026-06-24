@@ -205,7 +205,7 @@ function useTweaks(defaults) {
 function TweaksPanel({ title = 'Tweaks', noDeckControls = false, children }) {
   // Default to open in the preview so the tweaks UI is visible without host
   // toolbar integration. Developers can still close it; host messages still work.
-  const [open, setOpen] = React.useState(true);
+  const [open, setOpen] = React.useState(false);
   const dragRef = React.useRef(null);
   // Auto-inject a rail toggle when a <deck-stage> is on the page. The
   // toggle drives the deck's per-viewer _railVisible via window message;
