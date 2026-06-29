@@ -90,14 +90,21 @@ function layoutArch(arch, centerX, scale, opts = {}) {
     // Subtle arch curve: back teeth pull AWAY from bite line (root further from center)
     const curveOffset = Math.pow(fromCenter / 7.5, 1.8) * archDepth;
     let finalTilt = tilt;
+    let finalCx = cx;
+    let finalYOffset = curveOffset;
     // Mesial impaction for lower wisdom teeth (38/48) — toggled via wisdomImpacted tweak.
+    //   tilt   : angle in degrees. NEGATIVE tips mesially for 48, POSITIVE for 38.
+    //   cxNudge: horizontal shift in SVG px. POSITIVE moves the tooth RIGHT on screen
+    //            (48 is screen-left, 38 is screen-right), so + pushes 48 mesially / 38 distally.
+    //   yNudge : vertical shift in SVG px. POSITIVE moves the tooth DEEPER into the bone
+    //            (further from the bite line) for both, since lower jaw flips Y.
     // Note: toothBBoxes() in marquee-select.js ignores tilt, so click-hit accuracy
     // on 38/48 will be approximate at high angles — known limitation, out of scope.
     if (opts.wisdomImpacted) {
-      if (t.fdi === 48) finalTilt = 40;
-      if (t.fdi === 38) finalTilt = -40;
+      if (t.fdi === 48) { finalTilt = -50; finalCx = cx +20; finalYOffset = curveOffset - 25; }
+      if (t.fdi === 38) { finalTilt =  50; finalCx = cx -20; finalYOffset = curveOffset - 25; }
     }
-    return { ...t, cx, tilt: finalTilt, yOffset: curveOffset };
+    return { ...t, cx: finalCx, tilt: finalTilt, yOffset: finalYOffset };
   });
 }
 
