@@ -148,7 +148,7 @@ export function BridgeSpanOverlay({ teeth, biteY, accent }) {
             transform={`translate(${cx}, ${biteY + yOffset * flipY + yAdjust}) scale(1, ${flipY}) rotate(${tilt})`}>
             <path
               d={paths.crown}
-              fill="none"
+              fill="var(--tooth-fill)"
               stroke={accent}
               strokeWidth={STROKE_WIDTH}
               strokeLinejoin="round"

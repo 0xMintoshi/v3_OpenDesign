@@ -33,6 +33,78 @@ describe('conflict rules — implant-bridge-span strips natural treatments', () 
   });
 });
 
+describe('conflict rules — bridge-span preserves implant-only', () => {
+  it('bridge-span does NOT strip implant-only (bridge can sit on placed implant)', () => {
+    const conflicts = getConflictingTreatmentIds('bridge-span');
+    expect(conflicts).not.toContain('implant-only');
+  });
+
+  it('bridge-span still strips crown, implant-crown, implant-bridge-span', () => {
+    const conflicts = getConflictingTreatmentIds('bridge-span');
+    expect(conflicts).toContain('crown');
+    expect(conflicts).toContain('implant-crown');
+    expect(conflicts).toContain('implant-bridge-span');
+  });
+
+  it('implant-only still strips bridge-span (place implant first, then bridge)', () => {
+    const conflicts = getConflictingTreatmentIds('implant-only');
+    expect(conflicts).toContain('bridge-span');
+  });
+});
+
+describe('bridge-span eligibility helpers', () => {
+  // Simulate the hasBridgeAbutment / hasBridgeGap logic from dental-arch.jsx
+  function hasBridgeAbutment(targets, presence, treatments) {
+    return targets.some(t =>
+      presence[t] !== 'missing' ||
+      treatments.some(x => x.id === 'implant-only' && x.targets.includes(t))
+    );
+  }
+  function hasBridgeGap(targets, presence, treatments) {
+    return targets.some(t =>
+      presence[t] === 'missing' &&
+      !treatments.some(x => (x.id === 'implant-only' || x.id === 'implant-crown') && x.targets.includes(t))
+    );
+  }
+
+  it('two natural teeth — no gap → bridge NOT eligible', () => {
+    const presence = { u1: undefined, u2: undefined };
+    const treatments = [];
+    expect(hasBridgeAbutment(['u1', 'u2'], presence, treatments)).toBe(true);
+    expect(hasBridgeGap(['u1', 'u2'], presence, treatments)).toBe(false);
+  });
+
+  it('natural tooth + edentulous gap → bridge eligible', () => {
+    const presence = { u1: undefined, u2: 'missing' };
+    const treatments = [];
+    expect(hasBridgeAbutment(['u1', 'u2'], presence, treatments)).toBe(true);
+    expect(hasBridgeGap(['u1', 'u2'], presence, treatments)).toBe(true);
+  });
+
+  it('implant-only tooth + edentulous gap → bridge eligible', () => {
+    const presence = { u1: 'missing', u2: 'missing' };
+    const treatments = [{ id: 'implant-only', scope: 'tooth', targets: ['u1'] }];
+    expect(hasBridgeAbutment(['u1', 'u2'], presence, treatments)).toBe(true);
+    expect(hasBridgeGap(['u1', 'u2'], presence, treatments)).toBe(true);
+  });
+
+  it('all edentulous, no implants → not eligible (no abutment)', () => {
+    const presence = { u1: 'missing', u2: 'missing' };
+    const treatments = [];
+    expect(hasBridgeAbutment(['u1', 'u2'], presence, treatments)).toBe(false);
+  });
+
+  it('implant-only + implant-only — no plain gap → not eligible', () => {
+    const presence = { u1: 'missing', u2: 'missing' };
+    const treatments = [
+      { id: 'implant-only', scope: 'tooth', targets: ['u1'] },
+      { id: 'implant-only', scope: 'tooth', targets: ['u2'] },
+    ];
+    expect(hasBridgeAbutment(['u1', 'u2'], presence, treatments)).toBe(true);
+    expect(hasBridgeGap(['u1', 'u2'], presence, treatments)).toBe(false);
+  });
+});
+
 describe('contiguity guard — implant-bridge-span', () => {
   const teeth = [
     { id: 'u1', cx: 100, jaw: 'upper', presence: 'missing' },

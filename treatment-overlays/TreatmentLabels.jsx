@@ -92,9 +92,11 @@ export function TreatmentLabels({ treatments, allTeeth, upperBiteY, lowerBiteY, 
 
   // Per-tooth labels — skip span treatments (bridge-span, implant-bridge-span);
   // those get their own consolidated cards below.
+  const isSpanTx = (id) => id === 'bridge-span' || id === 'implant-bridge-span';
+
   const byTooth = {};
   for (const tx of treatments) {
-    if (tx.scope === 'tooth') {
+    if (tx.scope === 'tooth' && !isSpanTx(tx.id)) {
       for (const id of tx.targets) {
         (byTooth[id] = byTooth[id] || []).push(tx.id);
       }
@@ -120,6 +122,33 @@ export function TreatmentLabels({ treatments, allTeeth, upperBiteY, lowerBiteY, 
       zone: fdiToZone(fdi),
       fdi,
       jaw: tooth.jaw,
+    });
+  });
+
+  // Consolidated span labels — one card per bridge / implant-bridge treatment,
+  // anchored at the starting (left-most) tooth, showing the FDI range.
+  treatments.filter(t => t.scope === 'tooth' && isSpanTx(t.id)).forEach(tx => {
+    const span = tx.targets
+      .map(id => allTeeth.find(x => x.id === id))
+      .filter(Boolean)
+      .sort((a, b) => a.cx - b.cx);
+    if (span.length < 2) return;
+    const start = span[0];
+    const end = span[span.length - 1];
+    const isUpper = start.jaw === 'upper';
+    const tiltRad = ((start.tilt || 0) * Math.PI) / 180;
+    const anchorDepth = crownDepth(start.type, start.h) + 0.07 * start.h;
+    labels.push({
+      kind: 'span', txId: tx.id, targets: tx.targets, items: [tx.id],
+      leftFdi: start.fdi, rightFdi: end.fdi,
+      anchor: {
+        x: start.cx + anchorDepth * Math.sin(tiltRad),
+        y: isUpper
+          ? upperBiteY + (start.yOffset || 0) - anchorDepth
+          : lowerBiteY - (start.yOffset || 0) + anchorDepth,
+      },
+      zone: fdiToZone(start.fdi),
+      jaw: start.jaw,
     });
   });
 
@@ -164,7 +193,7 @@ export function TreatmentLabels({ treatments, allTeeth, upperBiteY, lowerBiteY, 
   // Labels are sorted by tooth anchor.x and packed left-to-right, wrapping
   // to new rows (stepping away from the arch) when the band is full.
 
-  const toLabelH = (l) => 14 + l.items.length * 18 + 10;
+  const toLabelH = (l) => 18 + l.items.length * 19 + 10;
   const VIEW_W = 1600, VIEW_H = 800, PAD = 8;
   const clampCx = (x) => Math.max(LABEL_W / 2 + PAD, Math.min(VIEW_W - LABEL_W / 2 - PAD, x));
   const clampCy = (y) => Math.max(PAD, Math.min(VIEW_H - PAD, y));
@@ -292,57 +321,50 @@ export function TreatmentLabels({ treatments, allTeeth, upperBiteY, lowerBiteY, 
         );
       })}
 
-      {/* Label cards — Accent-bar Ticket */}
+      {/* Label cards */}
       {finalPositioned.map((l, i) => {
         const x = l.cx - LABEL_W / 2;
         const y = l.cy - l.height / 2;
         const h = l.height;
-        const BAR_W = 4;
         return (
           <g key={`lab-${i}`}
              transform={`translate(${x}, ${y})`}
              onDoubleClick={() => toggleLock(l._labelKey)}
              style={{ pointerEvents: manualPlacementMode ? 'all' : 'auto', cursor: manualPlacementMode ? (l._locked ? 'not-allowed' : 'grab') : 'default' }}>
 
-            {/* Card body — borderless, soft shadow */}
+            {/* Card body — full border, editorial shadow */}
             <rect x="0" y="0" width={LABEL_W} height={h}
-                  rx="7"
+                  rx="8"
                   fill="var(--card-bg)"
+                  stroke="var(--card-border)" strokeWidth="0.8"
                   onPointerDown={(e) => startDrag(e, l._labelKey, l.cx, l.cy)}
-                  style={{ touchAction: 'none', filter: 'drop-shadow(0 4px 16px rgba(18,28,48,0.11)) drop-shadow(0 1px 4px rgba(18,28,48,0.07))' }} />
+                  style={{ touchAction: 'none', filter: 'drop-shadow(0 6px 20px rgba(18,28,48,0.09)) drop-shadow(0 1px 3px rgba(18,28,48,0.05))' }} />
 
-            {/* Left accent bar */}
-            <rect x="0" y="0" width={BAR_W} height={h}
-                  rx="3.5" fill={accent}
-                  style={{ pointerEvents: 'none' }} />
-            {/* Cover right half of accent bar's rounding so it meets card edge cleanly */}
-            <rect x={BAR_W / 2} y="0" width={BAR_W / 2} height={h}
-                  fill={accent}
-                  style={{ pointerEvents: 'none' }} />
-
-            {/* Eyebrow label */}
-            <text x={BAR_W + 9} y="17" fontSize="9" fill={accent}
-                  fontFamily="var(--sans)" fontWeight="700"
-                  pointerEvents="none"
-                  style={{ letterSpacing: '0.09em', textTransform: 'uppercase' }}>
-              {l.kind === 'tooth'  ? `Tooth ${l.fdi}` :
-               l.kind === 'span'   ? `Teeth ${l.leftFdi}–${l.rightFdi}` :
+            {/* Tooth / scope identifier — DM Sans, # + FDI notation */}
+            <text x="12" y="20" fontSize="13" fill="var(--ink)"
+                  fontFamily="var(--sans)" fontWeight="600"
+                  pointerEvents="none">
+              {l.kind === 'tooth'  ? `#${l.fdi}` :
+               l.kind === 'span'   ? `#${l.leftFdi}–${l.rightFdi}` :
                l.kind === 'sinus'  ? `Sinus · ${l.target === 'right' ? 'R' : 'L'}` :
                l.kind === 'arch'   ? (l.target === 'upper' ? 'Maxilla' : 'Mandible') :
                                      'Full mouth'}
             </text>
 
-            {/* Hairline divider between eyebrow and items */}
-            <line x1={BAR_W + 9} y1="24" x2={LABEL_W - 9} y2="24"
-                  stroke={accent} strokeWidth="0.5" opacity="0.18" />
+            {/* Hairline divider */}
+            <line x1="12" y1="28" x2={LABEL_W - 12} y2="28"
+                  stroke="var(--card-border)" strokeWidth="0.8" />
 
             {l.items.map((txId, j) => {
-              const yy = 37 + j * 18;
+              const yy = 42 + j * 19;
+              const itemText = l.kind === 'span'
+                ? (txId === 'implant-bridge-span' ? 'Implant bridge' : 'Bridge')
+                : (txLabel[txId] || txId);
               return (
                 <g key={j}>
-                  <text x={BAR_W + 9} y={yy} fontSize="12" fill="var(--ink)"
+                  <text x="12" y={yy} fontSize="12" fill="var(--ink)"
                         fontFamily="var(--sans)" fontWeight="400" pointerEvents="none">
-                    {txLabel[txId] || txId}
+                    {itemText}
                   </text>
                   <g style={{ cursor: 'pointer' }}
                      onClick={(e) => {
@@ -353,11 +375,11 @@ export function TreatmentLabels({ treatments, allTeeth, upperBiteY, lowerBiteY, 
                        else if (l.kind === 'arch')  onRemoveOther(txId, l.target);
                        else                         onRemoveOther(txId, 'both');
                      }}>
-                    <circle cx={LABEL_W - 14} cy={yy - 4} r="8" fill="transparent" />
-                    <line x1={LABEL_W - 18} y1={yy - 8} x2={LABEL_W - 10} y2={yy}
-                          stroke="var(--ink-muted)" strokeWidth="1.2" strokeLinecap="round" />
-                    <line x1={LABEL_W - 10} y1={yy - 8} x2={LABEL_W - 18} y2={yy}
-                          stroke="var(--ink-muted)" strokeWidth="1.2" strokeLinecap="round" />
+                    <circle cx={LABEL_W - 13} cy={yy - 4} r="9" fill="transparent" />
+                    <line x1={LABEL_W - 17} y1={yy - 8} x2={LABEL_W - 9} y2={yy}
+                          stroke="var(--ink-faint)" strokeWidth="1.3" strokeLinecap="round" />
+                    <line x1={LABEL_W - 9} y1={yy - 8} x2={LABEL_W - 17} y2={yy}
+                          stroke="var(--ink-faint)" strokeWidth="1.3" strokeLinecap="round" />
                   </g>
                 </g>
               );

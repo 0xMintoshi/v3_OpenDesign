@@ -244,51 +244,6 @@
   }
   .advance-btn .arrow { font-size: 14px; }
 
-  .selection-action-bar {
-    position: fixed;
-    left: 50%;
-    bottom: 82px;
-    transform: translateX(-50%);
-    z-index: 55;
-    display: inline-flex;
-    align-items: center;
-    gap: 18px;
-    padding: 10px 12px 10px 16px;
-    min-width: 330px;
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: 999px;
-    box-shadow: 0 22px 70px rgba(20,30,50,0.16), 0 4px 14px rgba(20,30,50,0.08);
-    color: var(--ink);
-    animation: popIn 180ms cubic-bezier(.2,.7,.2,1);
-  }
-  .selection-copy {
-    display: inline-flex;
-    align-items: baseline;
-    gap: 8px;
-    flex: 1;
-    min-width: 0;
-    font-size: 12px;
-    color: var(--ink-muted);
-    white-space: nowrap;
-  }
-  .selection-count {
-    font-family: var(--serif);
-    font-size: 24px;
-    font-style: italic;
-    line-height: 1;
-    color: var(--ink);
-  }
-  .selection-detail {
-    padding-left: 2px;
-    font-size: 11px;
-    color: var(--ink-faint);
-  }
-  .selection-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-  }
 
   /* Popover */
   .popover-veil { position: fixed; inset: 0; z-index: 50; background: transparent; }
@@ -309,37 +264,38 @@
   }
   .tx-popover-head {
     display: flex; justify-content: space-between; align-items: flex-start;
-    padding: 16px 14px 12px 18px;
+    padding: 14px 12px 10px 16px;
     border-bottom: 1px solid var(--card-border);
   }
   .tx-popover-title {
     font-family: var(--serif);
     font-style: italic;
-    font-size: 22px;
-    line-height: 1.1;
+    font-size: 20px;
+    line-height: 1.15;
   }
   .tx-popover-subtitle {
     font-size: 10px;
-    letter-spacing: 0.2em;
+    letter-spacing: 0.16em;
     text-transform: uppercase;
-    color: var(--ink-faint);
-    margin-top: 4px;
+    color: var(--ink-muted);
+    margin-top: 3px;
   }
-  .tx-popover-body { padding: 6px 8px 10px; max-height: 460px; overflow-y: auto; }
-  .tx-group { padding: 10px 6px 6px; }
+  .tx-popover-body { padding: 4px 8px 12px; max-height: min(460px, calc(100vh - 120px)); overflow-y: auto; scroll-behavior: smooth; }
+  .tx-group { padding: 10px 6px 4px; }
+  .tx-group + .tx-group { border-top: 1px solid var(--card-border); margin-top: 2px; }
   .tx-group-label {
-    font-size: 9px;
+    font-size: 10px;
     text-transform: uppercase;
-    letter-spacing: 0.22em;
-    color: var(--ink-faint);
-    padding: 0 8px 6px;
+    letter-spacing: 0.18em;
+    color: var(--ink-muted);
+    padding: 0 8px 4px;
   }
   .tx-item {
     display: flex; justify-content: space-between; align-items: center;
     gap: 12px;
     width: 100%;
-    min-height: 34px;
-    padding: 7px 12px;
+    min-height: 40px;
+    padding: 8px 12px;
     background: transparent;
     border: 1px solid transparent;
     border-radius: 10px;
@@ -357,24 +313,26 @@
     cursor: not-allowed;
     opacity: 0.45;
   }
-  .tx-item-main { display: flex; align-items: center; min-width: 0; }
+  .tx-item-main { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
   .tx-item-label { font-size: 13px; font-weight: 500; }
-  .tx-item-arrow { color: var(--ink-faint); font-size: 14px; }
+  .tx-item-hint { font-size: 10px; color: var(--ink-faint); letter-spacing: 0.04em; margin-top: 1px; }
+  .tx-item-arrow { color: var(--ink-faint); font-size: 14px; flex-shrink: 0; }
   .tx-item:hover:not(.disabled) .tx-item-arrow { color: var(--ink); }
 
   .info-close {
-    width: 24px; height: 24px;
+    width: 26px; height: 26px;
     background: transparent;
     border: 1px solid var(--card-border);
-    color: var(--ink-muted);
+    color: var(--ink-faint);
     border-radius: 50%;
     cursor: pointer;
-    font-size: 14px;
+    font-size: 15px;
     line-height: 1;
     display: grid; place-items: center;
-    transition: background 200ms, color 200ms;
+    flex-shrink: 0;
+    transition: background 180ms ease, color 180ms ease, border-color 180ms ease;
   }
-  .info-close:hover { background: var(--bg-1); color: var(--ink); }
+  .info-close:hover { background: var(--bg-1); color: var(--ink); border-color: rgba(26,31,46,0.22); }
 
   /* Confirm dialog */
   .confirm-dialog {
@@ -428,13 +386,6 @@
     }
     .wf-help {
       display: none;
-    }
-    .selection-action-bar {
-      left: 16px;
-      right: 16px;
-      bottom: 70px;
-      transform: none;
-      min-width: 0;
     }
     .confirm-dialog {
       width: calc(100vw - 32px);
