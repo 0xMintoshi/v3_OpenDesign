@@ -1144,10 +1144,10 @@ function DentalHeroInner() {
       <TweaksPanel>
         <TweakColor label="Accent" value={t.accent} onChange={(v) => setTweak('accent', v)}
         options={['#2A6FDB', '#1F8A5B', '#D97757', '#8B5CF6', '#0F172A']} />
+        <TweakToggle label="#38/48 Impaction" value={t.wisdomImpacted} onChange={(v) => setTweak('wisdomImpacted', v)} />
         <TweakToggle label="FDI Numbers" value={t.showNumbering} onChange={(v) => setTweak('showNumbering', v)} />
         <TweakToggle label="Sinus Zones" value={t.showSinus} onChange={(v) => setTweak('showSinus', v)} />
         <TweakToggle label="ID Nerve" value={t.showIDN} onChange={(v) => setTweak('showIDN', v)} />
-        <TweakToggle label="38/48 Impacted" value={t.wisdomImpacted} onChange={(v) => setTweak('wisdomImpacted', v)} />
       </TweaksPanel>
       {exportJson && (
         <>
