@@ -443,7 +443,8 @@ const DEFAULT_TWEAKS = /*EDITMODE-BEGIN*/{
   "showLeaders": true,
   "showLayoutGuides": false,
   "manualPlacementMode": true,
-  "archDepth": 0
+  "archDepth": 0,
+  "wisdomImpacted": false
 } /*EDITMODE-END*/;
 
 function DentalHeroInner() {
@@ -460,10 +461,20 @@ function DentalHeroInner() {
 
   // Broadcast full treatments array on every change, but only after Firestore load
   // so the parent never receives an empty [] that wipes its quote items.
+  // Bridge spans carry claimableCrowns = count of true natural abutments (present AND not
+  // implant-bearing); implant abutments and pontics are excluded from CHAS permanent-crown claims.
   useEffect(() => {
     if (!loaded) return;
-    emit('CHART_TREATMENT_APPLIED_BATCH', { treatments });
-  }, [treatments, loaded]);
+    const enriched = treatments.map((tx) =>
+      (tx.id === 'bridge-span' || tx.id === 'implant-bridge-span')
+        ? { ...tx, claimableCrowns: tx.targets.filter((id) =>
+            presence[id] !== 'missing' &&
+            !treatments.some((x) => (x.id === 'implant-only' || x.id === 'implant-crown') && x.targets.includes(id))
+          ).length }
+        : tx
+    );
+    emit('CHART_TREATMENT_APPLIED_BATCH', { treatments: enriched });
+  }, [treatments, presence, loaded]);
 
   // Marquee drag-to-select
   const svgRef = useRef(null);
@@ -475,7 +486,10 @@ function DentalHeroInner() {
   const archDepth = t.archDepth ?? defaultArchDepth;
 
   const upper = useMemo(() => layoutArch(UPPER, centerX, scale, { gap, gapFrac, archDepth }), [archDepth]);
-  const lower = useMemo(() => layoutArch(LOWER, centerX, scale, { gap, gapFrac, archDepth }), [archDepth]);
+  const lower = useMemo(
+    () => layoutArch(LOWER, centerX, scale, { gap, gapFrac, archDepth, wisdomImpacted: t.wisdomImpacted }),
+    [archDepth, t.wisdomImpacted]
+  );
 
   const scaledUpper = upper.map((x) => ({ ...x, w: x.w * scale, h: x.h * scale }));
   const scaledLower = lower.map((x) => ({ ...x, w: x.w * scale, h: x.h * scale }));
@@ -586,10 +600,13 @@ function DentalHeroInner() {
     if (dragRef.current.moved && marquee) {
       const hits = Array.from(marquee.hits);
       const additive = evt.ctrlKey || evt.metaKey;
-      setSelection((prev) =>
-        additive ? Array.from(new Set([...prev, ...hits])) : hits
-      );
+      const newSel = additive ? Array.from(new Set([...selection, ...hits])) : hits;
+      setSelection(newSel);
       suppressClickRef.current = true;
+      // Open treatment menu immediately at release point — no intermediate bar needed.
+      if (newSel.length > 0 && stage === 'treatment') {
+        openTreatmentForTeeth(newSel, { x: evt.clientX, y: evt.clientY });
+      }
     }
     svgRef.current?.releasePointerCapture(evt.pointerId);
     dragRef.current = null;
@@ -819,13 +836,17 @@ function DentalHeroInner() {
   useEffect(() => {
     if (stage !== 'treatment') return undefined;
     const onKeyDown = (evt) => {
-      if (evt.key !== 'Escape') return;
-      setSelection([]);
-      setPopover(null);
+      if (evt.key === 'Escape') {
+        setSelection([]);
+        setPopover(null);
+      } else if (evt.key === 'Enter' && selection.length > 0 && !popover) {
+        // Open treatment menu for the current ctrl+click accumulated selection.
+        openTreatmentForSelection();
+      }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [stage]);
+  }, [stage, selection, popover, openTreatmentForSelection]);
 
   const handleBulkArch = (arch, missing) => {
     const teeth = arch === 'upper' ? scaledUpper : scaledLower;
@@ -888,7 +909,7 @@ function DentalHeroInner() {
           <>
             <span className="wf-step">STAGE 2</span>
             <span className="wf-sep">/</span>
-            <span className="wf-help">Left-click opens treatment. Ctrl+L-click or right-click selects multiple.</span>
+            <span className="wf-help">Left-click opens treatment. Drag to select multiple — menu opens on release. Ctrl+click adds teeth; Enter opens menu.</span>
           </>
         )}
       </div>
@@ -1059,15 +1080,6 @@ function DentalHeroInner() {
         </svg>
       </div>
 
-      {stage === 'treatment' && selection.length > 0 && !popover &&
-      <SelectionActionBar
-        accent={t.accent}
-        count={selection.length}
-        stats={selectionStats}
-        onApply={openTreatmentForSelection}
-        onClear={() => {setSelection([]);setPopover(null);}} />
-      }
-
       <footer className={`footer workflow-footer ${stage === 'baseline' ? 'baseline-footer' : ''}`}>
         {stage === 'baseline' ?
         <BaselineFooter
@@ -1104,6 +1116,16 @@ function DentalHeroInner() {
         allMissing={popover && popover.mode === 'tooth'
           ? popover.target.every(t => presence[t.id] === 'missing')
           : false}
+        hasBridgeAbutment={popover && popover.mode === 'tooth'
+          ? popover.target.some(t =>
+              presence[t.id] !== 'missing' ||
+              treatments.some(x => x.id === 'implant-only' && x.targets.includes(t.id)))
+          : false}
+        hasBridgeGap={popover && popover.mode === 'tooth'
+          ? popover.target.some(t =>
+              presence[t.id] === 'missing' &&
+              !treatments.some(x => (x.id === 'implant-only' || x.id === 'implant-crown') && x.targets.includes(t.id)))
+          : false}
         fullyEdentulous={fullyEdentulous}
         onApply={handleApplyTreatment}
         onClose={() => {setPopover(null);setSelection([]);}} />
@@ -1125,6 +1147,7 @@ function DentalHeroInner() {
         <TweakToggle label="FDI Numbers" value={t.showNumbering} onChange={(v) => setTweak('showNumbering', v)} />
         <TweakToggle label="Sinus Zones" value={t.showSinus} onChange={(v) => setTweak('showSinus', v)} />
         <TweakToggle label="ID Nerve" value={t.showIDN} onChange={(v) => setTweak('showIDN', v)} />
+        <TweakToggle label="38/48 Impacted" value={t.wisdomImpacted} onChange={(v) => setTweak('wisdomImpacted', v)} />
       </TweaksPanel>
       {exportJson && (
         <>

@@ -968,7 +968,7 @@ function connectorPath(bx, by, hw, hh, ax, ay) {
   return { path, ex, ey };
 }
 
-function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPresent, allMissing, fullyEdentulous, onApply, onClose }) {
+function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPresent, allMissing, hasBridgeAbutment = false, hasBridgeGap = false, fullyEdentulous, onApply, onClose }) {
   if (!open) return null;
 
   let groups = [];
@@ -978,12 +978,12 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
   if (mode === 'tooth') {
     groups = TX_GROUPS;
     if (target.length === 1) {
-      title = `Tooth ${target[0].fdi}`;
+      title = `#${target[0].fdi}`;
       subtitle = target[0].name;
     } else {
-      title = `${target.length} teeth selected`;
-      const ids = target.slice(0, 4).map(t => t.fdi).join(' · ');
-      subtitle = target.length > 4 ? `${ids} · +${target.length - 4}` : ids;
+      const ids = target.slice(0, 6).map(t => t.fdi).join(', ');
+      title = `#${ids}${target.length > 6 ? ` +${target.length - 6}` : ''} selected`;
+      subtitle = '';
     }
   } else if (mode === 'sinus') {
     groups = [SINUS_GROUP];
@@ -996,8 +996,10 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
   }
 
   const W = 320;
+  // Clamp so the popover (head ~80px + body up to 460px = ~540px) stays fully on screen.
+  const POPOVER_H = 540;
   const left = Math.max(20, Math.min(window.innerWidth - W - 20, anchor.x - W / 2));
-  const top  = Math.min(window.innerHeight - 380, Math.max(80, anchor.y + 18));
+  const top  = Math.max(20, Math.min(anchor.y + 18, window.innerHeight - POPOVER_H - 20));
 
   // Determine which items are available
   const isAvailable = (item) => {
@@ -1019,25 +1021,14 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
     if (item.requires === 'dentate-patient') {
       return fullyEdentulous !== true;
     }
+    if (item.id === 'bridge-span') {
+      // Bridge needs ≥2 teeth, ≥1 abutment (natural or implant), ≥1 edentulous gap.
+      return Array.isArray(target) && target.length >= 2 && hasBridgeAbutment && hasBridgeGap;
+    }
     if (item.requires === 'multi-tooth') {
       return Array.isArray(target) && target.length >= 2;
     }
     return true;
-  };
-
-  const unavailableHint = (item) => {
-    if (item.requires === 'edentulous-arch') return 'requires edentulous arch';
-    if (item.requires === 'present-tooth') return 'requires present teeth only';
-    if (item.requires === 'missing-tooth') {
-      if (item.id === 'implant-bridge-span' && allMissing) return 'select 2+ adjacent missing teeth';
-      return 'requires missing or extracted teeth';
-    }
-    if (item.id === 'partial-denture-upper' || item.id === 'partial-denture-lower') {
-      return 'not available for edentulous arch — use Complete Denture';
-    }
-    if (item.requires === 'dentate-patient') return 'requires at least one present tooth';
-    if (item.requires === 'multi-tooth') return 'select 2+ adjacent teeth first';
-    return 'not available for this selection';
   };
 
   return (
@@ -1052,26 +1043,25 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
           <button className="info-close" onClick={onClose} aria-label="close">×</button>
         </div>
         <div className="tx-popover-body">
-          {groups.map(group => (
-            <div className="tx-group" key={group.label}>
-              <div className="tx-group-label">{group.label}</div>
-              {group.items.map(item => {
-                const avail = isAvailable(item);
-                return (
+          {groups.map(group => {
+            const items = group.items.filter(isAvailable);
+            if (!items.length) return null;
+            return (
+              <div className="tx-group" key={group.label}>
+                <div className="tx-group-label">{group.label}</div>
+                {items.map(item => (
                   <button key={item.id}
-                          className={`tx-item ${avail ? '' : 'disabled'}`}
-                          title={avail ? '' : unavailableHint(item)}
-                          disabled={!avail}
-                          onClick={() => avail && onApply(item.id, group.scope)}>
+                          className="tx-item"
+                          onClick={() => onApply(item.id, group.scope)}>
                     <div className="tx-item-main">
                       <span className="tx-item-label">{item.label}</span>
                     </div>
-                    <span className="tx-item-arrow">{avail ? '→' : '—'}</span>
+                    <span className="tx-item-arrow">→</span>
                   </button>
-                );
-              })}
-            </div>
-          ))}
+                ))}
+              </div>
+            );
+          })}
         </div>
       </div>
     </>
