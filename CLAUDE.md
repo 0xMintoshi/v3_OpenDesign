@@ -9,7 +9,10 @@ npm run dev    # app on localhost
 npm run lab    # ShapeLab editor
 npm run e2e    # Playwright tests
 npm run lint   # ESLint
+npm run build  # rebuild dist/ — REQUIRED for the v3 app iframe to see source edits
 ```
+
+**Build gotcha:** the parent v3 app embeds this chart via `<iframe src="./chart/dist/...">` (built bundle), NOT the source. Running the v3 app's `npm run serve` does **not** rebuild the chart — edits to `teeth-data.jsx`/`dental-arch.jsx` won't appear until you run `npm run build` here (or `npm run build -- --watch` in a side terminal). Then hard-refresh the browser (Ctrl+Shift+R) — the iframe caches the old bundle. `dist/` is gitignored, so a fresh clone must build before the iframe works.
 
 ## Key Files
 
