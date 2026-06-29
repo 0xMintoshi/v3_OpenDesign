@@ -2,6 +2,7 @@ import React from 'react';
 import { toothPaths } from '../layout/teeth-data.jsx';
 import { crownDepth as _crownDepth } from '../core/arch-math.js';
 import { proximalExtreme, crownXAtY } from '../core/tooth-split.js';
+import { fittedImplantCrownRatio, fittedImplantCrownPath } from '../core/implant-crown-path.js';
 
 // Re-export so app/treatments.jsx keeps its existing import path unchanged.
 export { _crownDepth as crownDepth };
@@ -130,7 +131,7 @@ export function bridgeConnectorPath(tooth, next, biteY, flipY) {
   ].join(' ');
 }
 
-export function BridgeSpanOverlay({ teeth, biteY, accent }) {
+export function BridgeSpanOverlay({ teeth, biteY, accent, useImplantForm = false }) {
   if (!teeth || teeth.length === 0) return null;
   const jaw = teeth[0].jaw;
   const flipY = jaw === 'upper' ? 1 : -1;
@@ -140,14 +141,16 @@ export function BridgeSpanOverlay({ teeth, biteY, accent }) {
     <g style={{ pointerEvents: 'none' }}>
       {sorted.map((tooth) => {
         const { cx, w, h, type, tilt = 0, yOffset = 0 } = tooth;
-        const paths = toothPaths(type, w, h);
         const yAdjust = getYAdjust(tooth);
+        const crownPath = useImplantForm
+          ? fittedImplantCrownPath(tooth, h * fittedImplantCrownRatio(type))
+          : toothPaths(type, w, h).crown;
         return (
           <g
             key={tooth.id}
             transform={`translate(${cx}, ${biteY + yOffset * flipY + yAdjust}) scale(1, ${flipY}) rotate(${tilt})`}>
             <path
-              d={paths.crown}
+              d={crownPath}
               fill="var(--tooth-fill)"
               stroke={accent}
               strokeWidth={STROKE_WIDTH}

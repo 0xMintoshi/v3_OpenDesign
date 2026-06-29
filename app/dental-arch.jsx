@@ -482,6 +482,13 @@ function DentalHeroInner() {
   const suppressClickRef = useRef(false);
   const [marquee, setMarquee] = useState(null); // { rect, hits: Set } | null
 
+  // Ctrl-release menu trigger
+  const ctrlMultiSelectRef = useRef(false);   // a ctrl/⌘ multi-click happened this cycle
+  const lastMultiClickRef  = useRef(null);    // {x, y} client coords of last ctrl-click
+  const ctrlReleaseTimerRef = useRef(null);   // debounce timer id
+  const selectionRef = useRef(selection);     // always current selection (avoids stale closures)
+  selectionRef.current = selection;
+
   const { scale, centerX, gap, gapFrac, archDepth: defaultArchDepth } = ARCH_LAYOUT;
   const archDepth = t.archDepth ?? defaultArchDepth;
 
@@ -559,54 +566,99 @@ function DentalHeroInner() {
   }
 
   function handleSvgPointerDown(evt) {
-    if (stage !== 'treatment' || evt.button !== 0) return;
-    dragRef.current = {
-      startClient: { x: evt.clientX, y: evt.clientY },
-      startPt: clientToSvg(evt),
-      lockedArch: null,
-      moved: false,
-    };
+    if (evt.button !== 0) return;
+    if (stage === 'treatment') {
+      dragRef.current = {
+        mode: 'marquee',
+        startClient: { x: evt.clientX, y: evt.clientY },
+        startPt: clientToSvg(evt),
+        lockedArch: null,
+        moved: false,
+      };
+    } else if (stage === 'baseline') {
+      // Paint-drag: arm the session but don't capture or paint until the move threshold.
+      dragRef.current = {
+        mode: 'paint',
+        startClient: { x: evt.clientX, y: evt.clientY },
+        lockedJaw: null,
+        painted: new Set(),
+        moved: false,
+      };
+    }
   }
 
   function handleSvgPointerMove(evt) {
     if (!dragRef.current) return;
-    const { startClient, startPt } = dragRef.current;
+    const { startClient } = dragRef.current;
     const dx = evt.clientX - startClient.x;
     const dy = evt.clientY - startClient.y;
     if (!dragRef.current.moved && Math.hypot(dx, dy) < 4) return;
-    if (!dragRef.current.moved) {
-      dragRef.current.moved = true;
-      svgRef.current?.setPointerCapture(evt.pointerId);
+
+    if (dragRef.current.mode === 'marquee') {
+      const { startPt } = dragRef.current;
+      if (!dragRef.current.moved) {
+        dragRef.current.moved = true;
+        svgRef.current?.setPointerCapture(evt.pointerId);
+      }
+      const cur = clientToSvg(evt);
+      const rect = {
+        minX: Math.min(startPt.x, cur.x),
+        maxX: Math.max(startPt.x, cur.x),
+        minY: Math.min(startPt.y, cur.y),
+        maxY: Math.max(startPt.y, cur.y),
+      };
+      const { lockedArch, hits } = computeMarquee({
+        bboxes,
+        rect,
+        startPt,
+        lockedArch: dragRef.current.lockedArch,
+      });
+      dragRef.current.lockedArch = lockedArch;
+      setMarquee({ rect, hits: new Set(hits) });
+
+    } else if (dragRef.current.mode === 'paint') {
+      if (!dragRef.current.moved) {
+        dragRef.current.moved = true;
+        svgRef.current?.setPointerCapture(evt.pointerId);
+      }
+      // Find the tooth under the pointer; prefer nearest center on bbox ties.
+      const cur = clientToSvg(evt);
+      let bestId = null, bestDist = Infinity;
+      for (const [id, box] of bboxes) {
+        if (cur.x < box.minX || cur.x > box.maxX || cur.y < box.minY || cur.y > box.maxY) continue;
+        if (dragRef.current.lockedJaw && box.jaw !== dragRef.current.lockedJaw) continue;
+        const cx = (box.minX + box.maxX) / 2;
+        const cy = (box.minY + box.maxY) / 2;
+        const dist = Math.hypot(cur.x - cx, cur.y - cy);
+        if (dist < bestDist) { bestDist = dist; bestId = id; }
+      }
+      if (bestId && !dragRef.current.painted.has(bestId)) {
+        // Skip teeth with existing treatments — single-click shows the confirm dialog.
+        if (treatedTeeth.has(bestId)) return;
+        const hit = allTeeth.find(t => t.id === bestId);
+        if (!hit) return;
+        if (!dragRef.current.lockedJaw) dragRef.current.lockedJaw = hit.jaw;
+        dragRef.current.painted.add(bestId);
+        setPresence(p => ({ ...p, [bestId]: 'missing' }));
+      }
     }
-    const cur = clientToSvg(evt);
-    const rect = {
-      minX: Math.min(startPt.x, cur.x),
-      maxX: Math.max(startPt.x, cur.x),
-      minY: Math.min(startPt.y, cur.y),
-      maxY: Math.max(startPt.y, cur.y),
-    };
-    const { lockedArch, hits } = computeMarquee({
-      bboxes,
-      rect,
-      startPt,
-      lockedArch: dragRef.current.lockedArch,
-    });
-    dragRef.current.lockedArch = lockedArch;
-    setMarquee({ rect, hits: new Set(hits) });
   }
 
   function handleSvgPointerUp(evt) {
     if (!dragRef.current) return;
-    if (dragRef.current.moved && marquee) {
+    if (dragRef.current.mode === 'marquee' && dragRef.current.moved && marquee) {
       const hits = Array.from(marquee.hits);
       const additive = evt.ctrlKey || evt.metaKey;
       const newSel = additive ? Array.from(new Set([...selection, ...hits])) : hits;
       setSelection(newSel);
       suppressClickRef.current = true;
       // Open treatment menu immediately at release point — no intermediate bar needed.
-      if (newSel.length > 0 && stage === 'treatment') {
+      if (newSel.length > 0) {
         openTreatmentForTeeth(newSel, { x: evt.clientX, y: evt.clientY });
       }
+    } else if (dragRef.current.mode === 'paint' && dragRef.current.moved) {
+      // Suppress the trailing click so it doesn't toggle the last-touched tooth.
+      suppressClickRef.current = true;
     }
     svgRef.current?.releasePointerCapture(evt.pointerId);
     dragRef.current = null;
@@ -651,6 +703,8 @@ function DentalHeroInner() {
 
     if (isMultiGesture) {
       setPopover(null);
+      lastMultiClickRef.current = { x: evt.clientX, y: evt.clientY };
+      ctrlMultiSelectRef.current = true;
       setSelection((prev) => {
         const isSelected = prev.includes(id);
         return isSelected ? prev.filter((tid) => tid !== id) : [...prev, id];
@@ -703,7 +757,7 @@ function DentalHeroInner() {
       setSelection([]);
       return;
     }
-    const autoMissing = ['extraction'];
+    const autoMissing = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction'];
     if (autoMissing.includes(txId) && popover.mode === 'tooth') {
       setPresence((p) => {
         const next = { ...p };
@@ -847,6 +901,42 @@ function DentalHeroInner() {
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [stage, selection, popover, openTreatmentForSelection]);
+
+  // Ctrl-release → open treatment menu for accumulated multi-select (debounced ~250ms).
+  // Uses selectionRef so the timer reads the *latest* selection, not a stale closure.
+  useEffect(() => {
+    if (stage !== 'treatment') return undefined;
+    const onKeyUp = (evt) => {
+      if (evt.key !== 'Control' && evt.key !== 'Meta') return;
+      if (!ctrlMultiSelectRef.current) return;
+      if (selectionRef.current.length === 0) return;
+      // Snapshot selection at keyup to detect if more clicks happen before the timer fires.
+      const snapshotAtKeyup = selectionRef.current.slice();
+      clearTimeout(ctrlReleaseTimerRef.current);
+      ctrlReleaseTimerRef.current = setTimeout(() => {
+        const latest = selectionRef.current;
+        // Bail if selection changed (more ctrl-clicks), or popover already open.
+        if (latest.length !== snapshotAtKeyup.length ||
+            !latest.every((id, i) => id === snapshotAtKeyup[i])) return;
+        // Re-read popover from component closure — treat truthy as "already open".
+        ctrlMultiSelectRef.current = false;
+        openTreatmentForTeeth(latest, lastMultiClickRef.current);
+      }, 250);
+    };
+    window.addEventListener('keyup', onKeyUp);
+    return () => {
+      window.removeEventListener('keyup', onKeyUp);
+      clearTimeout(ctrlReleaseTimerRef.current);
+    };
+  }, [stage, openTreatmentForTeeth]);
+
+  // Reset ctrl-multi flag when popover closes or Escape fires, to prevent stale re-fire.
+  useEffect(() => {
+    if (!popover) {
+      ctrlMultiSelectRef.current = false;
+      clearTimeout(ctrlReleaseTimerRef.current);
+    }
+  }, [popover]);
 
   const handleBulkArch = (arch, missing) => {
     const teeth = arch === 'upper' ? scaledUpper : scaledLower;
@@ -1046,8 +1136,8 @@ function DentalHeroInner() {
 
           }
 
-          {/* Marquee selection rect */}
-          {marquee && (
+          {/* Marquee selection rect — treatment stage only; paint-drag gives per-tooth feedback */}
+          {marquee && stage === 'treatment' && (
             <rect
               x={marquee.rect.minX}
               y={marquee.rect.minY}

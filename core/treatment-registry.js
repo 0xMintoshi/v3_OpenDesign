@@ -2,7 +2,9 @@
 // Maps treatment ID → { scope, category, label, shapeId }
 export const VISUAL_REGISTRY = {
   // ── tooth-scoped ──────────────────────────────────────────────────────────
-  extraction:           { scope: 'tooth',      category: 'tooth',      label: 'Extraction',              shapeId: null },
+  extraction:                    { scope: 'tooth', category: 'tooth', label: 'Extraction',                   shapeId: null },
+  'simple-surgical-extraction':  { scope: 'tooth', category: 'tooth', label: 'Simple Surgical Extraction',  shapeId: null },
+  'complex-surgical-extraction': { scope: 'tooth', category: 'tooth', label: 'Complex Surgical Extraction', shapeId: null },
   'implant-crown':      { scope: 'tooth',      category: 'tooth',      label: 'Implant + Crown',          shapeId: 'crown-molar-upper' },
   'implant-only':       { scope: 'tooth',      category: 'tooth',      label: 'Implant Only',             shapeId: null },
   crown:                { scope: 'tooth',      category: 'tooth',      label: 'Crown',                    shapeId: 'crown-molar-upper' },

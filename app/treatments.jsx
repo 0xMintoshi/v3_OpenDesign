@@ -7,6 +7,7 @@ import { TreatmentLabels } from '../treatment-overlays/TreatmentLabels.jsx';
 import { ClearAlignerOverlay } from '../treatment-overlays/ClearAlignerOverlay.jsx';
 import { useChartState } from '../core/chart-context.jsx';
 import { proximalExtreme } from '../core/tooth-split.js';
+import { fittedImplantCrownRatio, fittedImplantCrownPath } from '../core/implant-crown-path.js';
 import { toothPaths } from '../layout/teeth-data.jsx';
 import { toothYAdjust } from '../core/marquee-select.js';
 import { cervicalPoints, scallopRL, sinusFloorY } from '../core/arch-math.js';
@@ -23,7 +24,9 @@ const TX_GROUPS = [
     label: 'Extraction',
     scope: 'tooth',
     items: [
-      { id: 'extraction', label: 'Extraction', hint: 'remove tooth · present teeth only', requires: 'present-tooth' },
+      { id: 'extraction',                  label: 'Extraction',                   hint: 'remove tooth · present teeth only',             requires: 'present-tooth' },
+      { id: 'simple-surgical-extraction', label: 'Simple Surgical Extraction',   hint: 'surgical removal · present teeth only · SF812T',  requires: 'present-tooth' },
+      { id: 'complex-surgical-extraction',label: 'Complex Surgical Extraction',  hint: 'complex surgical removal · present teeth only · SF813T', requires: 'present-tooth' },
     ],
   },
   {
@@ -166,13 +169,7 @@ function ImplantOverlay({ x, y, w, h, jaw, withCrown, accent }) {
 // gbr:                 densest AND larger footprint (extends beyond tooth)
 // ============================================================================
 
-// Fitted implant overlay - promoted from implant-fit-diagnostic.html.
-function fittedImplantCrownRatio(type) {
-  if (type === 'wisdomU' || type === 'wisdomL') return 0.46;
-  if (type === 'molarU' || type === 'molarL') return 0.40;
-  if (type === 'premolar' || type === 'premolar1') return 0.36;
-  return 0.34;
-}
+// fittedImplantCrownRatio and fittedImplantCrownPath live in core/implant-crown-path.js
 
 function fittedImplantClassRatios(type) {
   if (type === 'molarU' || type === 'molarL') {
@@ -188,27 +185,6 @@ function fittedImplantClassRatios(type) {
     return { fixtureW: 0.44, fixtureH: 0.62, collarW: 0.60, threadCount: 6 };
   }
   return { fixtureW: 0.46, fixtureH: 0.60, collarW: 0.60, threadCount: 6 };
-}
-
-function fittedImplantCrownPath(tooth, crownH) {
-  const w = tooth.w;
-  const half = w * 0.50;
-  const shoulder = w * 0.43;
-  const top = w * 0.30;
-  const bottomX = half * 0.82;
-  const bottomY = 1.5;
-  const bottomBulge = crownH * 0.055;
-  const y1 = -crownH;
-
-  return `M 0 ${bottomBulge}
-    C ${-w * 0.26} ${bottomBulge + 1.2}, ${-bottomX * 0.94} ${bottomY + 1.0}, ${-bottomX} ${bottomY}
-    C ${-half * 0.99} ${-crownH * 0.07}, ${-half * 0.99} ${-crownH * 0.17}, ${-half * 0.96} ${-crownH * 0.30}
-    C ${-half * 0.92} ${-crownH * 0.47}, ${-shoulder * 1.03} ${-crownH * 0.70}, ${-top} ${y1 + crownH * 0.05}
-    C ${-w * 0.22} ${y1 - crownH * 0.06}, ${-w * 0.08} ${y1 - crownH * 0.08}, 0 ${y1 - crownH * 0.05}
-    C ${w * 0.08} ${y1 - crownH * 0.08}, ${w * 0.22} ${y1 - crownH * 0.06}, ${top} ${y1 + crownH * 0.05}
-    C ${shoulder * 1.03} ${-crownH * 0.70}, ${half * 0.92} ${-crownH * 0.47}, ${half * 0.96} ${-crownH * 0.30}
-    C ${half * 0.99} ${-crownH * 0.17}, ${half * 0.99} ${-crownH * 0.07}, ${bottomX} ${bottomY}
-    C ${bottomX * 0.94} ${bottomY + 1.0}, ${w * 0.26} ${bottomBulge + 1.2}, 0 ${bottomBulge} Z`;
 }
 
 // Shared fixture block: collar + tapered body + threads.
@@ -371,7 +347,7 @@ export function ImplantBridgeSpanOverlay({ teeth, biteY, accent }) {
               d={fittedImplantCrownPath(tooth, crownH)}
               fill="var(--tooth-fill)"
               stroke={accent}
-              strokeWidth={3}
+              strokeWidth={4}
               strokeLinejoin="round"
               strokeLinecap="round" />
           </g>
@@ -830,14 +806,15 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
         if (!tooth) return null;
         const biteY = tooth.jaw === 'upper' ? upperBiteY : lowerBiteY;
         const txIds = list.map(tx => tx.id);
-        const extractionOnly = txIds.length === 1 && txIds[0] === 'extraction';
+        const EXTRACTION_IDS = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction'];
+        const extractionOnly = txIds.length === 1 && EXTRACTION_IDS.includes(txIds[0]);
         return (
           <g key={toothId}>
             {extractionOnly && (
               <ExtractionOverlay x={tooth.cx} y={biteY + toothYAdjust(tooth)} w={tooth.w} h={tooth.h} jaw={tooth.jaw} type={tooth.type} />
             )}
             {list.map((tx, i) => {
-              if (tx.id === 'extraction') return null; // visual handled above
+              if (EXTRACTION_IDS.includes(tx.id)) return null; // visual handled above
               if (tx.id === 'implant-only' || tx.id === 'implant-crown') {
                 return <FittedImplantOverlay key={i} tooth={tooth} biteY={biteY}
                                              withCrown={tx.id === 'implant-crown'} accent={accent} />;
@@ -859,13 +836,18 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
       {treatments.filter(t => t.id === 'bridge-span').map((tx, i) => {
         const spanTeeth = tx.targets.map(id => allTeeth.find(t => t.id === id)).filter(Boolean);
         if (spanTeeth.length === 0) return null;
+        const hasNatural = tx.targets.some((id) =>
+          presence[id] !== 'missing' &&
+          !treatments.some((x) =>
+            (x.id === 'implant-only' || x.id === 'implant-crown') && x.targets.includes(id))
+        );
         const spanTeethByJaw = spanTeeth.reduce((groups, tooth) => {
           (groups[tooth.jaw] = groups[tooth.jaw] || []).push(tooth);
           return groups;
         }, {});
         return Object.entries(spanTeethByJaw).map(([jaw, jawTeeth]) => {
           const biteY = jaw === 'upper' ? upperBiteY : lowerBiteY;
-          return <BridgeSpanOverlay key={`bs-${i}-${jaw}`} teeth={jawTeeth} biteY={biteY} accent={accent} />;
+          return <BridgeSpanOverlay key={`bs-${i}-${jaw}`} teeth={jawTeeth} biteY={biteY} accent={accent} useImplantForm={!hasNatural} />;
         });
       })}
 
@@ -979,7 +961,7 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
     groups = TX_GROUPS;
     if (target.length === 1) {
       title = `#${target[0].fdi}`;
-      subtitle = target[0].name;
+      subtitle = '';
     } else {
       const ids = target.slice(0, 6).map(t => t.fdi).join(', ');
       title = `#${ids}${target.length > 6 ? ` +${target.length - 6}` : ''} selected`;
@@ -988,11 +970,11 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
   } else if (mode === 'sinus') {
     groups = [SINUS_GROUP];
     title = target.side === 'right' ? 'Right maxillary sinus' : 'Left maxillary sinus';
-    subtitle = 'MS-' + (target.side === 'right' ? 'R' : 'L');
+    subtitle = '';
   } else if (mode === 'arch') {
     groups = ARCH_GROUPS;
-    title = target.arch === 'upper' ? 'Maxilla — upper arch' : 'Mandible — lower arch';
-    subtitle = target.edentulous ? 'edentulous' : 'with teeth';
+    title = target.arch === 'upper' ? 'Maxilla' : 'Mandible';
+    subtitle = '';
   }
 
   const W = 320;
@@ -1038,7 +1020,7 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
         <div className="tx-popover-head">
           <div>
             <div className="tx-popover-title">{title}</div>
-            <div className="tx-popover-subtitle">{subtitle}</div>
+            {subtitle && <div className="tx-popover-subtitle">{subtitle}</div>}
           </div>
           <button className="info-close" onClick={onClose} aria-label="close">×</button>
         </div>
