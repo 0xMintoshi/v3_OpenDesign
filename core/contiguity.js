@@ -15,7 +15,7 @@ export function areContiguous(selectedIds, allTeeth) {
 
   for (let i = minIdx; i <= maxIdx; i++) {
     const t = archTeeth[i];
-    if (!selectedIds.includes(t.id) && t.presence !== 'missing' && t.presence !== 'extracted') {
+    if (!selectedIds.includes(t.id) && t.presence !== 'missing' && t.presence !== 'extracted' && t.presence !== 'implant') {
       return false;
     }
   }

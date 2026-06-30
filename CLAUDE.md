@@ -86,6 +86,11 @@ npm run build  # rebuild dist/ — REQUIRED for the v3 app iframe to see source 
 ### Label clamping
 - `clampCy` must NOT apply to out-of-viewBox labels (sinus, arch, lower-back-row labels live outside 0–800); clamping freezes them silently
 
+### Extraction treatment conventions
+- `autoMissing` array in `dental-arch.jsx` `handleApplyTreatment` controls which treatment IDs mark the tooth as `'missing'` (dashed) on apply — add any new extraction-type IDs here
+- `EXTRACTION_IDS = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction']` is re-declared inline in `TreatmentLayer`; if adding more extraction types, update both this and `autoMissing`
+- `EXTRACTION_GROUP` in `core/conflict-rules.js` enforces mutual exclusion (only one extraction type per tooth)
+
 ## ShapeLab Workflow
 
 - `H` key or "Hide Dots" button — hides control points while keeping outline visible

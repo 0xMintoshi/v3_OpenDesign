@@ -236,7 +236,7 @@ function FittedImplantOverlay({ tooth, biteY, withCrown, accent }) {
 
   return (
     <g
-      transform={`translate(0, ${biteY}) translate(${tooth.cx}, ${(tooth.yOffset || 0) * flipY}) scale(1, ${flipY}) rotate(${tooth.tilt || 0})`}
+      transform={`translate(0, ${biteY}) translate(${tooth.cx}, ${(tooth.yOffset || 0) * flipY + toothYAdjust(tooth)}) scale(1, ${flipY}) rotate(${tooth.tilt || 0})`}
       style={{ pointerEvents: 'none' }}>
       {withCrown && (
         <path
@@ -248,6 +248,26 @@ function FittedImplantOverlay({ tooth, biteY, withCrown, accent }) {
           strokeLinecap="round" />
       )}
       <ImplantFixtureBlock tooth={tooth} crownH={crownH} ratios={ratios} accent={accent} />
+    </g>
+  );
+}
+
+export function ExistingImplantLayer({ allTeeth, upperBiteY, lowerBiteY, presence }) {
+  const implantTeeth = allTeeth.filter(t => presence?.[t.id] === 'implant');
+  if (!implantTeeth.length) return null;
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      {implantTeeth.map(tooth => {
+        const biteY = tooth.jaw === 'upper' ? upperBiteY : lowerBiteY;
+        return (
+          <FittedImplantOverlay
+            key={tooth.id}
+            tooth={tooth}
+            biteY={biteY}
+            withCrown={true}
+            accent="var(--tooth-stroke)" />
+        );
+      })}
     </g>
   );
 }
@@ -838,6 +858,7 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
         if (spanTeeth.length === 0) return null;
         const hasNatural = tx.targets.some((id) =>
           presence[id] !== 'missing' &&
+          presence[id] !== 'implant' &&
           !treatments.some((x) =>
             (x.id === 'implant-only' || x.id === 'implant-crown') && x.targets.includes(id))
         );
@@ -950,8 +971,56 @@ function connectorPath(bx, by, hw, hh, ax, ay) {
   return { path, ex, ey };
 }
 
-function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPresent, allMissing, hasBridgeAbutment = false, hasBridgeGap = false, fullyEdentulous, onApply, onClose }) {
+function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPresent, allMissing, hasBridgeAbutment = false, hasBridgeGap = false, fullyEdentulous, onApply, onApplyBaseline, onClose }) {
   if (!open) return null;
+
+  if (mode === 'baseline') {
+    const BW = 264;
+    const bleft = Math.max(20, Math.min(window.innerWidth - BW - 20, anchor.x - BW / 2));
+    const btop  = Math.max(20, Math.min(anchor.y + 18, window.innerHeight - 210));
+    const btitle = Array.isArray(target) && target.length === 1
+      ? `#${target[0].fdi}`
+      : Array.isArray(target) && target.length > 1
+        ? `#${target.slice(0, 6).map(t => t.fdi).join(', ')}${target.length > 6 ? ` +${target.length - 6}` : ''}`
+        : '';
+    return (
+      <>
+        <div className="popover-veil" onClick={onClose} />
+        <div className="tx-popover tx-popover--baseline" style={{ left: bleft, top: btop, width: BW }}>
+          <div className="tx-popover-head">
+            <div>
+              <div className="baseline-eyebrow">Mark as</div>
+              <div className="tx-popover-title">{btitle}</div>
+            </div>
+            <button className="info-close" onClick={onClose} aria-label="close">×</button>
+          </div>
+          <div className="baseline-options">
+            <button className="baseline-option" onClick={() => onApplyBaseline('missing')}>
+              <svg className="baseline-glyph" aria-hidden="true" viewBox="0 0 32 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <path d="M6 10 C6 5 10 2 16 2 C22 2 26 5 26 10 C26 15 24 20 22 26 C20 31 18 36 16 36 C14 36 12 31 10 26 C8 20 6 15 6 10 Z" stroke="var(--tooth-missing-stroke)" strokeWidth="1.5" strokeDasharray="3 3" fill="transparent" opacity="0.7"/>
+              </svg>
+              <span className="baseline-option-label">Missing</span>
+            </button>
+            <button className="baseline-option" onClick={() => onApplyBaseline('implant')}>
+              <svg className="baseline-glyph" aria-hidden="true" viewBox="0 0 32 44" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Crown cap */}
+                <path d="M10 2 C10 2 8 6 8 8 C8 9 9 10 10 10 L22 10 C23 10 24 9 24 8 C24 6 22 2 22 2 Z" stroke="var(--tooth-stroke)" strokeWidth="1.2" fill="var(--tooth-fill)"/>
+                {/* Collar bar */}
+                <rect x="11" y="11" width="10" height="4" rx="2" stroke="var(--tooth-stroke)" strokeWidth="1.2" fill="var(--tooth-fill)"/>
+                {/* Tapered body */}
+                <path d="M13 15 L11 36 Q11.5 38 16 38 Q20.5 38 21 36 L19 15 Z" stroke="var(--tooth-stroke)" strokeWidth="1.2" fill="var(--tooth-fill)"/>
+                {/* Thread curves */}
+                <path d="M11.2 20 Q16 22 20.8 20" stroke="var(--tooth-stroke)" strokeWidth="0.9" fill="none"/>
+                <path d="M11.2 26 Q16 28 20.8 26" stroke="var(--tooth-stroke)" strokeWidth="0.9" fill="none"/>
+                <path d="M11.5 32 Q16 34 20.5 32" stroke="var(--tooth-stroke)" strokeWidth="0.9" fill="none"/>
+              </svg>
+              <span className="baseline-option-label">Existing implant</span>
+            </button>
+          </div>
+        </div>
+      </>
+    );
+  }
 
   let groups = [];
   let title = '';

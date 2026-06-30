@@ -7,7 +7,7 @@ const ChartStateContext = React.createContext(null);
 
 export function ChartStateProvider({ children, patientId }) {
   const [stage, setStage] = React.useState('baseline');
-  const [presence, setPresence] = React.useState({});       // toothId -> 'missing'
+  const [presence, setPresence] = React.useState({});       // toothId -> 'missing' | 'implant'
   const [treatments, setTreatments] = React.useState([]);   // [{ id, scope, targets }]
   const [loaded, setLoaded] = React.useState(!patientId);
 

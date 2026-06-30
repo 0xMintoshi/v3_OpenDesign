@@ -5,7 +5,7 @@ import archMandible from '../shapes-data/anatomy/arch-mandible.json';
 import { TOOTH_TYPES, QUADRANT, UPPER, LOWER, layoutArch, toothPaths } from '../layout/teeth-data.jsx';
 import { chRatioFor, scallopRL, scallopLR, ARCH_LAYOUT, upperBiteY, lowerBiteY, cervicalPoints } from '../core/arch-math.js';
 import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from '../layout/anatomy.jsx';
-import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, BoneGraftLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog, exportLabelPositions } from './treatments.jsx';
+import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, BoneGraftLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog, ExistingImplantLayer, exportLabelPositions } from './treatments.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
 import { getConflictingTreatmentIds } from '../core/conflict-rules.js';
 import { areContiguous } from '../core/contiguity.js';
@@ -13,6 +13,11 @@ import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
 import { emit } from '../core/iframe-bridge.js';
 import { UIStateProvider, useUIState } from '../core/ui-context.jsx';
 import { useClinicTheme } from '../core/use-clinic-theme.js';
+
+// undefined (healthy) → 'missing' → 'implant' → undefined
+export function cyclePresence(cur) {
+  return cur === undefined ? 'missing' : cur === 'missing' ? 'implant' : undefined;
+}
 import { useIsTablet } from '../layout/use-is-tablet.js';
 import { TabletChart } from '../layout/tablet-chart.jsx';
 import { toothYAdjust, toothBBoxes, computeMarquee } from '../core/marquee-select.js';
@@ -46,9 +51,10 @@ function Tooth({
   const baseTransform = toothBaseTransform(tooth, jawFlip, yAdjust);
 
   const missing = presence === 'missing';
+  const isImplant = presence === 'implant';
 
   let liftY = 0;
-  if (isHovered && !missing && stage === 'baseline') liftY = -3;
+  if (isHovered && !missing && !isImplant && stage === 'baseline') liftY = -3;
   if (isSelected) liftY = -5;
 
   // Determine fill color based on state
@@ -61,6 +67,11 @@ function Tooth({
     strokeColor = 'var(--tooth-missing-stroke)';
     strokeW = 1.0;
   }
+  if (isImplant) {
+    fillColor = 'transparent';
+    strokeColor = 'transparent';
+    strokeW = 0;
+  }
   if (isInDrag) {
     fillColor = accent;
   }
@@ -68,7 +79,7 @@ function Tooth({
     fillColor = accent;
     strokeColor = accent;
   }
-  if (isHovered && !missing && !isSelected) {
+  if (isHovered && !missing && !isImplant && !isSelected) {
     fillColor = 'var(--tooth-hover-fill)';
   }
 
@@ -550,6 +561,12 @@ function DentalHeroInner() {
     });
   }, [selection, openTreatmentForTeeth]);
 
+  const openBaselineForTeeth = useCallback((toothIds, anchor) => {
+    const target = toothIds.map((tid) => allTeeth.find((x) => x.id === tid)).filter(Boolean);
+    if (target.length === 0) return;
+    setPopover({ mode: 'baseline', target, anchor });
+  }, [allTeeth]);
+
   // ---- Marquee drag-to-select ----
   const bboxes = useMemo(
     () => toothBBoxes(allTeeth, upperBiteY, lowerBiteY),
@@ -576,12 +593,11 @@ function DentalHeroInner() {
         moved: false,
       };
     } else if (stage === 'baseline') {
-      // Paint-drag: arm the session but don't capture or paint until the move threshold.
       dragRef.current = {
-        mode: 'paint',
+        mode: 'marquee',
         startClient: { x: evt.clientX, y: evt.clientY },
-        lockedJaw: null,
-        painted: new Set(),
+        startPt: clientToSvg(evt),
+        lockedArch: null,
         moved: false,
       };
     }
@@ -616,31 +632,6 @@ function DentalHeroInner() {
       dragRef.current.lockedArch = lockedArch;
       setMarquee({ rect, hits: new Set(hits) });
 
-    } else if (dragRef.current.mode === 'paint') {
-      if (!dragRef.current.moved) {
-        dragRef.current.moved = true;
-        svgRef.current?.setPointerCapture(evt.pointerId);
-      }
-      // Find the tooth under the pointer; prefer nearest center on bbox ties.
-      const cur = clientToSvg(evt);
-      let bestId = null, bestDist = Infinity;
-      for (const [id, box] of bboxes) {
-        if (cur.x < box.minX || cur.x > box.maxX || cur.y < box.minY || cur.y > box.maxY) continue;
-        if (dragRef.current.lockedJaw && box.jaw !== dragRef.current.lockedJaw) continue;
-        const cx = (box.minX + box.maxX) / 2;
-        const cy = (box.minY + box.maxY) / 2;
-        const dist = Math.hypot(cur.x - cx, cur.y - cy);
-        if (dist < bestDist) { bestDist = dist; bestId = id; }
-      }
-      if (bestId && !dragRef.current.painted.has(bestId)) {
-        // Skip teeth with existing treatments — single-click shows the confirm dialog.
-        if (treatedTeeth.has(bestId)) return;
-        const hit = allTeeth.find(t => t.id === bestId);
-        if (!hit) return;
-        if (!dragRef.current.lockedJaw) dragRef.current.lockedJaw = hit.jaw;
-        dragRef.current.painted.add(bestId);
-        setPresence(p => ({ ...p, [bestId]: 'missing' }));
-      }
     }
   }
 
@@ -652,13 +643,13 @@ function DentalHeroInner() {
       const newSel = additive ? Array.from(new Set([...selection, ...hits])) : hits;
       setSelection(newSel);
       suppressClickRef.current = true;
-      // Open treatment menu immediately at release point — no intermediate bar needed.
       if (newSel.length > 0) {
-        openTreatmentForTeeth(newSel, { x: evt.clientX, y: evt.clientY });
+        if (stage === 'baseline') {
+          openBaselineForTeeth(newSel, { x: evt.clientX, y: evt.clientY });
+        } else {
+          openTreatmentForTeeth(newSel, { x: evt.clientX, y: evt.clientY });
+        }
       }
-    } else if (dragRef.current.mode === 'paint' && dragRef.current.moved) {
-      // Suppress the trailing click so it doesn't toggle the last-touched tooth.
-      suppressClickRef.current = true;
     }
     svgRef.current?.releasePointerCapture(evt.pointerId);
     dragRef.current = null;
@@ -676,20 +667,34 @@ function DentalHeroInner() {
   // ---- Tooth click handler ----
   const handleToothSelect = useCallback((ref, evt, gesture) => {
     if (stage === 'baseline') {
+      if (suppressClickRef.current) return;
       if (gesture === 'context') evt.preventDefault();
       const id = ref.id;
-      const wasPresent = !presence[id];
-      const willBecomeMissing = wasPresent;
-      if (willBecomeMissing && treatedTeeth.has(id)) {
-        setConfirmWipe({ toothId: id });
-      } else {
-        setPresence((p) => {
-          const next = { ...p };
-          if (next[id] === 'missing') delete next[id];else
-          next[id] = 'missing';
-          return next;
+      const isMultiGesture = gesture === 'context' || evt.ctrlKey || evt.metaKey;
+      if (isMultiGesture) {
+        setPopover(null);
+        lastMultiClickRef.current = { x: evt.clientX, y: evt.clientY };
+        ctrlMultiSelectRef.current = true;
+        setSelection((prev) => {
+          const isSelected = prev.includes(id);
+          return isSelected ? prev.filter((tid) => tid !== id) : [...prev, id];
         });
+        return;
       }
+      // Single-click: cycle healthy → missing → implant → healthy
+      evt.stopPropagation();
+      setSelection([]);
+      const nextStatus = cyclePresence(presence[id]);
+      if (nextStatus === undefined) {
+        setPresence((p) => { const next = { ...p }; delete next[id]; return next; });
+        return;
+      }
+      const hasTreatments = treatments.some((tx) => tx.scope === 'tooth' && tx.targets.includes(id));
+      if (hasTreatments) {
+        setConfirmWipe({ toothId: id, targets: [id], status: nextStatus });
+        return;
+      }
+      setPresence((p) => { const next = { ...p }; next[id] = nextStatus; return next; });
       return;
     }
 
@@ -714,7 +719,7 @@ function DentalHeroInner() {
 
     setSelection([id]);
     openTreatmentForTeeth([id], { x: evt.clientX, y: evt.clientY });
-  }, [stage, presence, treatedTeeth, openTreatmentForTeeth]);
+  }, [stage, presence, treatments, treatedTeeth, openTreatmentForTeeth, openBaselineForTeeth, setConfirmWipe]);
 
   const handleAnatomySelect = useCallback((ref, evt) => {
     if (stage !== 'treatment') return;
@@ -761,14 +766,14 @@ function DentalHeroInner() {
     if (autoMissing.includes(txId) && popover.mode === 'tooth') {
       setPresence((p) => {
         const next = { ...p };
-        popover.target.forEach((t) => {next[t.id] = 'missing';});
+        popover.target.filter(t => presence[t.id] !== 'implant').forEach((t) => {next[t.id] = 'missing';});
         return next;
       });
     }
     setTreatments((prev) => {
       let next = [...prev];
       if (popover.mode === 'tooth') {
-        const targets = popover.target.map((t) => t.id);
+        const targets = popover.target.filter(t => presence[t.id] !== 'implant').map((t) => t.id);
         const exclusive = getConflictingTreatmentIds(txId);
         next = next.map((tx) => {
           if (tx.scope !== 'tooth' || !exclusive.includes(tx.id)) return tx;
@@ -831,7 +836,27 @@ function DentalHeroInner() {
     });
     setPopover(null);
     setSelection([]);
-  }, [popover, fullyEdentulous, allTeeth]);
+  }, [popover, fullyEdentulous, allTeeth, presence]);
+
+  const handleApplyBaseline = useCallback((status) => {
+    if (!popover) return;
+    const targets = Array.isArray(popover.target) ? popover.target : [popover.target];
+    const toothIds = targets.map((t) => t.id);
+    const hasTreatments = toothIds.some((id) =>
+      treatments.some((tx) => tx.scope === 'tooth' && tx.targets.includes(id))
+    );
+    if (hasTreatments) {
+      setConfirmWipe({ toothId: toothIds[0], targets: toothIds, status });
+      return;
+    }
+    setPresence((p) => {
+      const next = { ...p };
+      toothIds.forEach((id) => { next[id] = status; });
+      return next;
+    });
+    setPopover(null);
+    setSelection([]);
+  }, [popover, treatments]);
 
   // ---- Remove a single treatment (used by label cards) ----
   const removeTreatmentForTooth = (toothId, txId) => {
@@ -874,13 +899,20 @@ function DentalHeroInner() {
   };
 
   const handleConfirmWipe = () => {
-    const id = confirmWipe.toothId;
-    setPresence((p) => ({ ...p, [id]: 'missing' }));
+    const ids = confirmWipe.targets ?? [confirmWipe.toothId];
+    const status = confirmWipe.status ?? 'missing';
+    setPresence((p) => {
+      const next = { ...p };
+      ids.forEach((id) => { next[id] = status; });
+      return next;
+    });
     setTreatments((prev) => prev.map((tx) => {
       if (tx.scope !== 'tooth') return tx;
-      return { ...tx, targets: tx.targets.filter((t) => t !== id) };
+      return { ...tx, targets: tx.targets.filter((t) => !ids.includes(t)) };
     }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0));
     setConfirmWipe(null);
+    setPopover(null);
+    setSelection([]);
   };
 
   const handleAdvance = () => {setStage('treatment');setSelection([]);setPopover(null);};
@@ -888,24 +920,26 @@ function DentalHeroInner() {
   const handleExportPlan = () => emit('NAVIGATE_SUMMARY', {});
 
   useEffect(() => {
-    if (stage !== 'treatment') return undefined;
     const onKeyDown = (evt) => {
       if (evt.key === 'Escape') {
         setSelection([]);
         setPopover(null);
       } else if (evt.key === 'Enter' && selection.length > 0 && !popover) {
-        // Open treatment menu for the current ctrl+click accumulated selection.
-        openTreatmentForSelection();
+        if (stage === 'baseline') {
+          const anchor = lastMultiClickRef.current ?? { x: window.innerWidth / 2, y: window.innerHeight / 2 };
+          openBaselineForTeeth(selection, anchor);
+        } else {
+          openTreatmentForSelection();
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [stage, selection, popover, openTreatmentForSelection]);
+  }, [stage, selection, popover, openTreatmentForSelection, openBaselineForTeeth]);
 
-  // Ctrl-release → open treatment menu for accumulated multi-select (debounced ~250ms).
+  // Ctrl-release → open treatment/baseline menu for accumulated multi-select (debounced ~250ms).
   // Uses selectionRef so the timer reads the *latest* selection, not a stale closure.
   useEffect(() => {
-    if (stage !== 'treatment') return undefined;
     const onKeyUp = (evt) => {
       if (evt.key !== 'Control' && evt.key !== 'Meta') return;
       if (!ctrlMultiSelectRef.current) return;
@@ -918,9 +952,12 @@ function DentalHeroInner() {
         // Bail if selection changed (more ctrl-clicks), or popover already open.
         if (latest.length !== snapshotAtKeyup.length ||
             !latest.every((id, i) => id === snapshotAtKeyup[i])) return;
-        // Re-read popover from component closure — treat truthy as "already open".
         ctrlMultiSelectRef.current = false;
-        openTreatmentForTeeth(latest, lastMultiClickRef.current);
+        if (stage === 'baseline') {
+          openBaselineForTeeth(latest, lastMultiClickRef.current);
+        } else {
+          openTreatmentForTeeth(latest, lastMultiClickRef.current);
+        }
       }, 250);
     };
     window.addEventListener('keyup', onKeyUp);
@@ -928,7 +965,7 @@ function DentalHeroInner() {
       window.removeEventListener('keyup', onKeyUp);
       clearTimeout(ctrlReleaseTimerRef.current);
     };
-  }, [stage, openTreatmentForTeeth]);
+  }, [stage, openTreatmentForTeeth, openBaselineForTeeth]);
 
   // Reset ctrl-multi flag when popover closes or Escape fires, to prevent stale re-fire.
   useEffect(() => {
@@ -991,8 +1028,8 @@ function DentalHeroInner() {
             <span className="wf-sep">/</span>
             <span className="wf-help">
               {Object.keys(presence).length > 0
-                ? `${Object.keys(presence).length} ${Object.keys(presence).length === 1 ? 'tooth' : 'teeth'} marked missing`
-                : 'Click any tooth to toggle present ↔ missing'}
+                ? `${Object.keys(presence).length} ${Object.keys(presence).length === 1 ? 'tooth' : 'teeth'} marked`
+                : 'Click a tooth to mark it missing or as an existing implant'}
             </span>
           </>
         ) : (
@@ -1013,10 +1050,8 @@ function DentalHeroInner() {
           aria-label="Dental chart"
           onClick={() => {
             if (suppressClickRef.current) { suppressClickRef.current = false; return; }
-            if (stage === 'treatment') {
-              setSelection([]);
-              setPopover(null);
-            }
+            setSelection([]);
+            setPopover(null);
           }}
           onPointerDown={handleSvgPointerDown}
           onPointerMove={handleSvgPointerMove}
@@ -1089,7 +1124,7 @@ function DentalHeroInner() {
                     isHovered={hoveredId === tooth.id}
                     isSelected={selection.includes(tooth.id)}
                     isInDrag={marquee?.hits.has(tooth.id) ?? false}
-                    presence={presence[tooth.id] === 'missing' ? 'missing' : 'present'}
+                    presence={presence[tooth.id]}
                     onHover={setHoveredId}
                     onSelect={handleToothSelect}
                     onFocus={() => setFocusedToothId(tooth.id)}
@@ -1113,7 +1148,7 @@ function DentalHeroInner() {
                   isHovered={hoveredId === tooth.id}
                   isSelected={selection.includes(tooth.id)}
                   isInDrag={false}
-                  presence={presence[tooth.id] === 'missing' ? 'missing' : 'present'}
+                  presence={presence[tooth.id]}
                   onHover={setHoveredId}
                   onSelect={handleToothSelect}
                   onFocus={() => setFocusedToothId(tooth.id)}
@@ -1136,8 +1171,15 @@ function DentalHeroInner() {
 
           }
 
-          {/* Marquee selection rect — treatment stage only; paint-drag gives per-tooth feedback */}
-          {marquee && stage === 'treatment' && (
+          {/* Existing implants — both stages, monochrome */}
+          <ExistingImplantLayer
+            allTeeth={allTeeth}
+            upperBiteY={upperBiteY}
+            lowerBiteY={lowerBiteY}
+            presence={presence} />
+
+          {/* Marquee selection rect */}
+          {marquee && (
             <rect
               x={marquee.rect.minX}
               y={marquee.rect.minY}
@@ -1201,14 +1243,14 @@ function DentalHeroInner() {
         target={popover ? popover.target : null}
         archEdentulous={archEdentulous}
         allPresent={popover && popover.mode === 'tooth'
-          ? popover.target.every(t => presence[t.id] !== 'missing')
+          ? popover.target.every(t => presence[t.id] !== 'missing' && presence[t.id] !== 'implant')
           : false}
         allMissing={popover && popover.mode === 'tooth'
           ? popover.target.every(t => presence[t.id] === 'missing')
           : false}
         hasBridgeAbutment={popover && popover.mode === 'tooth'
           ? popover.target.some(t =>
-              presence[t.id] !== 'missing' ||
+              (presence[t.id] !== 'missing' && presence[t.id] !== 'implant') ||
               treatments.some(x => x.id === 'implant-only' && x.targets.includes(t.id)))
           : false}
         hasBridgeGap={popover && popover.mode === 'tooth'
@@ -1218,6 +1260,7 @@ function DentalHeroInner() {
           : false}
         fullyEdentulous={fullyEdentulous}
         onApply={handleApplyTreatment}
+        onApplyBaseline={handleApplyBaseline}
         onClose={() => {setPopover(null);setSelection([]);}} />
       
 
@@ -1225,8 +1268,8 @@ function DentalHeroInner() {
         open={!!confirmWipe}
         accent={t.accent}
         title="Remove planned treatments?"
-        body={confirmWipe ? `Marking tooth ${confirmWipe.toothId.split('-')[1]} as missing will wipe its planned treatments. Continue?` : ''}
-        confirmLabel="Mark missing + wipe"
+        body={confirmWipe ? `Marking tooth ${(confirmWipe.targets ?? [confirmWipe.toothId]).map(id => id.split('-')[1]).join(', ')} as ${confirmWipe.status ?? 'missing'} will wipe planned treatments. Continue?` : ''}
+        confirmLabel={`Mark ${confirmWipe?.status ?? 'missing'} + wipe`}
         onConfirm={handleConfirmWipe}
         onCancel={() => setConfirmWipe(null)} />
       
@@ -1275,8 +1318,8 @@ function BaselineFooter({ accent, archEdentulous, onGreyArch, onAdvance, missing
         <span className="wf-sep">/</span>
         <span className="wf-help">
           {missingCount > 0 ?
-          `${missingCount} ${missingCount === 1 ? 'tooth' : 'teeth'} marked missing` :
-          'Click any tooth to toggle present ↔ missing'}
+          `${missingCount} ${missingCount === 1 ? 'tooth' : 'teeth'} marked` :
+          'Click a tooth to mark it missing or as an existing implant'}
         </span>
       </div>
       <div className="wf-right">

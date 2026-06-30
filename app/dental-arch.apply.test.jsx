@@ -17,6 +17,15 @@ function Wrapper({ children }) {
 
 import { getConflictingTreatmentIds } from '../core/conflict-rules.js';
 import { areContiguous } from '../core/contiguity.js';
+import { cyclePresence } from './dental-arch.jsx';
+
+describe('cyclePresence', () => {
+  it('cycles healthy → missing → implant → healthy', () => {
+    expect(cyclePresence(undefined)).toBe('missing');
+    expect(cyclePresence('missing')).toBe('implant');
+    expect(cyclePresence('implant')).toBe(undefined);
+  });
+});
 
 describe('conflict rules — implant-bridge-span strips natural treatments', () => {
   it('applying implant-bridge-span conflicts with crown and bridge-span', () => {
