@@ -971,7 +971,68 @@ function connectorPath(bx, by, hw, hh, ax, ay) {
   return { path, ex, ey };
 }
 
+const CAT_GLYPHS = {
+  'Extraction': (
+    <svg className="baseline-glyph" aria-hidden="true" viewBox="0 0 32 38" fill="none">
+      <path d="M9 18 C9 12 12 7 16 7 C20 7 23 12 23 18 C23 22 21 27 19 32 C18 35 17 37 16 37 C15 37 14 35 13 32 C11 27 9 22 9 18 Z"
+            stroke="var(--tooth-stroke)" strokeWidth="1.3" fill="var(--tooth-fill)"/>
+      <path d="M16 7 L16 2" stroke="var(--tooth-stroke)" strokeWidth="1.3" strokeLinecap="round"/>
+      <path d="M13 5 L16 2 L19 5" stroke="var(--tooth-stroke)" strokeWidth="1.3" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  ),
+  'Implant': (
+    <svg className="baseline-glyph" aria-hidden="true" viewBox="0 0 32 44" fill="none">
+      <path d="M10 2 C10 2 8 6 8 8 C8 9 9 10 10 10 L22 10 C23 10 24 9 24 8 C24 6 22 2 22 2 Z" stroke="var(--tooth-stroke)" strokeWidth="1.2" fill="var(--tooth-fill)"/>
+      <rect x="11" y="11" width="10" height="4" rx="2" stroke="var(--tooth-stroke)" strokeWidth="1.2" fill="var(--tooth-fill)"/>
+      <path d="M13 15 L11 36 Q11.5 38 16 38 Q20.5 38 21 36 L19 15 Z" stroke="var(--tooth-stroke)" strokeWidth="1.2" fill="var(--tooth-fill)"/>
+      <path d="M11.2 20 Q16 22 20.8 20" stroke="var(--tooth-stroke)" strokeWidth="0.9" fill="none"/>
+      <path d="M11.2 26 Q16 28 20.8 26" stroke="var(--tooth-stroke)" strokeWidth="0.9" fill="none"/>
+      <path d="M11.5 32 Q16 34 20.5 32" stroke="var(--tooth-stroke)" strokeWidth="0.9" fill="none"/>
+    </svg>
+  ),
+  'Restoration': (
+    <svg className="baseline-glyph" aria-hidden="true" viewBox="0 0 32 36" fill="none">
+      <path d="M6 30 L6 17 L10 23 L16 11 L22 23 L26 17 L26 30 Z"
+            stroke="var(--tooth-stroke)" strokeWidth="1.3" fill="var(--tooth-fill)" strokeLinejoin="round"/>
+      <line x1="5" y1="30" x2="27" y2="30" stroke="var(--tooth-stroke)" strokeWidth="1.3" strokeLinecap="round"/>
+    </svg>
+  ),
+  'Bone graft': (
+    <svg className="baseline-glyph" aria-hidden="true" viewBox="0 0 32 36" fill="none">
+      <path d="M4 33 Q4 10 16 8 Q28 10 28 33 Z" stroke="var(--tooth-stroke)" strokeWidth="1.3" fill="var(--tooth-fill)"/>
+      <circle cx="13" cy="17" r="1.4" fill="var(--tooth-stroke)" opacity="0.85"/>
+      <circle cx="19" cy="17" r="1.4" fill="var(--tooth-stroke)" opacity="0.85"/>
+      <circle cx="16" cy="22" r="1.4" fill="var(--tooth-stroke)" opacity="0.85"/>
+      <circle cx="11" cy="26" r="1.4" fill="var(--tooth-stroke)" opacity="0.85"/>
+      <circle cx="21" cy="26" r="1.4" fill="var(--tooth-stroke)" opacity="0.85"/>
+    </svg>
+  ),
+  'Sinus': (
+    <svg className="baseline-glyph" aria-hidden="true" viewBox="0 0 32 36" fill="none">
+      <path d="M3 33 Q3 16 16 12 Q29 16 29 33" stroke="var(--tooth-stroke)" strokeWidth="1.3" fill="none"/>
+      <ellipse cx="16" cy="21" rx="7.5" ry="5" stroke="var(--tooth-stroke)" strokeWidth="1.2" fill="var(--tooth-fill)" strokeDasharray="2.5 2"/>
+    </svg>
+  ),
+  'Arch': (
+    <svg className="baseline-glyph" aria-hidden="true" viewBox="0 0 32 36" fill="none">
+      <path d="M4 34 L4 18 Q4 5 16 4 Q28 5 28 18 L28 34 Z" stroke="var(--tooth-stroke)" strokeWidth="1.3" fill="var(--tooth-fill)"/>
+      <path d="M7 32 L7 23 M11 32 L11 19 M15 32 L15 18 M17 32 L17 18 M21 32 L21 19 M25 32 L25 23"
+            stroke="var(--tooth-stroke)" strokeWidth="0.9" opacity="0.6"/>
+    </svg>
+  ),
+  'Orthodontics · full mouth': (
+    <svg className="baseline-glyph" aria-hidden="true" viewBox="0 0 32 36" fill="none">
+      <path d="M4 30 Q4 9 16 6 Q28 9 28 30" stroke="var(--tooth-stroke)" strokeWidth="1.5" fill="none"/>
+      <rect x="7" y="23" width="3.5" height="3" rx="0.4" stroke="var(--tooth-stroke)" strokeWidth="1" fill="var(--tooth-fill)"/>
+      <rect x="14.25" y="18.5" width="3.5" height="3" rx="0.4" stroke="var(--tooth-stroke)" strokeWidth="1" fill="var(--tooth-fill)"/>
+      <rect x="21.5" y="23" width="3.5" height="3" rx="0.4" stroke="var(--tooth-stroke)" strokeWidth="1" fill="var(--tooth-fill)"/>
+    </svg>
+  ),
+};
+
 function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPresent, allMissing, hasBridgeAbutment = false, hasBridgeGap = false, fullyEdentulous, onApply, onApplyBaseline, onClose }) {
+  const [activeCategory, setActiveCategory] = React.useState(null);
+  React.useEffect(() => { if (!open) setActiveCategory(null); }, [open]);
   if (!open) return null;
 
   if (mode === 'baseline') {
@@ -1024,43 +1085,29 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
 
   let groups = [];
   let title = '';
-  let subtitle = '';
 
   if (mode === 'tooth') {
     groups = TX_GROUPS;
-    if (target.length === 1) {
-      title = `#${target[0].fdi}`;
-      subtitle = '';
-    } else {
-      const ids = target.slice(0, 6).map(t => t.fdi).join(', ');
-      title = `#${ids}${target.length > 6 ? ` +${target.length - 6}` : ''} selected`;
-      subtitle = '';
-    }
+    title = target.length === 1
+      ? `#${target[0].fdi}`
+      : `#${target.slice(0, 6).map(t => t.fdi).join(', ')}${target.length > 6 ? ` +${target.length - 6}` : ''} selected`;
   } else if (mode === 'sinus') {
     groups = [SINUS_GROUP];
     title = target.side === 'right' ? 'Right maxillary sinus' : 'Left maxillary sinus';
-    subtitle = '';
   } else if (mode === 'arch') {
     groups = ARCH_GROUPS;
     title = target.arch === 'upper' ? 'Maxilla' : 'Mandible';
-    subtitle = '';
   }
 
   const W = 320;
-  // Clamp so the popover (head ~80px + body up to 460px = ~540px) stays fully on screen.
-  const POPOVER_H = 540;
   const left = Math.max(20, Math.min(window.innerWidth - W - 20, anchor.x - W / 2));
-  const top  = Math.max(20, Math.min(anchor.y + 18, window.innerHeight - POPOVER_H - 20));
 
-  // Determine which items are available
   const isAvailable = (item) => {
     if (item.requires === 'edentulous-arch') {
       if (mode !== 'arch') return false;
       return target.edentulous;
     }
-    if (item.requires === 'present-tooth') {
-      return allPresent === true;
-    }
+    if (item.requires === 'present-tooth') return allPresent === true;
     if (item.requires === 'missing-tooth') {
       if (!allMissing) return false;
       if (item.id === 'implant-bridge-span') return Array.isArray(target) && target.length >= 2;
@@ -1069,18 +1116,54 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
     if (item.id === 'partial-denture-upper' || item.id === 'partial-denture-lower') {
       return mode === 'arch' && !target.edentulous;
     }
-    if (item.requires === 'dentate-patient') {
-      return fullyEdentulous !== true;
-    }
+    if (item.requires === 'dentate-patient') return fullyEdentulous !== true;
     if (item.id === 'bridge-span') {
-      // Bridge needs ≥2 teeth, ≥1 abutment (natural or implant), ≥1 edentulous gap.
       return Array.isArray(target) && target.length >= 2 && hasBridgeAbutment && hasBridgeGap;
     }
-    if (item.requires === 'multi-tooth') {
-      return Array.isArray(target) && target.length >= 2;
-    }
+    if (item.requires === 'multi-tooth') return Array.isArray(target) && target.length >= 2;
     return true;
   };
+
+  const availableGroups = groups.filter(g => g.items.some(isAvailable));
+  // Single-group modes (sinus) skip the category screen
+  const resolvedCategory = activeCategory ?? (availableGroups.length === 1 ? availableGroups[0].label : null);
+
+  // ── Category grid ────────────────────────────────────────────────────────
+  if (!resolvedCategory) {
+    const POPOVER_H = 340;
+    const top = Math.max(20, Math.min(anchor.y + 18, window.innerHeight - POPOVER_H - 20));
+    return (
+      <>
+        <div className="popover-veil" onClick={onClose} />
+        <div className="tx-popover" style={{ left, top, width: W }}>
+          <div className="tx-popover-head">
+            <div>
+              <div className="baseline-eyebrow">Treatment</div>
+              <div className="tx-popover-title">{title}</div>
+            </div>
+            <button className="info-close" onClick={onClose} aria-label="close">×</button>
+          </div>
+          <div className="baseline-options">
+            {availableGroups.map(group => (
+              <button key={group.label} className="baseline-option" onClick={() => setActiveCategory(group.label)}>
+                {CAT_GLYPHS[group.label]}
+                <span className="baseline-option-label">
+                  {group.label === 'Orthodontics · full mouth' ? 'Orthodontics' : group.label}
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </>
+    );
+  }
+
+  // ── Treatment list ────────────────────────────────────────────────────────
+  const activeGroup = availableGroups.find(g => g.label === resolvedCategory);
+  const activeItems = activeGroup?.items.filter(isAvailable) ?? [];
+  const showBack = availableGroups.length > 1;
+  const POPOVER_H = 540;
+  const top = Math.max(20, Math.min(anchor.y + 18, window.innerHeight - POPOVER_H - 20));
 
   return (
     <>
@@ -1088,31 +1171,26 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
       <div className="tx-popover" style={{ left, top, width: W }}>
         <div className="tx-popover-head">
           <div>
+            {showBack
+              ? <button className="tx-back-btn" onClick={() => setActiveCategory(null)}>← {resolvedCategory === 'Orthodontics · full mouth' ? 'Orthodontics' : resolvedCategory}</button>
+              : <div className="baseline-eyebrow">Treatment</div>
+            }
             <div className="tx-popover-title">{title}</div>
-            {subtitle && <div className="tx-popover-subtitle">{subtitle}</div>}
           </div>
           <button className="info-close" onClick={onClose} aria-label="close">×</button>
         </div>
         <div className="tx-popover-body">
-          {groups.map(group => {
-            const items = group.items.filter(isAvailable);
-            if (!items.length) return null;
-            return (
-              <div className="tx-group" key={group.label}>
-                <div className="tx-group-label">{group.label}</div>
-                {items.map(item => (
-                  <button key={item.id}
-                          className="tx-item"
-                          onClick={() => onApply(item.id, group.scope)}>
-                    <div className="tx-item-main">
-                      <span className="tx-item-label">{item.label}</span>
-                    </div>
-                    <span className="tx-item-arrow">→</span>
-                  </button>
-                ))}
+          {activeItems.map(item => (
+            <button key={item.id}
+                    className="tx-item"
+                    onClick={() => onApply(item.id, activeGroup.scope)}>
+              <div className="tx-item-main">
+                <span className="tx-item-label">{item.label}</span>
+                {item.hint && <span className="tx-item-hint">{item.hint}</span>}
               </div>
-            );
-          })}
+              <span className="tx-item-arrow">→</span>
+            </button>
+          ))}
         </div>
       </div>
     </>

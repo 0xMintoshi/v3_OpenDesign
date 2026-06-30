@@ -334,6 +334,23 @@
   }
   .info-close:hover { background: var(--bg-1); color: var(--ink); border-color: rgba(26,31,46,0.22); }
 
+  /* Back button — breadcrumb in treatment list view */
+  .tx-back-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    margin-bottom: 2px;
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    letter-spacing: 0.10em;
+    color: var(--ink-muted);
+    cursor: pointer;
+    font-family: var(--sans);
+    transition: color 120ms ease;
+  }
+  .tx-back-btn:hover { color: var(--clinic-accent); }
+
   /* Baseline popover — scoped overrides (Stage 2 popover unchanged) */
   .tx-popover--baseline .tx-popover-title { font-size: 15px; font-weight: 600; }
   .baseline-eyebrow {
@@ -383,6 +400,8 @@
     }
     .baseline-option:nth-child(1) { animation-delay: 0ms; }
     .baseline-option:nth-child(2) { animation-delay: 60ms; }
+    .baseline-option:nth-child(3) { animation-delay: 120ms; }
+    .baseline-option:nth-child(4) { animation-delay: 180ms; }
     @keyframes baselineCardIn {
       from { opacity: 0; transform: translateY(6px); }
       to   { opacity: 1; transform: translateY(0); }
