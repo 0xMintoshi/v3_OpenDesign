@@ -5,7 +5,7 @@ import archMandible from '../shapes-data/anatomy/arch-mandible.json';
 import { TOOTH_TYPES, QUADRANT, UPPER, LOWER, layoutArch, toothPaths } from '../layout/teeth-data.jsx';
 import { chRatioFor, scallopRL, scallopLR, ARCH_LAYOUT, upperBiteY, lowerBiteY, cervicalPoints } from '../core/arch-math.js';
 import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from '../layout/anatomy.jsx';
-import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, BoneGraftLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog, ExistingImplantLayer, exportLabelPositions } from './treatments.jsx';
+import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, BoneGraftLayer, TreatmentLabels, TreatmentPopover, StagePill, ExistingImplantLayer, exportLabelPositions } from './treatments.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
 import { getConflictingTreatmentIds } from '../core/conflict-rules.js';
 import { areContiguous } from '../core/contiguity.js';
@@ -463,7 +463,7 @@ function DentalHeroInner() {
   const [t, setTweak] = useTweaks(DEFAULT_TWEAKS);
 
   const { stage, setStage, presence, setPresence, treatments, setTreatments, loaded } = useChartState();
-  const { hoveredId, setHoveredId, selection, setSelection, popover, setPopover, confirmWipe, setConfirmWipe, exportJson, setExportJson, focusedToothId, setFocusedToothId } = useUIState();
+  const { hoveredId, setHoveredId, selection, setSelection, popover, setPopover, exportJson, setExportJson, focusedToothId, setFocusedToothId } = useUIState();
 
   // Emit to parent quotation app when chart state is ready (Firestore loaded).
   useEffect(() => {
@@ -689,12 +689,11 @@ function DentalHeroInner() {
         setPresence((p) => { const next = { ...p }; delete next[id]; return next; });
         return;
       }
-      const hasTreatments = treatments.some((tx) => tx.scope === 'tooth' && tx.targets.includes(id));
-      if (hasTreatments) {
-        setConfirmWipe({ toothId: id, targets: [id], status: nextStatus });
-        return;
-      }
       setPresence((p) => { const next = { ...p }; next[id] = nextStatus; return next; });
+      setTreatments((prev) => prev.map((tx) => {
+        if (tx.scope !== 'tooth') return tx;
+        return { ...tx, targets: tx.targets.filter((t) => t !== id) };
+      }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0));
       return;
     }
 
@@ -717,9 +716,10 @@ function DentalHeroInner() {
       return;
     }
 
+    if (presence[id] === 'implant') return;
     setSelection([id]);
     openTreatmentForTeeth([id], { x: evt.clientX, y: evt.clientY });
-  }, [stage, presence, treatments, treatedTeeth, openTreatmentForTeeth, openBaselineForTeeth, setConfirmWipe]);
+  }, [stage, presence, treatedTeeth, openTreatmentForTeeth, openBaselineForTeeth]);
 
   const handleAnatomySelect = useCallback((ref, evt) => {
     if (stage !== 'treatment') return;
@@ -744,6 +744,13 @@ function DentalHeroInner() {
         });
         return next;
       });
+      if (!allMissing) {
+        const toothIds = teeth.map((x) => x.id);
+        setTreatments((prev) => prev.map((tx) => {
+          if (tx.scope !== 'tooth') return tx;
+          return { ...tx, targets: tx.targets.filter((t) => !toothIds.includes(t)) };
+        }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0));
+      }
     } else {
       setSelection([]);
       setPopover({
@@ -842,21 +849,18 @@ function DentalHeroInner() {
     if (!popover) return;
     const targets = Array.isArray(popover.target) ? popover.target : [popover.target];
     const toothIds = targets.map((t) => t.id);
-    const hasTreatments = toothIds.some((id) =>
-      treatments.some((tx) => tx.scope === 'tooth' && tx.targets.includes(id))
-    );
-    if (hasTreatments) {
-      setConfirmWipe({ toothId: toothIds[0], targets: toothIds, status });
-      return;
-    }
     setPresence((p) => {
       const next = { ...p };
       toothIds.forEach((id) => { next[id] = status; });
       return next;
     });
+    setTreatments((prev) => prev.map((tx) => {
+      if (tx.scope !== 'tooth') return tx;
+      return { ...tx, targets: tx.targets.filter((t) => !toothIds.includes(t)) };
+    }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0));
     setPopover(null);
     setSelection([]);
-  }, [popover, treatments]);
+  }, [popover]);
 
   // ---- Remove a single treatment (used by label cards) ----
   const removeTreatmentForTooth = (toothId, txId) => {
@@ -896,23 +900,6 @@ function DentalHeroInner() {
       if (tx.scope !== 'tooth' || tx.id !== txId) return true;
       return !tx.targets.some((id) => targetSet.has(id));
     }));
-  };
-
-  const handleConfirmWipe = () => {
-    const ids = confirmWipe.targets ?? [confirmWipe.toothId];
-    const status = confirmWipe.status ?? 'missing';
-    setPresence((p) => {
-      const next = { ...p };
-      ids.forEach((id) => { next[id] = status; });
-      return next;
-    });
-    setTreatments((prev) => prev.map((tx) => {
-      if (tx.scope !== 'tooth') return tx;
-      return { ...tx, targets: tx.targets.filter((t) => !ids.includes(t)) };
-    }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0));
-    setConfirmWipe(null);
-    setPopover(null);
-    setSelection([]);
   };
 
   const handleAdvance = () => {setStage('treatment');setSelection([]);setPopover(null);};
@@ -974,6 +961,22 @@ function DentalHeroInner() {
       clearTimeout(ctrlReleaseTimerRef.current);
     }
   }, [popover]);
+
+  // Listen for REMOVE_CHART_TREATMENT from parent summary table to strip treatment from chart state.
+  useEffect(() => {
+    const onMsg = (e) => {
+      const msg = e.data;
+      if (!msg || msg.version !== 1 || msg.type !== 'REMOVE_CHART_TREATMENT') return;
+      const { chartTxId } = msg.payload;
+      setTreatments(prev =>
+        prev.filter(tx =>
+          (tx.id + '_' + tx.targets.map(t => t.id).join('_')) !== chartTxId
+        )
+      );
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
 
   const handleBulkArch = (arch, missing) => {
     const teeth = arch === 'upper' ? scaledUpper : scaledLower;
@@ -1264,15 +1267,6 @@ function DentalHeroInner() {
         onClose={() => {setPopover(null);setSelection([]);}} />
       
 
-      <ConfirmDialog
-        open={!!confirmWipe}
-        accent={t.accent}
-        title="Remove planned treatments?"
-        body={confirmWipe ? `Marking tooth ${(confirmWipe.targets ?? [confirmWipe.toothId]).map(id => id.split('-')[1]).join(', ')} as ${confirmWipe.status ?? 'missing'} will wipe planned treatments. Continue?` : ''}
-        confirmLabel={`Mark ${confirmWipe?.status ?? 'missing'} + wipe`}
-        onConfirm={handleConfirmWipe}
-        onCancel={() => setConfirmWipe(null)} />
-      
 
       <TweaksPanel>
         <TweakColor label="Accent" value={t.accent} onChange={(v) => setTweak('accent', v)}
