@@ -7,7 +7,7 @@ import { chRatioFor, scallopRL, scallopLR, ARCH_LAYOUT, upperBiteY, lowerBiteY, 
 import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from '../layout/anatomy.jsx';
 import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, BoneGraftLayer, TreatmentPopover, StagePill, ExistingImplantLayer } from './treatments.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
-import { TreatmentPanel } from './treatment-panel.jsx';
+import { TreatmentPanel, PanelDock } from './treatment-panel.jsx';
 import { getConflictingTreatmentIds } from '../core/conflict-rules.js';
 import { areContiguous } from '../core/contiguity.js';
 import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
@@ -1243,7 +1243,6 @@ function DentalHeroInner() {
       {stage === 'treatment' && (
         <TreatmentPanel
           open={openPanel === 'treatment'}
-          onOpen={() => setOpenPanel('treatment')}
           onClose={() => setOpenPanel(null)}
           treatments={treatments}
           allTeeth={allTeeth}
@@ -1255,6 +1254,11 @@ function DentalHeroInner() {
           onHoverTargets={setPanelHoverIds}
         />
       )}
+      <PanelDock
+        showTreatments={stage === 'treatment'}
+        openPanel={openPanel}
+        onToggle={(which) => setOpenPanel((p) => (p === which ? null : which))}
+      />
     </div>);
 
 }

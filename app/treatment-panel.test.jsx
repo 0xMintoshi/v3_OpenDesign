@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, fireEvent } from '@testing-library/react';
 import React from 'react';
-import { TreatmentPanel } from './treatment-panel.jsx';
+import { TreatmentPanel, PanelDock } from './treatment-panel.jsx';
 
 // Minimal tooth set for testing
 const TEETH = [
@@ -21,7 +21,6 @@ const TX_LABEL = {
 
 const defaults = {
   open: true,
-  onOpen: vi.fn(),
   onClose: vi.fn(),
   treatments: [],
   allTeeth: TEETH,
@@ -50,21 +49,14 @@ describe('TreatmentPanel', () => {
       treatments: [{ id: 'crown', scope: 'tooth', targets: ['upper-21'] }],
     });
     expect(container.querySelector('.trx-sect').textContent).toBe('Maxilla');
-    expect(container.querySelector('.trx-card-hd').textContent).toBe('#21');
+    expect(container.querySelector('.trx-card-num').textContent).toBe('#21');
     expect(container.querySelector('.trx-row-lbl').textContent).toBe('Crown');
   });
 
-  it('renders collapsed pill when closed', () => {
+  it('renders nothing when closed (dock owns the pill)', () => {
     const { container } = setup({ open: false });
-    expect(container.querySelector('.trx-pill')).toBeTruthy();
     expect(container.querySelector('.trx-panel')).toBeNull();
-  });
-
-  it('clicking pill calls onOpen', () => {
-    const onOpen = vi.fn();
-    const { container } = setup({ open: false, onOpen });
-    fireEvent.click(container.querySelector('.trx-pill'));
-    expect(onOpen).toHaveBeenCalled();
+    expect(container.querySelector('.trx-pill')).toBeNull();
   });
 
   it('clicking collapse chevron calls onClose', () => {
@@ -127,5 +119,43 @@ describe('TreatmentPanel', () => {
     const sects = container.querySelectorAll('.trx-sect');
     expect(sects[0].textContent).toBe('Maxilla');
     expect(sects[1].textContent).toBe('Mandible');
+  });
+
+  it('groups multiple treatments for one tooth under a single number gutter', () => {
+    const { container } = setup({
+      treatments: [
+        { id: 'extraction', scope: 'tooth', targets: ['upper-21'] },
+        { id: 'gbr', scope: 'tooth', targets: ['upper-21'] },
+      ],
+    });
+    const cards = container.querySelectorAll('.trx-card');
+    expect(cards.length).toBe(1);
+    expect(cards[0].querySelectorAll('.trx-card-num').length).toBe(1);
+    expect(cards[0].querySelectorAll('.trx-row').length).toBe(2);
+  });
+});
+
+describe('PanelDock', () => {
+  it('renders both pills in treatment stage, one otherwise', () => {
+    const { container, rerender } = render(
+      <PanelDock showTreatments openPanel={null} onToggle={() => {}} />,
+    );
+    expect(container.querySelectorAll('.pnl-pill').length).toBe(2);
+    rerender(<PanelDock showTreatments={false} openPanel={null} onToggle={() => {}} />);
+    expect(container.querySelectorAll('.pnl-pill').length).toBe(1);
+  });
+
+  it('clicking a pill toggles its panel and marks it active when open', () => {
+    const onToggle = vi.fn();
+    const { container } = render(
+      <PanelDock showTreatments openPanel="treatment" onToggle={onToggle} />,
+    );
+    const pills = container.querySelectorAll('.pnl-pill');
+    expect(pills[0].dataset.on).toBe('1');
+    expect(pills[1].dataset.on).toBe('0');
+    fireEvent.click(pills[1]);
+    expect(onToggle).toHaveBeenCalledWith('tweaks');
+    fireEvent.click(pills[0]);
+    expect(onToggle).toHaveBeenCalledWith('treatment');
   });
 });

@@ -140,8 +140,8 @@ test('TreatmentPanel pill renders in Stage 2 without errors', async ({ page }) =
     await page.waitForTimeout(300);
   }
 
-  // The TreatmentPanel pill or open panel should be present
-  const pill = page.locator('.trx-pill, .trx-panel');
+  // The dock pill or open panel should be present
+  const pill = page.locator('.pnl-pill, .trx-panel');
   if (await pill.count() > 0) {
     await expect(pill.first()).toBeVisible();
   }
