@@ -137,6 +137,7 @@
     flex: 1;
     display: grid;
     place-items: center;
+    grid-template-rows: minmax(0, 100%);
     padding: 70px 40px 20px;
     overflow: hidden;
   }
@@ -157,6 +158,7 @@
     width: 100%;
     height: 100%;
     max-width: 1700px;
+    max-height: 100%;
     overflow: visible;
     user-select: none;
   }
