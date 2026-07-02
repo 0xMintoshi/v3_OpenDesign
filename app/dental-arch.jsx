@@ -945,7 +945,7 @@ function DentalHeroInner() {
         } else {
           openTreatmentForTeeth(latest, lastMultiClickRef.current);
         }
-      }, 250);
+      }, 0);
     };
     window.addEventListener('keyup', onKeyUp);
     return () => {

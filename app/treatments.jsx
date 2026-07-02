@@ -745,17 +745,19 @@ function OrthoAligners({ upper, lower, upperBiteY, lowerBiteY, archWidth, accent
 // Extraction overlay — red cross on the crown, only shown when sole treatment
 // ============================================================================
 
-function ExtractionOverlay({ x, y, w, h, jaw, type }) {
+function ExtractionOverlay({ tooth, biteY }) {
+  const { cx, w, h, jaw, type, tilt = 0, yOffset = 0 } = tooth;
   const flipY = jaw === 'upper' ? 1 : -1;
+  const yAdjust = toothYAdjust(tooth);
   const paths = toothPaths(type, w, h);
   const halfLen = proximalExtreme(paths.crown, +1).x * 0.68;
   const thick = halfLen * 0.44;
   const rx = thick / 2;
   const cy = -crownDepth(type, h) / 2;
   const RED = '#d93025';
-  const clipId = `ext-clip-${type}-${x.toFixed(0)}`;
+  const clipId = `ext-clip-${tooth.fdi}`;
   return (
-    <g transform={`translate(${x}, ${y}) scale(1, ${flipY})`} style={{ pointerEvents: 'none' }}>
+    <g transform={`translate(${cx}, ${biteY + yOffset * flipY + yAdjust}) scale(1, ${flipY}) rotate(${tilt})`} style={{ pointerEvents: 'none' }}>
       <defs>
         <clipPath id={clipId}>
           <path d={paths.crown} />
@@ -831,7 +833,7 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
         return (
           <g key={toothId}>
             {extractionOnly && (
-              <ExtractionOverlay x={tooth.cx} y={biteY + toothYAdjust(tooth)} w={tooth.w} h={tooth.h} jaw={tooth.jaw} type={tooth.type} />
+              <ExtractionOverlay tooth={tooth} biteY={biteY} />
             )}
             {list.map((tx, i) => {
               if (EXTRACTION_IDS.includes(tx.id)) return null; // visual handled above
@@ -1042,7 +1044,7 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
     const btitle = Array.isArray(target) && target.length === 1
       ? `#${target[0].fdi}`
       : Array.isArray(target) && target.length > 1
-        ? `#${target.slice(0, 6).map(t => t.fdi).join(', ')}${target.length > 6 ? ` +${target.length - 6}` : ''}`
+        ? `#${target.slice(0, 6).map(t => t.fdi).join(' ')}${target.length > 6 ? ` +${target.length - 6}` : ''}`
         : '';
     return (
       <>
@@ -1090,10 +1092,10 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
     groups = TX_GROUPS;
     title = target.length === 1
       ? `#${target[0].fdi}`
-      : `#${target.slice(0, 6).map(t => t.fdi).join(', ')}${target.length > 6 ? ` +${target.length - 6}` : ''} selected`;
+      : `#${target.slice(0, 6).map(t => t.fdi).join(' ')}${target.length > 6 ? ` +${target.length - 6}` : ''}`;
   } else if (mode === 'sinus') {
     groups = [SINUS_GROUP];
-    title = target.side === 'right' ? 'Right maxillary sinus' : 'Left maxillary sinus';
+    title = target.side === 'right' ? 'Right Maxillary Sinus' : 'Left Maxillary Sinus';
   } else if (mode === 'arch') {
     groups = ARCH_GROUPS;
     title = target.arch === 'upper' ? 'Maxilla' : 'Mandible';
@@ -1186,7 +1188,6 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
                     onClick={() => onApply(item.id, activeGroup.scope)}>
               <div className="tx-item-main">
                 <span className="tx-item-label">{item.label}</span>
-                {item.hint && <span className="tx-item-hint">{item.hint}</span>}
               </div>
               <span className="tx-item-arrow">→</span>
             </button>

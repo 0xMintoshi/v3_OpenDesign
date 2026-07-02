@@ -145,8 +145,8 @@ const __TWEAKS_STYLE = `
   .twk-num-unit{padding-right:8px;color:rgba(41,38,27,.45)}
 
   .twk-btn{appearance:none;height:26px;padding:0 12px;border:0;border-radius:7px;
-    background:rgba(0,0,0,.78);color:#fff;font:inherit;font-weight:500;cursor:default}
-  .twk-btn:hover{background:rgba(0,0,0,.88)}
+    background:#0a7ea4;color:#fff;font:inherit;font-weight:500;cursor:default}
+  .twk-btn:hover{background:#096d8c}
   .twk-btn.secondary{background:rgba(0,0,0,.06);color:inherit}
   .twk-btn.secondary:hover{background:rgba(0,0,0,.1)}
   .twk-btn-export{height:24px;padding:0 12px;border-radius:8px;font-size:11px}
@@ -165,7 +165,7 @@ const __TWEAKS_STYLE = `
     transition:transform .12s cubic-bezier(.3,.7,.4,1),box-shadow .12s}
   .twk-chip:hover{transform:translateY(-1px);
     box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 4px 10px rgba(0,0,0,.12)}
-  .twk-chip[data-on="1"]{box-shadow:0 0 0 1.5px rgba(0,0,0,.85),
+  .twk-chip[data-on="1"]{box-shadow:0 0 0 1.5px #0a7ea4,
     0 2px 6px rgba(0,0,0,.15)}
   .twk-chip>span{position:absolute;top:0;bottom:0;right:0;width:34%;
     display:flex;flex-direction:column;box-shadow:-1px 0 0 rgba(0,0,0,.1)}
@@ -205,7 +205,7 @@ function useTweaks(defaults) {
 function TweaksPanel({ title = 'Tweaks', noDeckControls = false, children }) {
   // Default to open in the preview so the tweaks UI is visible without host
   // toolbar integration. Developers can still close it; host messages still work.
-  const [open, setOpen] = React.useState(false);
+  const [open, setOpen] = React.useState(true);
   const dragRef = React.useRef(null);
   // Auto-inject a rail toggle when a <deck-stage> is on the page. The
   // toggle drives the deck's per-viewer _railVisible via window message;

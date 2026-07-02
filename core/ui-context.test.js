@@ -10,12 +10,10 @@ describe('UIStateContext', () => {
     expect(result.current.hoveredId).toBeNull();
     expect(result.current.selection).toEqual([]);
     expect(result.current.popover).toBeNull();
-    expect(result.current.confirmWipe).toBeNull();
     expect(result.current.exportJson).toBeNull();
     expect(typeof result.current.setHoveredId).toBe('function');
     expect(typeof result.current.setSelection).toBe('function');
     expect(typeof result.current.setPopover).toBe('function');
-    expect(typeof result.current.setConfirmWipe).toBe('function');
     expect(typeof result.current.setExportJson).toBe('function');
   });
 

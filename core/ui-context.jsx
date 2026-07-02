@@ -7,7 +7,6 @@ export function UIStateProvider({ children }) {
   const [hoveredId, setHoveredId] = React.useState(null);
   const [selection, setSelection] = React.useState([]);
   const [popover, setPopover] = React.useState(null);
-  const [confirmWipe, setConfirmWipe] = React.useState(null);
   const [exportJson, setExportJson] = React.useState(null);
   const [focusedToothId, setFocusedToothId] = React.useState(null);
 
@@ -16,11 +15,10 @@ export function UIStateProvider({ children }) {
       hoveredId, setHoveredId,
       selection, setSelection,
       popover, setPopover,
-      confirmWipe, setConfirmWipe,
       exportJson, setExportJson,
       focusedToothId, setFocusedToothId,
     }),
-    [hoveredId, selection, popover, confirmWipe, exportJson, focusedToothId],
+    [hoveredId, selection, popover, exportJson, focusedToothId],
   );
 
   return (
