@@ -35,9 +35,11 @@ const TRX_STYLE = `
     border:.5px solid rgba(255,255,255,.6);border-radius:14px;
     box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
     font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
-  .trx-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
-    color:rgba(41,38,27,.45);padding:10px 0 0}
-  .trx-sect:first-child{padding-top:0}
+  .trx-sect{display:flex;align-items:center;gap:8px;
+    font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
+    color:rgba(41,38,27,.38);padding:12px 2px 7px}
+  .trx-sect::after{content:"";flex:1;height:.5px;background:rgba(41,38,27,.16)}
+  .trx-sect:first-child{padding-top:2px}
   .trx-card{display:flex;align-items:flex-start;
     background:rgba(255,255,255,.45);border:.5px solid rgba(0,0,0,.07);border-radius:9px;
     overflow:hidden;margin-bottom:4px}

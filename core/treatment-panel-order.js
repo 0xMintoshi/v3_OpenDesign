@@ -47,8 +47,10 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
 
     if (tx.scope === 'sinus') {
       for (const target of tx.targets) {
-        const heading = target === 'sinus-right' ? 'Sinus (R)' : 'Sinus (L)';
-        const sortKey = target === 'sinus-right' ? 0 : 1;
+        // Sinus targets are stored as 'right' / 'left' (popover.target.side).
+        const isRight = target === 'right';
+        const heading = isRight ? 'Sinus (R)' : 'Sinus (L)';
+        const sortKey = isRight ? 0 : 1;
         upperOtherCards.push({
           key: `sinus-${target}`,
           heading,

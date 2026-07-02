@@ -66,7 +66,7 @@ describe('buildPanelSections', () => {
   it('non-FDI cards (sinus) appear below FDI cards within upper section', () => {
     const treatments = [
       { id: 'crown', scope: 'tooth', targets: ['upper-16'] },
-      { id: 'sinus-lift', scope: 'sinus', targets: ['sinus-right'] },
+      { id: 'sinus-lift', scope: 'sinus', targets: ['right'] },
     ];
     const sections = buildPanelSections(treatments, ALL_TEETH, TX_LABEL);
     expect(sections[0].key).toBe('upper');
@@ -77,7 +77,7 @@ describe('buildPanelSections', () => {
 
   it('sinus-lift right appears before left', () => {
     const treatments = [
-      { id: 'sinus-lift', scope: 'sinus', targets: ['sinus-left', 'sinus-right'] },
+      { id: 'sinus-lift', scope: 'sinus', targets: ['left', 'right'] },
     ];
     const sections = buildPanelSections(treatments, ALL_TEETH, TX_LABEL);
     const headings = sections[0].cards.map((c) => c.heading);
