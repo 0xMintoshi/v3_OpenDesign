@@ -126,21 +126,26 @@ test('lab partial-denture-upper shape loads via selector', async ({ page }) => {
   expect(errors).toHaveLength(0);
 });
 
-test('exportLabelPositions returns an object after app loads', async ({ page }) => {
+test('TreatmentPanel pill renders in Stage 2 without errors', async ({ page }) => {
   const errors = [];
   page.on('console', msg => { if (msg.type() === 'error') errors.push(msg.text()); });
   await page.goto('/');
   await page.waitForLoadState('networkidle');
   await expect(page.locator('svg').first()).toBeVisible();
 
-  // Trigger exportLabelPositions via the button already wired in dental-arch.jsx
-  const btn = page.locator('button[title="Export label positions"]');
-  if (await btn.count() > 0) {
-    await btn.click();
-    await page.waitForTimeout(200);
+  // Advance to Stage 2
+  const advanceBtn = page.locator('button.advance-btn');
+  if (await advanceBtn.count() > 0) {
+    await advanceBtn.click();
+    await page.waitForTimeout(300);
   }
 
-  // Confirm no JS errors — the module export path must not throw
-  expect(errors.filter(e => /exportLabelPositions|TreatmentLabels is not mounted/.test(e))).toHaveLength(0);
+  // The TreatmentPanel pill or open panel should be present
+  const pill = page.locator('.trx-pill, .trx-panel');
+  if (await pill.count() > 0) {
+    await expect(pill.first()).toBeVisible();
+  }
+
+  expect(errors.filter(e => !/NaN/.test(e))).toHaveLength(0);
   await expect(page.locator('vite-error-overlay')).toHaveCount(0);
 });

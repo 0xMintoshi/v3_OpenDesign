@@ -47,7 +47,7 @@ import React from 'react';
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
-const __TWEAKS_STYLE = `
+export const __TWEAKS_STYLE = `
   .twk-panel{position:fixed;right:40px;bottom:78px;z-index:2147483646;width:280px;
     max-height:calc(100vh - 32px);display:flex;flex-direction:column;
     transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
@@ -202,10 +202,18 @@ function useTweaks(defaults) {
 // The close button posts __edit_mode_dismissed so the host's toolbar toggle
 // flips off in lockstep; the host echoes __deactivate_edit_mode back which
 // is what actually hides the panel.
-function TweaksPanel({ title = 'Tweaks', noDeckControls = false, children }) {
-  // Default to open in the preview so the tweaks UI is visible without host
-  // toolbar integration. Developers can still close it; host messages still work.
-  const [open, setOpen] = React.useState(true);
+// Optionally controlled: pass open + onOpen + onClose to let the host drive
+// the open state (e.g. coordinating with TreatmentPanel). When uncontrolled
+// (open prop omitted) the component manages its own state as before.
+function TweaksPanel({ title = 'Tweaks', noDeckControls = false, children, open: openProp, onOpen, onClose }) {
+  const controlled = openProp !== undefined;
+  const [internalOpen, setInternalOpen] = React.useState(true);
+  const open = controlled ? openProp : internalOpen;
+  const setOpen = React.useCallback((val) => {
+    if (!controlled) setInternalOpen(val);
+    if (val) onOpen?.();
+    else onClose?.();
+  }, [controlled, onOpen, onClose]);
   const dragRef = React.useRef(null);
   // Auto-inject a rail toggle when a <deck-stage> is on the page. The
   // toggle drives the deck's per-viewer _railVisible via window message;

@@ -7,18 +7,18 @@ export function UIStateProvider({ children }) {
   const [hoveredId, setHoveredId] = React.useState(null);
   const [selection, setSelection] = React.useState([]);
   const [popover, setPopover] = React.useState(null);
-  const [exportJson, setExportJson] = React.useState(null);
   const [focusedToothId, setFocusedToothId] = React.useState(null);
+  const [panelHoverIds, setPanelHoverIds] = React.useState([]);
 
   const value = React.useMemo(
     () => ({
       hoveredId, setHoveredId,
       selection, setSelection,
       popover, setPopover,
-      exportJson, setExportJson,
       focusedToothId, setFocusedToothId,
+      panelHoverIds, setPanelHoverIds,
     }),
-    [hoveredId, selection, popover, exportJson, focusedToothId],
+    [hoveredId, selection, popover, focusedToothId, panelHoverIds],
   );
 
   return (

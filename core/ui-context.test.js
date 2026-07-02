@@ -10,11 +10,11 @@ describe('UIStateContext', () => {
     expect(result.current.hoveredId).toBeNull();
     expect(result.current.selection).toEqual([]);
     expect(result.current.popover).toBeNull();
-    expect(result.current.exportJson).toBeNull();
+    expect(result.current.panelHoverIds).toEqual([]);
     expect(typeof result.current.setHoveredId).toBe('function');
     expect(typeof result.current.setSelection).toBe('function');
     expect(typeof result.current.setPopover).toBe('function');
-    expect(typeof result.current.setExportJson).toBe('function');
+    expect(typeof result.current.setPanelHoverIds).toBe('function');
   });
 
   it('throws when used outside provider', () => {

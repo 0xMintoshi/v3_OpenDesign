@@ -5,8 +5,9 @@ import archMandible from '../shapes-data/anatomy/arch-mandible.json';
 import { TOOTH_TYPES, QUADRANT, UPPER, LOWER, layoutArch, toothPaths } from '../layout/teeth-data.jsx';
 import { chRatioFor, scallopRL, scallopLR, ARCH_LAYOUT, upperBiteY, lowerBiteY, cervicalPoints } from '../core/arch-math.js';
 import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillarySinusPath, idnSchematicPath, mentalForamenCenters, ramusDetailPath } from '../layout/anatomy.jsx';
-import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, BoneGraftLayer, TreatmentLabels, TreatmentPopover, StagePill, ExistingImplantLayer, exportLabelPositions } from './treatments.jsx';
+import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, BoneGraftLayer, TreatmentPopover, StagePill, ExistingImplantLayer } from './treatments.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
+import { TreatmentPanel } from './treatment-panel.jsx';
 import { getConflictingTreatmentIds } from '../core/conflict-rules.js';
 import { areContiguous } from '../core/contiguity.js';
 import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
@@ -451,9 +452,7 @@ const DEFAULT_TWEAKS = /*EDITMODE-BEGIN*/{
   "showSinus": true,
   "showIDN": true,
 "showNumbering": true,
-  "showLeaders": true,
   "showLayoutGuides": false,
-  "manualPlacementMode": true,
   "archDepth": 0,
   "wisdomImpacted": false
 } /*EDITMODE-END*/;
@@ -463,7 +462,10 @@ function DentalHeroInner() {
   const [t, setTweak] = useTweaks(DEFAULT_TWEAKS);
 
   const { stage, setStage, presence, setPresence, treatments, setTreatments, loaded } = useChartState();
-  const { hoveredId, setHoveredId, selection, setSelection, popover, setPopover, exportJson, setExportJson, focusedToothId, setFocusedToothId } = useUIState();
+  const { hoveredId, setHoveredId, selection, setSelection, popover, setPopover, focusedToothId, setFocusedToothId, panelHoverIds, setPanelHoverIds } = useUIState();
+
+  const [openPanel, setOpenPanel] = useState('tweaks');
+  useEffect(() => setOpenPanel(stage === 'treatment' ? 'treatment' : 'tweaks'), [stage]);
 
   // Emit to parent quotation app when chart state is ready (Firestore loaded).
   useEffect(() => {
@@ -990,31 +992,6 @@ function DentalHeroInner() {
     });
   };
 
-  const handleExportLabelPositions = useCallback(async () => {
-    try {
-      let p = {};
-      try { p = exportLabelPositions(); } catch (e) {
-        try { p = JSON.parse(localStorage.getItem('labelPositions') || '{}'); } catch (_) { p = {}; }
-      }
-      const txt = JSON.stringify(p, null, 2);
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        try { await navigator.clipboard.writeText(txt); } catch (e) { /* ignore */ }
-      }
-      try {
-        const blob = new Blob([txt], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a'); a.href = url; a.download = 'label-positions.json';
-        document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
-      } catch (e) { /* ignore */ }
-      console.log('Exported label positions:', p);
-      setExportJson(txt);
-      alert('Label positions exported (copied to clipboard if available, and downloaded).');
-    } catch (e) {
-      console.warn('Export failed', e);
-      alert('Export failed - see console');
-    }
-  }, []);
-
   // Theme variables
   const themeVars = t.theme === 'dark' ? darkTheme() : flatTheme();
 
@@ -1124,7 +1101,7 @@ function DentalHeroInner() {
                     tooth={tooth}
                     jawFlip={false}
                     accent={t.accent}
-                    isHovered={hoveredId === tooth.id}
+                    isHovered={hoveredId === tooth.id || panelHoverIds.includes(tooth.id)}
                     isSelected={selection.includes(tooth.id)}
                     isInDrag={marquee?.hits.has(tooth.id) ?? false}
                     presence={presence[tooth.id]}
@@ -1148,7 +1125,7 @@ function DentalHeroInner() {
                   tooth={tooth}
                   jawFlip={true}
                   accent={t.accent}
-                  isHovered={hoveredId === tooth.id}
+                  isHovered={hoveredId === tooth.id || panelHoverIds.includes(tooth.id)}
                   isSelected={selection.includes(tooth.id)}
                   isInDrag={false}
                   presence={presence[tooth.id]}
@@ -1196,22 +1173,7 @@ function DentalHeroInner() {
               style={{ pointerEvents: 'none' }} />
           )}
 
-          {/* Treatment labels with leader lines (Stage 2) */}
-           {stage === 'treatment' && t.showLeaders &&
-            <TreatmentLabels
-             treatments={treatments}
-             allTeeth={allTeeth}
-             upperBiteY={upperBiteY}
-             lowerBiteY={lowerBiteY}
-             accent={t.accent}
-             debugGuides={t.showLayoutGuides}
-             manualPlacementMode={t.manualPlacementMode}
-             txLabel={TX_LABEL}
-             onRemoveTooth={removeTreatmentForTooth}
-             onRemoveOther={removeNonToothTreatment}
-             onRemoveSpan={removeSpanTreatment} />
 
-          }
         </svg>
       </div>
 
@@ -1230,8 +1192,6 @@ function DentalHeroInner() {
           treatments={treatments}
           onBack={handleBack}
           onClear={() => setTreatments([])}
-          showLeaders={t.showLeaders}
-          onToggleLeaders={() => setTweak('showLeaders', !t.showLeaders)}
           selectionCount={selection.length}
           selectionStats={selectionStats}
           onExportPlan={handleExportPlan} />
@@ -1268,7 +1228,11 @@ function DentalHeroInner() {
       
 
 
-      <TweaksPanel>
+      <TweaksPanel
+        open={openPanel === 'tweaks'}
+        onOpen={() => setOpenPanel('tweaks')}
+        onClose={() => setOpenPanel(null)}
+      >
         <TweakColor label="Accent" value={t.accent} onChange={(v) => setTweak('accent', v)}
         options={['#2A6FDB', '#1F8A5B', '#D97757', '#8B5CF6', '#0F172A']} />
         <TweakToggle label="#38/48 Impaction" value={t.wisdomImpacted} onChange={(v) => setTweak('wisdomImpacted', v)} />
@@ -1276,26 +1240,20 @@ function DentalHeroInner() {
         <TweakToggle label="Sinus Zones" value={t.showSinus} onChange={(v) => setTweak('showSinus', v)} />
         <TweakToggle label="ID Nerve" value={t.showIDN} onChange={(v) => setTweak('showIDN', v)} />
       </TweaksPanel>
-      {exportJson && (
-        <>
-          <div className="popover-veil" onClick={() => setExportJson(null)} />
-          <div className="export-modal" style={{
-            position: 'fixed', left: '50%', top: '50%', transform: 'translate(-50%, -50%)',
-            background: 'var(--card-bg)', border: '1px solid var(--card-border)', padding: 12, zIndex: 1200,
-            width: 'min(880px, 92%)', maxHeight: '80vh', overflow: 'auto', borderRadius: 8
-          }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-              <strong>Exported label positions</strong>
-              <div>
-                <button className="btn-ghost" onClick={async () => {
-                  try { await navigator.clipboard.writeText(exportJson); alert('Copied to clipboard'); } catch (e) { alert('Copy failed — check console'); }
-                }}>Copy JSON</button>
-                <button className="btn-ghost" onClick={() => setExportJson(null)} style={{ marginLeft: 8 }}>Close</button>
-              </div>
-            </div>
-            <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontSize: 12, lineHeight: 1.4 }}>{exportJson}</pre>
-          </div>
-        </>
+      {stage === 'treatment' && (
+        <TreatmentPanel
+          open={openPanel === 'treatment'}
+          onOpen={() => setOpenPanel('treatment')}
+          onClose={() => setOpenPanel(null)}
+          treatments={treatments}
+          allTeeth={allTeeth}
+          accent={t.accent}
+          txLabel={TX_LABEL}
+          onRemoveTooth={removeTreatmentForTooth}
+          onRemoveSpan={removeSpanTreatment}
+          onRemoveOther={removeNonToothTreatment}
+          onHoverTargets={setPanelHoverIds}
+        />
       )}
     </div>);
 
@@ -1356,7 +1314,7 @@ function SelectionActionBar({ accent, count, stats, onApply, onClear }) {
 
 }
 
-function TreatmentFooter({ accent, treatments, onBack, onClear, showLeaders, onToggleLeaders, selectionCount, selectionStats, onExportPlan }) {
+function TreatmentFooter({ accent, treatments, onBack, onClear, selectionCount, selectionStats, onExportPlan }) {
   const count = treatments.reduce((sum, tx) => {
     if (tx.scope === 'full-mouth') return sum + 1;
     return sum + tx.targets.length;
@@ -1369,9 +1327,6 @@ function TreatmentFooter({ accent, treatments, onBack, onClear, showLeaders, onT
         </button>
       </div>
       <div className="wf-right">
-        <button className={`btn-ghost footer-btn leader-toggle ${showLeaders ? 'on' : ''}`} onClick={onToggleLeaders}>
-          {showLeaders ? 'Hide Labels' : 'Show Labels'}
-        </button>
         {treatments.length > 0 &&
         <button className="btn-ghost footer-btn" onClick={onClear}>Clear Plan</button>
         }

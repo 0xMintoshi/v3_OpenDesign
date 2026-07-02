@@ -3,7 +3,6 @@ import { CrownOverlay } from '../treatment-overlays/CrownOverlay.jsx';
 import { BridgeSpanOverlay, bridgeContactStrokePath, CONTACT_STROKE_WIDTH, bridgeContactPoint, crownDepth } from '../treatment-overlays/BridgeSpanOverlay.jsx';
 import { CompleteDentureOverlay } from '../treatment-overlays/CompleteDentureOverlay.jsx';
 import { PartialDentureOverlay } from '../treatment-overlays/PartialDentureOverlay.jsx';
-import { TreatmentLabels } from '../treatment-overlays/TreatmentLabels.jsx';
 import { ClearAlignerOverlay } from '../treatment-overlays/ClearAlignerOverlay.jsx';
 import { useChartState } from '../core/chart-context.jsx';
 import { proximalExtreme } from '../core/tooth-split.js';
@@ -1239,7 +1238,7 @@ function ConfirmDialog({ open, title, body, confirmLabel, onConfirm, onCancel, a
 
 Object.assign(window, {
   TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL,
-  TreatmentLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog,
+  TreatmentLayer, TreatmentPopover, StagePill, ConfirmDialog,
 });
 
 // Bone grafts rendered behind tooth outlines — must be placed below AnatomyBackground
@@ -1272,6 +1271,5 @@ function BoneGraftLayer({ allTeeth, upperBiteY, lowerBiteY, accent }) {
 
 export {
   TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL,
-  TreatmentLayer, BoneGraftLayer, TreatmentLabels, TreatmentPopover, StagePill, ConfirmDialog,
+  TreatmentLayer, BoneGraftLayer, TreatmentPopover, StagePill, ConfirmDialog,
 };
-export { exportLabelPositions, setLabelPositions } from '../treatment-overlays/TreatmentLabels.jsx';
