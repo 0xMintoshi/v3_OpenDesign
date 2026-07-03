@@ -627,10 +627,10 @@ function AlveolectomyBand({ arch, teeth, biteY }) {
 
   return (
     <g style={{ pointerEvents: 'none' }}>
-      <path d={bandPath} fill="#aaaaaa" fillOpacity="0.28" stroke="none" />
+      <path d={bandPath} fill="var(--tx-alveolectomy)" fillOpacity="0.28" stroke="none" />
       {/* Erase solid bone scallop, replace with dotted resection line */}
       <path d={scallopPath} fill="none" stroke="var(--bg-1)" strokeWidth="4" />
-      <path d={scallopPath} fill="none" stroke="#888888" strokeWidth="1.4" strokeOpacity="0.70" strokeDasharray="4 3" />
+      <path d={scallopPath} fill="none" stroke="var(--tx-alveolectomy)" strokeWidth="1.4" strokeOpacity="0.70" strokeDasharray="4 3" />
     </g>
   );
 }
@@ -753,7 +753,7 @@ function ExtractionOverlay({ tooth, biteY }) {
   const thick = halfLen * 0.44;
   const rx = thick / 2;
   const cy = -crownDepth(type, h) / 2;
-  const RED = '#d93025';
+  const RED = 'var(--tx-extraction)';
   const clipId = `ext-clip-${tooth.fdi}`;
   return (
     <g transform={`translate(${cx}, ${biteY + yOffset * flipY + yAdjust}) scale(1, ${flipY}) rotate(${tilt})`} style={{ pointerEvents: 'none' }}>
