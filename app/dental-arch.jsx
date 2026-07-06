@@ -980,6 +980,111 @@ function DentalHeroInner() {
     return () => window.removeEventListener('message', onMsg);
   }, []);
 
+  // M3 — respond to GET_TOOTH_RECTS with viewport centres of all treated teeth.
+  useEffect(() => {
+    const onMsg = (e) => {
+      const msg = e.data;
+      if (!msg || msg.version !== 1 || msg.type !== 'GET_TOOTH_RECTS') return;
+      const toothIds = new Set();
+      treatments.forEach(tx => {
+        if (tx.scope === 'tooth') tx.targets.forEach(id => toothIds.add(id));
+      });
+      const rects = [];
+      toothIds.forEach(id => {
+        const el = document.querySelector(`[data-tooth-id="${id}"]`);
+        if (el) {
+          const r = el.getBoundingClientRect();
+          rects.push({ id, cx: r.left + r.width / 2, cy: r.top + r.height / 2 });
+        }
+      });
+      emit('TOOTH_RECTS', { rects });
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [treatments]);
+
+  // M4 — respond to GET_CHART_SNAPSHOT with a canvas→PNG data-URI @4× oversampling (Route B).
+  // Serializer must-fixes (E1 spec):
+  //   1. Crop to content: getBBox clamped to declared viewBox [0,0,1600,800] + 24u pad.
+  //   2. Skip url() computed values so relative #id refs survive in the detached clone.
+  //   3. Inline presentation-prop whitelist only (external CSS won't travel with the clone).
+  useEffect(() => {
+    const PRESENTATION_PROPS = [
+      'fill', 'fill-opacity', 'fill-rule',
+      'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-dashoffset',
+      'stroke-linecap', 'stroke-linejoin', 'stroke-miterlimit', 'stroke-opacity',
+      'opacity', 'color',
+      'font-family', 'font-size', 'font-weight', 'font-style', 'font-variant',
+      'text-anchor', 'dominant-baseline', 'letter-spacing',
+      'display', 'visibility', 'mix-blend-mode',
+    ];
+
+    function inlineComputedStyles(src, dst) {
+      const cs = window.getComputedStyle(src);
+      for (const prop of PRESENTATION_PROPS) {
+        const val = cs.getPropertyValue(prop);
+        if (!val || val.includes('url(')) continue; // preserve relative url(#id) attrs
+        dst.style.setProperty(prop, val);
+      }
+      for (let i = 0; i < src.children.length; i++) {
+        if (dst.children[i]) inlineComputedStyles(src.children[i], dst.children[i]);
+      }
+    }
+
+    const onMsg = (e) => {
+      const msg = e.data;
+      if (!msg || msg.version !== 1 || msg.type !== 'GET_CHART_SNAPSHOT') return;
+      const svg = svgRef.current;
+      if (!svg) { emit('CHART_SNAPSHOT', { dataUrl: null }); return; }
+
+      try {
+        // 1. Clone and inline computed styles
+        const clone = svg.cloneNode(true);
+        inlineComputedStyles(svg, clone);
+
+        // 2. Crop viewBox: getBBox clamped to [0,0,1600,800] to exclude out-of-viewBox labels
+        const raw = svg.getBBox();
+        const PAD = 24;
+        const x0 = Math.max(raw.x, 0) - PAD;
+        const y0 = Math.max(raw.y, 0) - PAD;
+        const x1 = Math.min(raw.x + raw.width,  1600) + PAD;
+        const y1 = Math.min(raw.y + raw.height,  800) + PAD;
+        const vw = x1 - x0;
+        const vh = y1 - y0;
+        clone.setAttribute('viewBox', `${x0} ${y0} ${vw} ${vh}`);
+        clone.setAttribute('width',  String(vw));
+        clone.setAttribute('height', String(vh));
+        clone.style.cssText = ''; // clear inline height:988px set by the live element
+
+        // 3. Serialize → Blob URL → draw to canvas @4×
+        const svgStr = new XMLSerializer().serializeToString(clone);
+        const blob = new Blob([svgStr], { type: 'image/svg+xml;charset=utf-8' });
+        const blobUrl = URL.createObjectURL(blob);
+        const SCALE = 4;
+        const canvas = document.createElement('canvas');
+        canvas.width  = Math.round(vw * SCALE);
+        canvas.height = Math.round(vh * SCALE);
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        img.onload = () => {
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          URL.revokeObjectURL(blobUrl);
+          emit('CHART_SNAPSHOT', { dataUrl: canvas.toDataURL('image/png') });
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(blobUrl);
+          emit('CHART_SNAPSHOT', { dataUrl: null });
+        };
+        img.src = blobUrl;
+      } catch (err) {
+        console.error('[chart] snapshot error:', err);
+        emit('CHART_SNAPSHOT', { dataUrl: null });
+      }
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, []); // reads DOM at message-time; no reactive deps needed
+
   const handleBulkArch = (arch, missing) => {
     const teeth = arch === 'upper' ? scaledUpper : scaledLower;
     setPresence((p) => {
