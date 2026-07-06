@@ -980,6 +980,20 @@ function DentalHeroInner() {
     return () => window.removeEventListener('message', onMsg);
   }, []);
 
+  // Listen for SET_TREATMENTS from parent — replaces all chart treatments atomically.
+  // Echo-guard ordering (roadmap §6.2): parent MUST switch its working globals to the
+  // target plan BEFORE posting this message, so the resulting CHART_TREATMENT_APPLIED_BATCH
+  // echo lands while the parent globals already match that plan (idempotent via _chartTxId).
+  useEffect(() => {
+    const onMsg = (e) => {
+      const msg = e.data;
+      if (!msg || msg.version !== 1 || msg.type !== 'SET_TREATMENTS') return;
+      setTreatments(Array.isArray(msg.payload?.treatments) ? [...msg.payload.treatments] : []);
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
   // M3 — respond to GET_TOOTH_RECTS with viewport centres of all treated teeth.
   useEffect(() => {
     const onMsg = (e) => {
