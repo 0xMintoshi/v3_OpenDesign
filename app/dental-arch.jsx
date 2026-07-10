@@ -972,7 +972,7 @@ function DentalHeroInner() {
       const { chartTxId } = msg.payload;
       setTreatments(prev =>
         prev.filter(tx =>
-          (tx.id + '_' + tx.targets.map(t => t.id).join('_')) !== chartTxId
+          (tx.id + ':' + (tx.targets || []).slice().sort().join(',')) !== chartTxId
         )
       );
     };
