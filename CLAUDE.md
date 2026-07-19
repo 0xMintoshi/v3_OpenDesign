@@ -59,6 +59,7 @@ npm run build  # rebuild dist/ — REQUIRED for the v3 app iframe to see source 
 ### Mirror workflow
 - `mirrorSegments.js` is **deleted** — do NOT suggest re-adding it
 - To mirror a shape: edit one side in ShapeLab → download JSON → paste it and ask Claude to mirror in code
+- Maxilla (two sub-paths): mirror each sub-path independently; keep the `M(L-cervical)` endpoint y at cervical level (≈ same y as sub-path 1's R-cervical end) or a diagonal bridge appears between scallop and L-side outline. Mandible is a single sub-path, no jump anchor.
 
 ### Crown transplant technique
 - To apply a ShapeLab-edited crown across tooth types: transplant into JS keeping cervical neck anchors **symbolic** (`${nw*0.50}`, `${ny}`) — never hardcode the neck coordinate
@@ -70,6 +71,16 @@ npm run build  # rebuild dist/ — REQUIRED for the v3 app iframe to see source 
 ### Lab-parity drift (known, harmless)
 - Tooth JSONs in `shapes-data/anatomy/teeth/` carry a legacy floating cervical arc; app derives a corrected one from `tooth-split.js`
 - Do NOT attempt to re-sync the tooth JSON `cervical` paths — app ignores them
+
+### Bridge connector geometry
+- Vertical anchor: use the `IBS_CONTACT_HEIGHT` fraction (0=gingival, 1=occlusal), never `proximalExtreme`'s y — on implant crowns the widest point is the gingival flare, so anchoring there puts the connector in the gingival third. `proximalExtreme` is valid for **x only** (lateral extent). Regular crown: `contactY = -crownDepth * (1 - IBS_CONTACT_HEIGHT)`; implant crown: `contactY = -crownH * IBS_CONTACT_HEIGHT` (same constant = same anatomical position).
+- Between teeth with different `yOffset`/`tilt`, per-tooth global y-mapping gives `pA.y ≠ pB.y` → slanted connector. Average to a shared `midY = (pA.y + pB.y) / 2` and apply delta symmetrically for all four corners.
+
+### Proportional interproximal gap
+- `ARCH_LAYOUT.gapFrac = 0.08` (fraction of tooth width) in `core/arch-math.js`, not absolute pixels — a fixed gap reads ~2× wider between narrow incisors than wide molars. `layoutArch` computes `gaps[i] = w * gapFrac` and accounts for it in `totalW`. ShapeLab passes explicit `gap` (gapFrac stays null there).
+
+### tablet-chart.jsx yOffset
+- Translate y is `55 + yOffset` — **unsigned**, same direction for both rows; `scale(1, flipY)` alone handles tooth orientation. Negating yOffset for the lower row moves molarU-style crowns to the upper half of the lower SVG (teeth look upside down).
 
 ### t.id vs t.fdi
 - `t.id` is a string (`"upper-18"`)

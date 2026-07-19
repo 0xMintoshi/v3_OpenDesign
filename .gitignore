@@ -31,6 +31,11 @@ build/
 .parcel-cache/
 .vite/
 
+# Playwright test-run artifacts
+test-results/
+playwright-report/
+.playwright-mcp/
+
 # Archives and generated bundles
 *.zip
 *.tar

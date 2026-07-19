@@ -23,9 +23,10 @@ const TX_GROUPS = [
     label: 'Extraction',
     scope: 'tooth',
     items: [
-      { id: 'extraction',                  label: 'Extraction',                   hint: 'remove tooth · present teeth only',             requires: 'present-tooth' },
-      { id: 'simple-surgical-extraction', label: 'Simple Surgical Extraction',   hint: 'surgical removal · present teeth only · SF812T',  requires: 'present-tooth' },
-      { id: 'complex-surgical-extraction',label: 'Complex Surgical Extraction',  hint: 'complex surgical removal · present teeth only · SF813T', requires: 'present-tooth' },
+      { id: 'extraction',                  label: 'Extraction',                   hint: 'remove tooth · present teeth or root stumps',             requires: 'extractable-tooth' },
+      { id: 'simple-surgical-extraction', label: 'Simple Surgical Extraction',   hint: 'surgical removal · present teeth or root stumps · SF812T',  requires: 'surgical-extractable' },
+      { id: 'complex-surgical-extraction',label: 'Complex Surgical Extraction',  hint: 'complex surgical removal · present teeth or root stumps · SF813T', requires: 'surgical-extractable' },
+      { id: 'root-stump-extraction',      label: 'Multiple Retained Root Surgical Extraction', hint: 'multiple retained roots · SF816T', requires: 'multi-root-stump' },
     ],
   },
   {
@@ -804,7 +805,8 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
           return <AlveolectomyBand key={`alv-${i}-${arch}`} arch={arch} teeth={teeth} biteY={biteY} />;
         }
         if (tx.id === 'complete-denture') {
-          return <CompleteDentureOverlay key={`den-${i}-${arch}`} jaw={arch} accent={accent} biteY={biteY} archWidth={archWidth} />;
+          const archTeeth = arch === 'upper' ? upperTeeth : lowerTeeth;
+          return <CompleteDentureOverlay key={`den-${i}-${arch}`} jaw={arch} accent={accent} biteY={biteY} archWidth={archWidth} teeth={archTeeth} />;
         }
         if (tx.id === 'partial-denture-upper') {
           return <PartialDentureOverlay key={`pdu-${i}`} jaw="upper" accent={accent} />;
@@ -827,7 +829,7 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
         if (!tooth) return null;
         const biteY = tooth.jaw === 'upper' ? upperBiteY : lowerBiteY;
         const txIds = list.map(tx => tx.id);
-        const EXTRACTION_IDS = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction'];
+        const EXTRACTION_IDS = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction', 'root-stump-extraction'];
         const extractionOnly = txIds.length === 1 && EXTRACTION_IDS.includes(txIds[0]);
         return (
           <g key={toothId}>
@@ -860,6 +862,7 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
         const hasNatural = tx.targets.some((id) =>
           presence[id] !== 'missing' &&
           presence[id] !== 'implant' &&
+          presence[id] !== 'root-stump' &&
           !treatments.some((x) =>
             (x.id === 'implant-only' || x.id === 'implant-crown') && x.targets.includes(id))
         );
@@ -1031,7 +1034,7 @@ const CAT_GLYPHS = {
   ),
 };
 
-function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPresent, allMissing, hasBridgeAbutment = false, hasBridgeGap = false, fullyEdentulous, onApply, onApplyBaseline, onClose }) {
+function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPresent, allMissing, allExtractable = false, allRootStump = false, hasBridgeAbutment = false, hasBridgeGap = false, fullyEdentulous, onApply, onApplyBaseline, onClose }) {
   const [activeCategory, setActiveCategory] = React.useState(null);
   React.useEffect(() => { if (!open) setActiveCategory(null); }, [open]);
   if (!open) return null;
@@ -1078,6 +1081,15 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
               </svg>
               <span className="baseline-option-label">Existing implant</span>
             </button>
+            <button className="baseline-option" onClick={() => onApplyBaseline('root-stump')}>
+              <svg className="baseline-glyph" aria-hidden="true" viewBox="0 0 32 38" fill="none" xmlns="http://www.w3.org/2000/svg">
+                {/* Root stump — tapered root silhouette with cervical curve at top */}
+                <path d="M10 10 Q10 8 16 8 Q22 8 22 10 C22 16 20 24 18 30 Q17 34 16 34 Q15 34 14 30 C12 24 10 16 10 10 Z"
+                  stroke="var(--tooth-stroke)" strokeWidth="1.4" fill="var(--tooth-fill)"/>
+                <path d="M10 10 Q16 13 22 10" stroke="var(--tooth-stroke)" strokeWidth="1.0" fill="none" opacity="0.7"/>
+              </svg>
+              <span className="baseline-option-label">Root stump</span>
+            </button>
           </div>
         </div>
       </>
@@ -1109,6 +1121,12 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
       return target.edentulous;
     }
     if (item.requires === 'present-tooth') return allPresent === true;
+    if (item.requires === 'extractable-tooth') return allExtractable === true;
+    if (item.requires === 'surgical-extractable')
+      return allExtractable === true &&
+             !(allRootStump === true && Array.isArray(target) && target.length >= 2);
+    if (item.requires === 'multi-root-stump')
+      return allRootStump === true && Array.isArray(target) && target.length >= 2;
     if (item.requires === 'missing-tooth') {
       if (!allMissing) return false;
       if (item.id === 'implant-bridge-span') return Array.isArray(target) && target.length >= 2;

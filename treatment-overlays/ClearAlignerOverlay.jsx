@@ -115,7 +115,7 @@ function cervProfile(crownD, depth) {
 // Closed quadratic B-spline (midpoint method). Approximating — every arc stays
 // inside its control triangle, so it cannot overshoot → spikes are impossible.
 // No tension parameter. C1-continuous all the way around the ring.
-function smoothClosedRing(pts) {
+export function smoothClosedRing(pts) {
   const n = pts.length;
   if (n < 3) return '';
   const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });

@@ -1,7 +1,7 @@
 const IMPLANT_GROUP = ['implant-only', 'implant-crown', 'implant-bridge-span'];
 const NATURAL_GROUP = ['crown', 'bridge-span'];
 const ALL_PROSTHETICS = [...IMPLANT_GROUP, ...NATURAL_GROUP];
-const EXTRACTION_GROUP = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction'];
+const EXTRACTION_GROUP = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction', 'root-stump-extraction'];
 
 // Returns the set of treatment IDs that must be stripped from affected targets
 // when txId is applied.

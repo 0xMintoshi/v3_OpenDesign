@@ -8,6 +8,7 @@ import { maxillaPath, mandiblePath, nasalCavityPath, nasalSeptumPath, maxillaryS
 import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, BoneGraftLayer, TreatmentPopover, StagePill, ExistingImplantLayer } from './treatments.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
 import { TreatmentPanel, PanelDock } from './treatment-panel.jsx';
+import { Dock, DockDivider, DockItem, ArchIcon, StageForwardIcon, StageBackIcon, SummaryIcon, ClearIcon } from './dock.jsx';
 import { getConflictingTreatmentIds } from '../core/conflict-rules.js';
 import { areContiguous } from '../core/contiguity.js';
 import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
@@ -15,9 +16,9 @@ import { emit } from '../core/iframe-bridge.js';
 import { UIStateProvider, useUIState } from '../core/ui-context.jsx';
 import { useClinicTheme } from '../core/use-clinic-theme.js';
 
-// undefined (healthy) → 'missing' → 'implant' → undefined
+// undefined (healthy) → 'missing' → 'implant' → 'root-stump' → undefined
 export function cyclePresence(cur) {
-  return cur === undefined ? 'missing' : cur === 'missing' ? 'implant' : undefined;
+  return cur === undefined ? 'missing' : cur === 'missing' ? 'implant' : cur === 'implant' ? 'root-stump' : undefined;
 }
 import { useIsTablet } from '../layout/use-is-tablet.js';
 import { TabletChart } from '../layout/tablet-chart.jsx';
@@ -53,6 +54,7 @@ function Tooth({
 
   const missing = presence === 'missing';
   const isImplant = presence === 'implant';
+  const isRootStump = presence === 'root-stump';
 
   let liftY = 0;
   if (isHovered && !missing && !isImplant && stage === 'baseline') liftY = -3;
@@ -134,7 +136,7 @@ function Tooth({
           }}>
 
           <path
-            d={paths.outline}
+            d={isRootStump ? paths.root : paths.outline}
             fill={fillColor}
             fillOpacity={isInDrag ? 0.18 : isSelected ? 0.18 : 1}
             stroke={strokeColor}
@@ -145,7 +147,7 @@ function Tooth({
             style={{ pointerEvents: 'visiblePainted' }} />
           {isSelected &&
           <path
-            d={paths.outline}
+            d={isRootStump ? paths.root : paths.outline}
             fill="none"
             stroke={accent}
             strokeWidth="5"
@@ -154,8 +156,8 @@ function Tooth({
             opacity="0.16"
             style={{ pointerEvents: 'none' }} />
           }
-          
-          {!missing &&
+
+          {!missing && !isRootStump &&
           <path
             d={paths.cervical}
             fill="none"
@@ -482,6 +484,7 @@ function DentalHeroInner() {
       (tx.id === 'bridge-span' || tx.id === 'implant-bridge-span')
         ? { ...tx, claimableCrowns: tx.targets.filter((id) =>
             presence[id] !== 'missing' &&
+            presence[id] !== 'root-stump' &&
             !treatments.some((x) => (x.id === 'implant-only' || x.id === 'implant-crown') && x.targets.includes(id))
           ).length }
         : tx
@@ -771,7 +774,9 @@ function DentalHeroInner() {
       setSelection([]);
       return;
     }
-    const autoMissing = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction'];
+    const autoMissing = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction', 'root-stump-extraction'];
+    const SESSION_SPLIT_IDS = ['implant-only', 'implant-crown', 'gbr',
+                               'simple-surgical-extraction', 'complex-surgical-extraction', 'root-stump-extraction'];
     if (autoMissing.includes(txId) && popover.mode === 'tooth') {
       setPresence((p) => {
         const next = { ...p };
@@ -803,6 +808,14 @@ function DentalHeroInner() {
             if (jawTargets.length < 2) continue; // skip single-tooth jaw groups
             next.push({ id: txId, scope: 'tooth', targets: jawTargets });
           }
+        } else if (SESSION_SPLIT_IDS.includes(txId)) {
+          // Each apply = its own Medisave session. Move any re-selected teeth into the new group.
+          next = next.map((tx) =>
+            (tx.scope === 'tooth' && tx.id === txId)
+              ? { ...tx, targets: tx.targets.filter((id) => !targets.includes(id)) }
+              : tx
+          ).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0);
+          next.push({ id: txId, scope: 'tooth', targets });
         } else {
           const existingIdx = next.findIndex((tx) => tx.id === txId && tx.scope === 'tooth');
           if (existingIdx >= 0) {
@@ -1296,27 +1309,22 @@ function DentalHeroInner() {
         </svg>
       </div>
 
-      <footer className={`footer workflow-footer ${stage === 'baseline' ? 'baseline-footer' : ''}`}>
-        {stage === 'baseline' ?
-        <BaselineFooter
-          accent={t.accent}
-          archEdentulous={archEdentulous}
-          onGreyArch={(arch) => handleBulkArch(arch, !archEdentulous[arch])}
-          onAdvance={handleAdvance}
-          missingCount={Object.keys(presence).length} /> :
+      {stage === 'baseline' ?
+      <BaselineFooter
+        accent={t.accent}
+        archEdentulous={archEdentulous}
+        onGreyArch={(arch) => handleBulkArch(arch, !archEdentulous[arch])}
+        onAdvance={handleAdvance} /> :
 
 
-        <TreatmentFooter
-          accent={t.accent}
-          treatments={treatments}
-          onBack={handleBack}
-          onClear={() => setTreatments([])}
-          selectionCount={selection.length}
-          selectionStats={selectionStats}
-          onExportPlan={handleExportPlan} />
+      <TreatmentFooter
+        accent={t.accent}
+        treatments={treatments}
+        onBack={handleBack}
+        onClear={() => setTreatments([])}
+        onExportPlan={handleExportPlan} />
 
-        }
-      </footer>
+      }
 
       <TreatmentPopover
         open={!!popover}
@@ -1325,14 +1333,20 @@ function DentalHeroInner() {
         target={popover ? popover.target : null}
         archEdentulous={archEdentulous}
         allPresent={popover && popover.mode === 'tooth'
-          ? popover.target.every(t => presence[t.id] !== 'missing' && presence[t.id] !== 'implant')
+          ? popover.target.every(t => presence[t.id] !== 'missing' && presence[t.id] !== 'implant' && presence[t.id] !== 'root-stump')
           : false}
         allMissing={popover && popover.mode === 'tooth'
           ? popover.target.every(t => presence[t.id] === 'missing')
           : false}
+        allExtractable={popover && popover.mode === 'tooth'
+          ? popover.target.every(t => presence[t.id] !== 'missing' && presence[t.id] !== 'implant')
+          : false}
+        allRootStump={popover && popover.mode === 'tooth'
+          ? popover.target.every(t => presence[t.id] === 'root-stump')
+          : false}
         hasBridgeAbutment={popover && popover.mode === 'tooth'
           ? popover.target.some(t =>
-              (presence[t.id] !== 'missing' && presence[t.id] !== 'implant') ||
+              (presence[t.id] !== 'missing' && presence[t.id] !== 'implant' && presence[t.id] !== 'root-stump') ||
               treatments.some(x => x.id === 'implant-only' && x.targets.includes(t.id)))
           : false}
         hasBridgeGap={popover && popover.mode === 'tooth'
@@ -1385,34 +1399,27 @@ function DentalHeroInner() {
 // ====================================================================
 // Footers
 // ====================================================================
-function BaselineFooter({ accent, archEdentulous, onGreyArch, onAdvance, missingCount }) {
+function BaselineFooter({ accent, archEdentulous, onGreyArch, onAdvance }) {
   return (
-    <>
-      <div className="wf-left">
-        <span className="wf-step">STAGE 1</span>
-        <span className="wf-sep">/</span>
-        <span className="wf-help">
-          {missingCount > 0 ?
-          `${missingCount} ${missingCount === 1 ? 'tooth' : 'teeth'} marked` :
-          'Click a tooth to mark it missing or as an existing implant'}
-        </span>
-      </div>
-      <div className="wf-right">
-        <button className={`btn-ghost footer-btn arch-btn ${archEdentulous.upper ? 'on' : ''}`}
-        onClick={() => onGreyArch('upper')}>
-          <span className="arch-glyph">⌒</span>
-          {archEdentulous.upper ? 'Restore Upper' : 'Upper Edentulous'}
-        </button>
-        <button className={`btn-ghost footer-btn arch-btn ${archEdentulous.lower ? 'on' : ''}`}
-        onClick={() => onGreyArch('lower')}>
-          <span className="arch-glyph">⌣</span>
-          {archEdentulous.lower ? 'Restore Lower' : 'Lower Edentulous'}
-        </button>
-        <button className="btn-primary footer-btn advance-btn" style={{ background: accent }} onClick={onAdvance}>
-          Stage 2 <span className="arrow">-&gt;</span>
-        </button>
-      </div>
-    </>);
+    <Dock>
+      <DockItem
+        icon={<ArchIcon direction="down" restore={archEdentulous.upper} />}
+        label={archEdentulous.upper ? 'Restore Upper' : 'Upper Edentulous'}
+        active={archEdentulous.upper}
+        onClick={() => onGreyArch('upper')} />
+      <DockItem
+        icon={<ArchIcon direction="up" restore={archEdentulous.lower} />}
+        label={archEdentulous.lower ? 'Restore Lower' : 'Lower Edentulous'}
+        active={archEdentulous.lower}
+        onClick={() => onGreyArch('lower')} />
+      <DockDivider />
+      <DockItem
+        icon={<StageForwardIcon />}
+        label="Stage 2"
+        primary
+        style={{ '--dock-accent': accent }}
+        onClick={onAdvance} />
+    </Dock>);
 
 }
 
@@ -1437,27 +1444,29 @@ function SelectionActionBar({ accent, count, stats, onApply, onClear }) {
 
 }
 
-function TreatmentFooter({ accent, treatments, onBack, onClear, selectionCount, selectionStats, onExportPlan }) {
-  const count = treatments.reduce((sum, tx) => {
-    if (tx.scope === 'full-mouth') return sum + 1;
-    return sum + tx.targets.length;
-  }, 0);
+function TreatmentFooter({ accent, treatments, onBack, onClear, onExportPlan }) {
   return (
-    <>
-      <div className="wf-left">
-        <button className="btn-primary footer-btn" style={{ background: accent }} onClick={onBack}>
-          <span className="arrow">←</span> Stage 1
-        </button>
-      </div>
-      <div className="wf-right">
-        {treatments.length > 0 &&
-        <button className="btn-ghost footer-btn" onClick={onClear}>Clear Plan</button>
-        }
-        <button className="btn-primary footer-btn" style={{ background: accent }} onClick={onExportPlan}>
-          Summary <span className="arrow">→</span>
-        </button>
-      </div>
-    </>);
+    <Dock>
+      <DockItem
+        icon={<StageBackIcon />}
+        label="Stage 1"
+        primary
+        style={{ '--dock-accent': accent }}
+        onClick={onBack} />
+      <DockDivider />
+      {treatments.length > 0 &&
+      <DockItem
+        icon={<ClearIcon />}
+        label="Clear Plan"
+        onClick={onClear} />
+      }
+      <DockItem
+        icon={<SummaryIcon />}
+        label="Summary"
+        primary
+        style={{ '--dock-accent': accent }}
+        onClick={onExportPlan} />
+    </Dock>);
 
 }
 
@@ -1478,7 +1487,8 @@ function flatTheme() {
     '--anatomy-stroke': 'rgba(26,31,46,0.45)',
     '--card-bg': '#ffffff',
     '--card-border': 'rgba(26,31,46,0.12)',
-    '--card-shadow': '0 8px 30px rgba(20,30,50,0.08)'
+    '--card-shadow': '0 8px 30px rgba(20,30,50,0.08)',
+    '--dock-bg': 'rgba(255,255,255,0.72)'
   };
 }
 function darkTheme() {
@@ -1495,7 +1505,8 @@ function darkTheme() {
     '--anatomy-stroke': 'rgba(238,242,248,0.45)',
     '--card-bg': 'rgba(20,28,46,0.92)',
     '--card-border': 'rgba(238,242,248,0.14)',
-    '--card-shadow': '0 12px 40px rgba(0,0,0,0.5)'
+    '--card-shadow': '0 12px 40px rgba(0,0,0,0.5)',
+    '--dock-bg': 'rgba(20,28,46,0.72)'
   };
 }
 

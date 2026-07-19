@@ -51,7 +51,7 @@ test.describe('Dental chart keyboard accessibility (A6)', () => {
 
   test('Enter on focused tooth sets aria-pressed to true', async ({ page }) => {
     // Advance to treatment stage (baseline → treatment)
-    await page.locator('.advance-btn').click();
+    await page.getByRole('button', { name: 'Stage 2' }).click();
 
     // Tab into chart
     await page.keyboard.press('Tab');

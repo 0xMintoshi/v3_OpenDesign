@@ -134,7 +134,7 @@ test('TreatmentPanel pill renders in Stage 2 without errors', async ({ page }) =
   await expect(page.locator('svg').first()).toBeVisible();
 
   // Advance to Stage 2
-  const advanceBtn = page.locator('button.advance-btn');
+  const advanceBtn = page.getByRole('button', { name: 'Stage 2' });
   if (await advanceBtn.count() > 0) {
     await advanceBtn.click();
     await page.waitForTimeout(300);

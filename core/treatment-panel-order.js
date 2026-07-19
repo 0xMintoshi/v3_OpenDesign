@@ -1,5 +1,61 @@
 // Pure logic — no React. Converts flat treatments array into ordered panel sections.
 
+// Area treatments that collapse into a single "#from–to" range card per contiguous run.
+const COLLAPSE_IDS = new Set(['gbr', 'simultaneous-graft']);
+
+// "#43–33" using cx-order endpoints (first = leftmost cx, last = rightmost cx).
+function rangeHeading(runTeeth) {
+  if (runTeeth.length === 1) return `#${runTeeth[0].fdi}`;
+  return `#${runTeeth[0].fdi}–${runTeeth[runTeeth.length - 1].fdi}`;
+}
+
+// Splits targetIds into one or more contiguous runs per jaw.
+// A run is broken by any present (non-missing/extracted/implant) tooth between endpoints.
+// Returns array of arrays of tooth objects, each sorted by ascending cx.
+function splitRuns(targetIds, allTeeth) {
+  const teethById = Object.fromEntries(allTeeth.map(t => [t.id, t]));
+  const selected = targetIds.map(id => teethById[id]).filter(Boolean);
+  if (selected.length === 0) return [];
+
+  // Group by jaw
+  const byJaw = {};
+  for (const t of selected) {
+    (byJaw[t.jaw] = byJaw[t.jaw] || []).push(t);
+  }
+
+  const runs = [];
+  for (const jaw of Object.keys(byJaw)) {
+    const jawTeeth = allTeeth.filter(t => t.jaw === jaw).sort((a, b) => a.cx - b.cx);
+    const selInJaw = byJaw[jaw].sort((a, b) => a.cx - b.cx);
+    const selIds = new Set(selInJaw.map(t => t.id));
+
+    let currentRun = [selInJaw[0]];
+    for (let i = 1; i < selInJaw.length; i++) {
+      const prev = selInJaw[i - 1];
+      const curr = selInJaw[i];
+      // Find teeth between prev and curr in the arch
+      const prevIdx = jawTeeth.findIndex(t => t.id === prev.id);
+      const currIdx = jawTeeth.findIndex(t => t.id === curr.id);
+      let broken = false;
+      for (let j = prevIdx + 1; j < currIdx; j++) {
+        const between = jawTeeth[j];
+        if (!selIds.has(between.id) && between.presence !== 'missing' && between.presence !== 'extracted' && between.presence !== 'implant') {
+          broken = true;
+          break;
+        }
+      }
+      if (broken) {
+        runs.push(currentRun);
+        currentRun = [curr];
+      } else {
+        currentRun.push(curr);
+      }
+    }
+    runs.push(currentRun);
+  }
+  return runs;
+}
+
 export const CLINICAL_RANK = {
   'extraction': 1, 'simple-surgical-extraction': 1, 'complex-surgical-extraction': 1,
   'sinus-lift': 2, 'alveolectomy': 2,
@@ -81,6 +137,36 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
 
     // scope === 'tooth' — may be a span (multiple targets) or single-tooth
     if (tx.targets.length === 0) continue;
+
+    // Area treatments (GBR, simultaneous-graft): collapse into one range card per contiguous run.
+    if (COLLAPSE_IDS.has(tx.id)) {
+      const runs = splitRuns(tx.targets, allTeeth);
+      for (const runTeeth of runs) {
+        if (runTeeth.length === 0) continue;
+        const jaw = runTeeth[0].jaw;
+        const runIds = runTeeth.map(t => t.id);
+        const minCx = runTeeth[0].cx;
+        const cardKey = `collapse-${tx.id}-${runIds.join('-')}`;
+        const card = {
+          key: cardKey,
+          heading: rangeHeading(runTeeth),
+          toothIds: runIds,
+          _cx: minCx,
+          _fdi: runTeeth[0].fdi,
+          rows: [{
+            txId: tx.id,
+            label: rowLabel,
+            scope: tx.scope,
+            targets: runIds,
+            collapse: true,
+            rank,
+          }],
+        };
+        if (jaw === 'upper') upperFdiCards.set(cardKey, card);
+        else lowerFdiCards.set(cardKey, card);
+      }
+      continue;
+    }
 
     const isSpan = tx.id === 'bridge-span' || tx.id === 'implant-bridge-span';
 

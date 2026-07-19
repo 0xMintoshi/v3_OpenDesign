@@ -18,6 +18,7 @@
     --card-bg: #ffffff;
     --card-border: rgba(26,31,46,0.12);
     --card-shadow: 0 8px 30px rgba(20,30,50,0.08);
+    --dock-bg: rgba(255,255,255,0.72);
     --serif: 'Instrument Serif', 'Cormorant Garamond', Georgia, serif;
     --sans: 'DM Sans', 'Helvetica Neue', Helvetica, system-ui, sans-serif;
   }
@@ -138,7 +139,7 @@
     display: grid;
     place-items: center;
     grid-template-rows: minmax(0, 100%);
-    padding: 70px 40px 20px;
+    padding: 70px 40px 100px;
     overflow: hidden;
   }
   .stage-hint {
@@ -195,56 +196,81 @@
   .btn-ghost.on { background: rgba(42,111,219,0.06); border-color: rgba(42,111,219,0.3); color: var(--ink); }
   .leader-toggle.on { color: var(--ink); }
 
-  /* Footer */
-  .footer {
-    position: relative; z-index: 5;
-    display: flex; justify-content: space-between; align-items: center;
-    padding: 0 40px 26px 40px;
-    font-size: 12px;
-    color: var(--ink-muted);
-    gap: 20px;
+  /* Floating dock (replaces the in-flow stage footer) */
+  .dock {
+    --dock-item-size: 44px;
+    --dock-radius: 20px;
+    --dock-gap: 6px;
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 40;
+    display: flex;
+    align-items: center;
+    gap: var(--dock-gap);
+    padding: 7px;
+    background: var(--dock-bg, var(--card-bg));
+    border: 1px solid var(--card-border);
+    border-radius: var(--dock-radius);
+    box-shadow: var(--card-shadow), 0 1px 0 rgba(255,255,255,0.4) inset;
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    backdrop-filter: blur(20px) saturate(160%);
   }
-  .footer.baseline-footer {
-    justify-content: flex-end;
-  }
-  .footer.baseline-footer .wf-left {
-    display: none;
-  }
-  .wf-left, .wf-right { display: flex; align-items: center; gap: 12px; }
-  .footer-btn {
+  .dock-item {
+    position: relative;
+    appearance: none;
+    border: none;
+    cursor: pointer;
+    width: var(--dock-item-size);
+    height: var(--dock-item-size);
+    border-radius: calc(var(--dock-radius) - 6px);
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    width: 178px;
-    min-height: 38px;
-    padding: 9px 14px;
-    text-align: center;
-    font-size: 12px;
-  }
-  .wf-step {
-    font-family: var(--sans);
-    font-style: normal;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    font-size: 14px;
+    background: transparent;
     color: var(--ink);
+    transition: background 160ms, transform 120ms;
+    animation: dockItemIn 180ms cubic-bezier(.2,.7,.2,1);
   }
-  .wf-sep { color: var(--ink-faint); }
-  .wf-help {
-    letter-spacing: 0.02em;
-    font-size: 13px;
-    color: var(--ink-muted);
+  .dock-item svg { width: 20px; height: 20px; flex: none; }
+  .dock-item:hover { background: var(--tooth-hover-fill); }
+  .dock-item:active { transform: scale(0.94); }
+  .dock-item.active { background: color-mix(in srgb, var(--dock-accent, var(--ink)) 14%, transparent); color: var(--dock-accent, var(--ink)); }
+  .dock-item.primary {
+    border-radius: 999px;
+    background: var(--dock-accent, var(--ink));
+    color: #fff;
+  }
+  .dock-item.primary:hover { filter: brightness(1.08); }
+  .dock-divider { width: 1px; height: 24px; background: var(--card-border); margin: 0 2px; flex: none; }
+  .dock-tooltip {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 50%;
+    transform: translateX(-50%) translateY(4px);
+    padding: 5px 10px;
+    border-radius: 6px;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    color: var(--ink);
+    font-size: 11px;
+    font-weight: 600;
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 140ms ease, transform 140ms ease;
+    box-shadow: var(--card-shadow);
   }
-  .arch-btn { display: inline-flex; align-items: center; gap: 8px; }
-  .arch-glyph { font-size: 14px; line-height: 1; color: var(--ink); transform: translateY(-1px); }
-  .advance-btn {
-    display: inline-flex; align-items: center; gap: 8px;
+  .dock-item:hover .dock-tooltip,
+  .dock-item:focus-visible .dock-tooltip {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
   }
-  .advance-btn .arrow { font-size: 14px; }
+  @keyframes dockItemIn {
+    from { opacity: 0; transform: scale(0.7); }
+    to   { opacity: 1; transform: scale(1); }
+  }
 
 
   /* Popover */
@@ -451,18 +477,19 @@
       padding: 7px 12px 7px 10px;
     }
     .stage {
-      padding: 56px 16px 12px;
+      padding: 56px 16px 68px;
     }
     .arch-svg {
       max-width: 100%;
     }
-    .footer {
-      padding: 0 16px 16px 16px;
-      gap: 10px;
+    .dock {
+      --dock-item-size: 38px;
+      --dock-radius: 18px;
+      --dock-gap: 3px;
+      bottom: 14px;
+      padding: 5px;
     }
-    .wf-help {
-      display: none;
-    }
+    .dock-item svg { width: 17px; height: 17px; }
     .confirm-dialog {
       width: calc(100vw - 32px);
       padding: 18px;

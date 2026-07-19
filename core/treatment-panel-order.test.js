@@ -94,17 +94,67 @@ describe('buildPanelSections', () => {
     expect(sections[0].key).toBe('upper');
   });
 
-  it('same tooth, multiple treatments → one card with rows sorted by rank', () => {
+  it('same tooth, multiple non-collapse treatments → one card with rows sorted by rank', () => {
+    const treatments = [
+      { id: 'crown', scope: 'tooth', targets: ['upper-21'] },
+      { id: 'implant-only', scope: 'tooth', targets: ['upper-21'] },
+    ];
+    const sections = buildPanelSections(treatments, ALL_TEETH, TX_LABEL);
+    expect(sections[0].cards).toHaveLength(1);
+    const rows = sections[0].cards[0].rows;
+    // implant-only rank 3, crown rank 4
+    expect(rows.map((r) => r.txId)).toEqual(['implant-only', 'crown']);
+  });
+
+  it('gbr on multiple teeth → gets its own collapse range card', () => {
     const treatments = [
       { id: 'crown', scope: 'tooth', targets: ['upper-21'] },
       { id: 'gbr', scope: 'tooth', targets: ['upper-21'] },
       { id: 'implant-only', scope: 'tooth', targets: ['upper-21'] },
     ];
     const sections = buildPanelSections(treatments, ALL_TEETH, TX_LABEL);
+    expect(sections[0].cards).toHaveLength(2);
+    // tooth card (crown+implant-only) is inserted first since crown is processed first
+    const toothRows = sections[0].cards[0].rows;
+    expect(toothRows.map(r => r.txId)).toEqual(['implant-only', 'crown']);
+    // GBR collapse card is inserted after the tooth card (same cx, stable sort preserves order)
+    expect(sections[0].cards[1].rows[0].txId).toBe('gbr');
+    expect(sections[0].cards[1].rows[0].collapse).toBe(true);
+  });
+
+  it('gbr on contiguous lower teeth → one range card', () => {
+    const treatments = [
+      { id: 'gbr', scope: 'tooth', targets: ['lower-43', 'lower-42', 'lower-41'] },
+    ];
+    const sections = buildPanelSections(treatments, ALL_TEETH, TX_LABEL);
+    expect(sections[0].key).toBe('lower');
     expect(sections[0].cards).toHaveLength(1);
-    const rows = sections[0].cards[0].rows;
-    // gbr rank 2, implant-only rank 3, crown rank 4
-    expect(rows.map((r) => r.txId)).toEqual(['gbr', 'implant-only', 'crown']);
+    expect(sections[0].cards[0].heading).toBe('#43–41');
+    expect(sections[0].cards[0].rows[0].collapse).toBe(true);
+    expect(sections[0].cards[0].toothIds.sort()).toEqual(['lower-41', 'lower-42', 'lower-43']);
+  });
+
+  it('gbr on non-contiguous teeth → two separate range cards', () => {
+    // lower-43 (cx=60) and lower-41 (cx=80) with lower-42 (cx=70) present between
+    const treatments = [
+      { id: 'gbr', scope: 'tooth', targets: ['lower-43', 'lower-41'] },
+    ];
+    const sections = buildPanelSections(treatments, ALL_TEETH, TX_LABEL);
+    expect(sections[0].key).toBe('lower');
+    expect(sections[0].cards).toHaveLength(2);
+    const headings = sections[0].cards.map(c => c.heading);
+    expect(headings).toEqual(['#43', '#41']);
+  });
+
+  it('simultaneous-graft collapses the same way as gbr', () => {
+    const treatments = [
+      { id: 'simultaneous-graft', scope: 'tooth', targets: ['upper-11', 'upper-12'] },
+    ];
+    const sections = buildPanelSections(treatments, ALL_TEETH, { 'simultaneous-graft': 'Simultaneous Graft' });
+    expect(sections[0].cards).toHaveLength(1);
+    // cx-order: upper-12(cx=70) → upper-11(cx=80), so heading uses fdi 12 then 11
+    expect(sections[0].cards[0].heading).toBe('#12–11');
+    expect(sections[0].cards[0].rows[0].collapse).toBe(true);
   });
 
   it('lower arch treatment goes to Mandible section', () => {

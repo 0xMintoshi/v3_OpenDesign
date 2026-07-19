@@ -15,14 +15,16 @@ export const __PANEL_ANCHOR = { right: DOCK_RIGHT, bottom: PANEL_BOTTOM };
 const DOCK_STYLE = `
   .pnl-dock{position:fixed;right:${DOCK_RIGHT}px;bottom:${DOCK_BOTTOM}px;z-index:2147483645;
     display:flex;gap:8px;transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right}
-  .pnl-pill{appearance:none;border:.5px solid rgba(255,255,255,.7);border-radius:999px;
+  .pnl-pill{appearance:none;display:inline-flex;align-items:center;justify-content:center;
+    border:.5px solid rgba(255,255,255,.7);border-radius:999px;
     height:${PILL_H}px;padding:0 14px;background:rgba(250,249,247,.88);color:#29261b;
     -webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);
     box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 10px 28px rgba(0,0,0,.16);
-    font:11.5px/1.2 ui-sans-serif,system-ui,-apple-system,sans-serif;font-weight:600;
+    font:11.5px/1 ui-sans-serif,system-ui,-apple-system,sans-serif;font-weight:600;
     cursor:default}
   .pnl-pill:hover{background:rgba(255,255,255,.92)}
-  .pnl-pill[data-on="1"]{background:#29261b;color:#faf9f7;border-color:rgba(0,0,0,.25)}
+  .pnl-pill[data-on="1"]{background:#29261b;color:#faf9f7;border-color:rgba(0,0,0,.25);
+    box-shadow:0 1px 0 rgba(255,255,255,.12) inset,0 10px 28px rgba(0,0,0,.16)}
   .pnl-pill[data-on="1"]:hover{background:#3a362a}
 `;
 
@@ -109,8 +111,12 @@ export function TreatmentPanel({
   onHoverTargets,
 }) {
   const handleRemove = (row) => {
-    const { txId, scope, targets } = row;
-    if (scope === 'tooth' && targets.length === 1) {
+    const { txId, scope, targets, collapse } = row;
+    if (collapse) {
+      // Area treatment run — remove only this run's targets one-by-one;
+      // removeTreatmentForTooth prunes the tx when the last target is gone.
+      targets.forEach((t) => onRemoveTooth(t, txId));
+    } else if (scope === 'tooth' && targets.length === 1) {
       onRemoveTooth(targets[0], txId);
     } else if (scope === 'tooth' && targets.length > 1) {
       onRemoveSpan(txId, targets);

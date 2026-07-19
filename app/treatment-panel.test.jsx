@@ -121,7 +121,20 @@ describe('TreatmentPanel', () => {
     expect(sects[1].textContent).toBe('Mandible');
   });
 
-  it('groups multiple treatments for one tooth under a single number gutter', () => {
+  it('groups multiple non-collapse treatments for one tooth under a single number gutter', () => {
+    const { container } = setup({
+      treatments: [
+        { id: 'extraction', scope: 'tooth', targets: ['upper-21'] },
+        { id: 'crown', scope: 'tooth', targets: ['upper-21'] },
+      ],
+    });
+    const cards = container.querySelectorAll('.trx-card');
+    expect(cards.length).toBe(1);
+    expect(cards[0].querySelectorAll('.trx-card-num').length).toBe(1);
+    expect(cards[0].querySelectorAll('.trx-row').length).toBe(2);
+  });
+
+  it('gbr on a tooth creates its own separate collapse card', () => {
     const { container } = setup({
       treatments: [
         { id: 'extraction', scope: 'tooth', targets: ['upper-21'] },
@@ -129,9 +142,7 @@ describe('TreatmentPanel', () => {
       ],
     });
     const cards = container.querySelectorAll('.trx-card');
-    expect(cards.length).toBe(1);
-    expect(cards[0].querySelectorAll('.trx-card-num').length).toBe(1);
-    expect(cards[0].querySelectorAll('.trx-row').length).toBe(2);
+    expect(cards.length).toBe(2);
   });
 });
 
