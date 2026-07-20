@@ -55,7 +55,7 @@ export const __TWEAKS_STYLE = `
     -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
     border:.5px solid rgba(255,255,255,.6);border-radius:14px;
     box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
-    font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
+    font:11.5px/1.4 var(--sans,ui-sans-serif,system-ui,-apple-system,sans-serif);overflow:hidden}
   .twk-hd{display:flex;align-items:center;justify-content:space-between;
     padding:10px 14px 10px;user-select:none}
   .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
@@ -72,7 +72,7 @@ export const __TWEAKS_STYLE = `
     height:32px;padding:0 12px;background:rgba(250,249,247,.88);color:#29261b;
     -webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);
     box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 10px 28px rgba(0,0,0,.16);
-    font:11.5px/1.2 ui-sans-serif,system-ui,-apple-system,sans-serif;font-weight:600;
+    font:11.5px/1.2 var(--sans,ui-sans-serif,system-ui,-apple-system,sans-serif);font-weight:600;
     cursor:default;transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right}
   .twk-mini:hover{background:rgba(255,255,255,.92)}
   .twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;

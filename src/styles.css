@@ -19,8 +19,8 @@
     --card-border: rgba(26,31,46,0.12);
     --card-shadow: 0 8px 30px rgba(20,30,50,0.08);
     --dock-bg: rgba(255,255,255,0.72);
-    --serif: 'Instrument Serif', 'Cormorant Garamond', Georgia, serif;
-    --sans: 'DM Sans', 'Helvetica Neue', Helvetica, system-ui, sans-serif;
+    --serif: 'Newsreader', 'Cormorant Garamond', Georgia, serif;
+    --sans: 'Hanken Grotesk', 'Helvetica Neue', Helvetica, system-ui, sans-serif;
   }
 
   html, body {

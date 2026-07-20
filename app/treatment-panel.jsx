@@ -20,7 +20,7 @@ const DOCK_STYLE = `
     height:${PILL_H}px;padding:0 14px;background:rgba(250,249,247,.88);color:#29261b;
     -webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);
     box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 10px 28px rgba(0,0,0,.16);
-    font:11.5px/1 ui-sans-serif,system-ui,-apple-system,sans-serif;font-weight:600;
+    font:11.5px/1 var(--sans,ui-sans-serif,system-ui,-apple-system,sans-serif);font-weight:600;
     cursor:default}
   .pnl-pill:hover{background:rgba(255,255,255,.92)}
   .pnl-pill[data-on="1"]{background:#29261b;color:#faf9f7;border-color:rgba(0,0,0,.25);
@@ -36,7 +36,7 @@ const TRX_STYLE = `
     -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
     border:.5px solid rgba(255,255,255,.6);border-radius:14px;
     box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
-    font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
+    font:11.5px/1.4 var(--sans,ui-sans-serif,system-ui,-apple-system,sans-serif);overflow:hidden}
   .trx-sect{display:flex;align-items:center;gap:8px;
     font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
     color:rgba(41,38,27,.38);padding:12px 2px 7px}

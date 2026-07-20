@@ -109,6 +109,7 @@ function TabletTooth({ tooth, jawFlip, presence, isHovered, isSelected, hasTreat
         y={jawFlip ? (th + 14) : -(th + 6)}
         textAnchor="middle"
         fontSize="9"
+        fontFamily="var(--sans)"
         fill="#64748b"
         style={{ userSelect: 'none', pointerEvents: 'none' }}>
         {fdi}
