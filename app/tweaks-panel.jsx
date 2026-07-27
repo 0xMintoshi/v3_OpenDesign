@@ -47,9 +47,15 @@ import React from 'react';
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
+// Keep TWK_PILL_BOTTOM in sync with DOCK_BOTTOM in treatment-panel.jsx
+// and .twk-mini bottom below — all three must move together.
+const TWK_PILL_BOTTOM = 116;
+const TWK_PILL_H = 32;
+const TWK_PANEL_BOTTOM = TWK_PILL_BOTTOM + TWK_PILL_H + 18; // 166
+
 export const __TWEAKS_STYLE = `
-  .twk-panel{position:fixed;right:40px;bottom:130px;z-index:2147483646;width:280px;
-    max-height:calc(100vh - 146px);display:flex;flex-direction:column;
+  .twk-panel{position:fixed;right:40px;bottom:${TWK_PANEL_BOTTOM}px;z-index:2147483646;width:240px;
+    max-height:calc(100vh - ${TWK_PANEL_BOTTOM + 16}px);display:flex;flex-direction:column;
     transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
     background:rgba(250,249,247,.78);color:#29261b;
     -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
@@ -67,8 +73,8 @@ export const __TWEAKS_STYLE = `
   .twk-collapse::before{content:"";width:7px;height:7px;border-right:1.5px solid currentColor;
     border-bottom:1.5px solid currentColor;transform:translateY(-2px) rotate(45deg)}
   .twk-collapse:hover{background:rgba(0,0,0,.06);color:#29261b}
-  .twk-mini{position:fixed;right:40px;bottom:86px;z-index:2147483646;
-    appearance:none;border:.5px solid rgba(255,255,255,.7);border-radius:999px;
+  .twk-mini{position:fixed;right:40px;bottom:116px;z-index:2147483646;
+    appearance:none;border:.5px solid rgba(255,255,255,.7);border-radius:14px;
     height:32px;padding:0 12px;background:rgba(250,249,247,.88);color:#29261b;
     -webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);
     box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 10px 28px rgba(0,0,0,.16);

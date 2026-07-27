@@ -474,6 +474,35 @@ function DentalHeroInner() {
     if (loaded) emit('CHART_READY', {});
   }, [loaded]);
 
+  // Deliberate scroll chains all three stages in sequence: on Stage 1, up-scroll
+  // requests the parent re-show the name hero (Stage 0) and down-scroll advances
+  // to Stage 2; on Stage 2, up-scroll retreats back to Stage 1 ("I screwed up").
+  // Up/down accumulators are independent so a reversal doesn't need to fully
+  // drain the other direction's progress before it starts counting.
+  useEffect(() => {
+    if (stage !== 'baseline' && stage !== 'treatment') return;
+    let accUp = 0, accDown = 0;
+    const SCROLL_THRESHOLD = 120;
+    const onWheel = (e) => {
+      if (e.deltaY < 0) {
+        accDown = 0;
+        accUp += -e.deltaY;
+        if (accUp < SCROLL_THRESHOLD) return;
+        accUp = 0;
+        if (stage === 'baseline') emit('REQUEST_NAME_HERO', {});
+        else handleBack();
+      } else if (e.deltaY > 0) {
+        accUp = 0;
+        accDown += e.deltaY;
+        if (accDown < SCROLL_THRESHOLD) return;
+        accDown = 0;
+        if (stage === 'baseline') handleAdvance();
+      }
+    };
+    window.addEventListener('wheel', onWheel, { passive: true });
+    return () => window.removeEventListener('wheel', onWheel);
+  }, [stage]);
+
   // Broadcast full treatments array on every change, but only after Firestore load
   // so the parent never receives an empty [] that wipes its quote items.
   // Bridge spans carry claimableCrowns = count of true natural abutments (present AND not
@@ -1137,18 +1166,18 @@ function DentalHeroInner() {
         {stage === 'baseline' ? (
           <>
             <span className="wf-step">STAGE 1</span>
-            <span className="wf-sep">/</span>
+            <span className="wf-sep">|</span>
             <span className="wf-help">
               {Object.keys(presence).length > 0
                 ? `${Object.keys(presence).length} ${Object.keys(presence).length === 1 ? 'tooth' : 'teeth'} marked`
-                : 'Click a tooth to mark it missing or as an existing implant'}
+                : 'Click on a tooth to mark.'}
             </span>
           </>
         ) : (
           <>
             <span className="wf-step">STAGE 2</span>
-            <span className="wf-sep">/</span>
-            <span className="wf-help">Left-click opens treatment. Drag to select multiple — menu opens on release. Ctrl+click adds teeth; Enter opens menu.</span>
+            <span className="wf-sep">|</span>
+            <span className="wf-help">Left-click opens treatment. Drag/right-click/ctrl+click to multi select.</span>
           </>
         )}
       </div>
@@ -1366,8 +1395,6 @@ function DentalHeroInner() {
         onOpen={() => setOpenPanel('tweaks')}
         onClose={() => setOpenPanel(null)}
       >
-        <TweakColor label="Accent" value={t.accent} onChange={(v) => setTweak('accent', v)}
-        options={['#2A6FDB', '#1F8A5B', '#D97757', '#8B5CF6', '#0F172A']} />
         <TweakToggle label="#38/48 Impaction" value={t.wisdomImpacted} onChange={(v) => setTweak('wisdomImpacted', v)} />
         <TweakToggle label="FDI Numbers" value={t.showNumbering} onChange={(v) => setTweak('showNumbering', v)} />
         <TweakToggle label="Sinus Zones" value={t.showSinus} onChange={(v) => setTweak('showSinus', v)} />

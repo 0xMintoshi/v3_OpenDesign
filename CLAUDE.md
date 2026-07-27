@@ -124,6 +124,17 @@ Open path (no `Z`), fields: `archType: "idn"`, `side: "right"/"left"`, `foramen:
 
 `smoothClosedRing()` uses quadratic B-spline only — not Catmull-Rom (tension is a footgun, spikes every knot).
 
+## Footer Dock (app/dock.jsx)
+
+- Stage 1/2 footers are a fixed, floating glass dock (`.dock` in `styles.css`), not in-flow — bottom-right corner, right-anchored at `right:40px` (same margin as `PanelDock`'s `DOCK_RIGHT`), growing leftward. Height (`--dock-item-size` + padding) is tuned to `69px` to match the parent app's `.app-header` (`--header-h` in `v3/css/main.css`/theme files) — verify against the live parent, not the theme file alone (see gotcha below). Sits `12px` above `PanelDock` (bottom-right Tweaks/Treatments pills, `bottom:86px`) with no overlap; `.stage` no longer reserves extra bottom padding for it (dock is cornered, not centered) — padding is symmetric (`70px 40px` desktop / `56px 16px` phone).
+- All dock items are transparent-bg with an ink-colored glyph (`.dock-item.primary` neutralized in CSS — no accent fill on Stage-nav/Summary buttons anymore). `.dock-item.active` still gets a faint accent tint for the edentulous toggle-on state.
+- `ArchIcon` (edentulous glyph) is a plain arc only — no gum line, no teeth ticks. Upper/lower Edentulous and Restore states render the same arc; state is conveyed by the `active` tint + tooltip label only.
+- Icon-only buttons, `aria-label` is the accessible name — tests must use `getByRole('button', { name: '<label>' })`, never text/class selectors.
+- **Gotcha — verify layout numbers against the live app, not grep alone.** Both `.brand`/`StagePill` (chart) and the theme file's `--header-h:69px` looked authoritative from source but are dead/conditional: `.brand`/`<StagePill>` are never mounted in any JSX; `--header-h:69px` only applies when `data-theme="titan-editorial"` is set on `<html>`, which is true in `v3/index.html` (69px, confirmed live) but NOT in the root `Quotation App/index.html` (v2 build, unrelated — computes to a plain `:root` fallback of 52px there). When tuning against a parent-app number, load `v3/index.html` specifically and read `getBoundingClientRect()`/computed `--header-h`, don't trust a theme file or a different app entry point.
+- `--dock-bg` token lives in both `flatTheme()`/`darkTheme()` (`dental-arch.jsx`) and the CSS `:root` fallback; CSS reads it as `var(--dock-bg, var(--card-bg))`. Not yet bridged through the parent app's `CHART_TOKEN_MAP` (`v3/js/main.js`) — add it there if the dock ever needs to react to a parent theme switch beyond the flat/dark toggle.
+- z-index: dock = 40, popover = 50/60, `PanelDock` (bottom-right Tweaks/Treatments toggle, same corner now) = `2147483645`. Dock sits below `PanelDock` with a fixed 12px gap by design, not by z-index — if either's height/position changes, recheck the gap math (dock `bottom` + dock `height` must stay ≤ `PanelDock`'s `bottom` minus the desired gap).
+- `SelectionActionBar` in `dental-arch.jsx` is defined but never rendered/tested anywhere — dead code as of 2026-07-19, not a dock collision risk. Don't assume it's live without checking.
+
 ## Full Project Context
 
 Read memory file `project_quotation_app_chart_redesign.md` before starting any session.
