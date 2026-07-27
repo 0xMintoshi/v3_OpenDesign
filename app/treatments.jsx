@@ -2,6 +2,7 @@ import React from 'react';
 import { CrownOverlay } from '../treatment-overlays/CrownOverlay.jsx';
 import { BridgeSpanOverlay, bridgeContactStrokePath, CONTACT_STROKE_WIDTH, bridgeContactPoint, crownDepth } from '../treatment-overlays/BridgeSpanOverlay.jsx';
 import { CompleteDentureOverlay } from '../treatment-overlays/CompleteDentureOverlay.jsx';
+import { VeneerOverlay } from '../treatment-overlays/VeneerOverlay.jsx';
 import { PartialDentureOverlay } from '../treatment-overlays/PartialDentureOverlay.jsx';
 import { ClearAlignerOverlay } from '../treatment-overlays/ClearAlignerOverlay.jsx';
 import { useChartState } from '../core/chart-context.jsx';
@@ -42,8 +43,9 @@ const TX_GROUPS = [
     label: 'Restoration',
     scope: 'tooth',
     items: [
-      { id: 'crown',       label: 'Crown',        hint: 'full-coverage crown · existing tooth', requires: 'present-tooth' },
-      { id: 'bridge-span', label: 'Bridge (span)', hint: 'pontic spanning selected teeth', requires: 'multi-tooth' },
+      { id: 'crown',       label: 'Crown',           hint: 'full-coverage crown · existing tooth',              requires: 'present-tooth' },
+      { id: 'bridge-span', label: 'Bridge (span)',   hint: 'pontic spanning selected teeth',                    requires: 'multi-tooth' },
+      { id: 'veneer',      label: 'Porcelain Veneer', hint: 'facial shell · anterior + premolar teeth',         requires: 'anterior-tooth' },
     ],
   },
   {
@@ -848,6 +850,9 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
               if (tx.id === 'crown') {
                 return <CrownOverlay key={i} tooth={tooth} biteY={biteY} accent={accent} />;
               }
+              if (tx.id === 'veneer') {
+                return <VeneerOverlay key={i} tooth={tooth} biteY={biteY} accent={accent} />;
+              }
               if (tx.id === 'bridge-span' || tx.id === 'implant-bridge-span') return null; // rendered as span below
               return null;
             })}
@@ -1140,6 +1145,10 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
       return Array.isArray(target) && target.length >= 2 && hasBridgeAbutment && hasBridgeGap;
     }
     if (item.requires === 'multi-tooth') return Array.isArray(target) && target.length >= 2;
+    if (item.requires === 'anterior-tooth') {
+      return allPresent === true && Array.isArray(target) && target.length > 0 &&
+             target.every(t => t.fdi % 10 <= 5);
+    }
     return true;
   };
 

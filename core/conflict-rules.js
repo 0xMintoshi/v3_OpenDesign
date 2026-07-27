@@ -1,5 +1,5 @@
 const IMPLANT_GROUP = ['implant-only', 'implant-crown', 'implant-bridge-span'];
-const NATURAL_GROUP = ['crown', 'bridge-span'];
+const NATURAL_GROUP = ['crown', 'bridge-span', 'veneer'];
 const ALL_PROSTHETICS = [...IMPLANT_GROUP, ...NATURAL_GROUP];
 const EXTRACTION_GROUP = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction', 'root-stump-extraction'];
 

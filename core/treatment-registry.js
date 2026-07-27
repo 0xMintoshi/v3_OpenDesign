@@ -8,6 +8,7 @@ export const VISUAL_REGISTRY = {
   'implant-crown':      { scope: 'tooth',      category: 'tooth',      label: 'Implant + Crown',          shapeId: 'crown-molar-upper' },
   'implant-only':       { scope: 'tooth',      category: 'tooth',      label: 'Implant Only',             shapeId: null },
   crown:                { scope: 'tooth',      category: 'tooth',      label: 'Crown',                    shapeId: 'crown-molar-upper' },
+  veneer:               { scope: 'tooth',      category: 'tooth',      label: 'Porcelain Veneer',          shapeId: null },
   'socket-preservation':{ scope: 'tooth',      category: 'tooth',      label: 'Socket Preservation',      shapeId: null },
   'simultaneous-graft': { scope: 'tooth',      category: 'tooth',      label: 'Simultaneous Bone Graft',  shapeId: null },
   gbr:                  { scope: 'tooth',      category: 'tooth',      label: 'GBR',                      shapeId: null },
