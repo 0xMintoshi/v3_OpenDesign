@@ -6,10 +6,15 @@ import { VeneerOverlay } from '../treatment-overlays/VeneerOverlay.jsx';
 import { PartialDentureOverlay } from '../treatment-overlays/PartialDentureOverlay.jsx';
 import { ClearAlignerOverlay } from '../treatment-overlays/ClearAlignerOverlay.jsx';
 import { useChartState } from '../core/chart-context.jsx';
+import { EXTRACTION_IDS } from '../core/conflict-rules.js';
 import { proximalExtreme } from '../core/tooth-split.js';
 import { fittedImplantCrownRatio, fittedImplantCrownPath } from '../core/implant-crown-path.js';
 import { toothPaths } from '../layout/teeth-data.jsx';
 import { toothYAdjust } from '../core/marquee-select.js';
+
+// Tunable stroke weights for the implant crown families — see scripts/stroke-table.mjs.
+const IMPLANT_CROWN_STROKE_WIDTH = 3;
+const IMPLANT_BRIDGE_CROWN_STROKE_WIDTH = 3;
 import { cervicalPoints, scallopRL, sinusFloorY } from '../core/arch-math.js';
 import archSinusR from '../shapes-data/anatomy/arch-sinus-right.json';
 import archSinusL from '../shapes-data/anatomy/arch-sinus-left.json';
@@ -245,7 +250,7 @@ function FittedImplantOverlay({ tooth, biteY, withCrown, accent }) {
           d={fittedImplantCrownPath(tooth, crownH)}
           fill="var(--tooth-fill)"
           stroke={accent}
-          strokeWidth="3"
+          strokeWidth={IMPLANT_CROWN_STROKE_WIDTH}
           strokeLinejoin="round"
           strokeLinecap="round" />
       )}
@@ -369,7 +374,7 @@ export function ImplantBridgeSpanOverlay({ teeth, biteY, accent }) {
               d={fittedImplantCrownPath(tooth, crownH)}
               fill="var(--tooth-fill)"
               stroke={accent}
-              strokeWidth={4}
+              strokeWidth={IMPLANT_BRIDGE_CROWN_STROKE_WIDTH}
               strokeLinejoin="round"
               strokeLinecap="round" />
           </g>
@@ -780,7 +785,7 @@ function ExtractionOverlay({ tooth, biteY }) {
 // ============================================================================
 
 function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent }) {
-  const { treatments, presence } = useChartState();
+  const { treatments, presence, effectivePresence } = useChartState();
   const byTooth = {};
   for (const tx of treatments) {
     if (tx.scope === 'tooth') {
@@ -831,7 +836,6 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
         if (!tooth) return null;
         const biteY = tooth.jaw === 'upper' ? upperBiteY : lowerBiteY;
         const txIds = list.map(tx => tx.id);
-        const EXTRACTION_IDS = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction', 'root-stump-extraction'];
         const extractionOnly = txIds.length === 1 && EXTRACTION_IDS.includes(txIds[0]);
         return (
           <g key={toothId}>
@@ -865,9 +869,9 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
         const spanTeeth = tx.targets.map(id => allTeeth.find(t => t.id === id)).filter(Boolean);
         if (spanTeeth.length === 0) return null;
         const hasNatural = tx.targets.some((id) =>
-          presence[id] !== 'missing' &&
-          presence[id] !== 'implant' &&
-          presence[id] !== 'root-stump' &&
+          effectivePresence[id] !== 'missing' &&
+          effectivePresence[id] !== 'implant' &&
+          effectivePresence[id] !== 'root-stump' &&
           !treatments.some((x) =>
             (x.id === 'implant-only' || x.id === 'implant-crown') && x.targets.includes(id))
         );
@@ -900,8 +904,8 @@ function TreatmentLayer({ allTeeth, upperBiteY, lowerBiteY, archWidth, accent })
         if (tx.id === 'ortho-brackets') {
           return (
             <g key={i}>
-              <OrthoBrackets teeth={upperTeeth} biteY={upperBiteY} jaw="upper" accent={accent} presence={presence} />
-              <OrthoBrackets teeth={lowerTeeth} biteY={lowerBiteY} jaw="lower" accent={accent} presence={presence} />
+              <OrthoBrackets teeth={upperTeeth} biteY={upperBiteY} jaw="upper" accent={accent} presence={effectivePresence} />
+              <OrthoBrackets teeth={lowerTeeth} biteY={lowerBiteY} jaw="lower" accent={accent} presence={effectivePresence} />
             </g>
           );
         }

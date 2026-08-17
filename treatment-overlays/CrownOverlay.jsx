@@ -1,6 +1,8 @@
 import React from 'react';
 import { toothPaths } from '../layout/teeth-data.jsx';
 
+const STROKE_WIDTH = 3;   // tunable — see scripts/stroke-table.mjs
+
 export function CrownOverlay({ tooth, biteY, accent }) {
   const { cx, w, h, jaw, type, tilt = 0, yOffset = 0 } = tooth;
   const flipY = jaw === 'upper' ? 1 : -1;
@@ -18,7 +20,7 @@ export function CrownOverlay({ tooth, biteY, accent }) {
         d={paths.crown}
         fill="none"
         stroke={accent}
-        strokeWidth="4"
+        strokeWidth={STROKE_WIDTH}
         strokeLinejoin="round"
         strokeLinecap="round" />
     </g>

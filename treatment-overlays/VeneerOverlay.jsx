@@ -7,9 +7,9 @@ import { toothYAdjust } from '../core/marquee-select.js';
 // tooth-fill stroke, clipped to the crown silhouette, leaves a precise ring
 // at (A_INSET_DEPTH + A_RING_W) without any path-offset math.
 
-const A_INSET_DEPTH = 3.5;  // inward reach from silhouette to ring's inner edge
-const A_RING_W     = 1.6;   // accent ring thickness
-const A_WASH_OPACITY = 0.14;
+const A_INSET_DEPTH = 3;  // inward reach from silhouette to ring's inner edge
+const A_RING_W     = 1.5;   // accent ring thickness
+const A_WASH_OPACITY = 0.12;
 
 export function VeneerOverlay({ tooth, biteY, accent }) {
   const { cx, w, h, jaw, type, tilt = 0, yOffset = 0 } = tooth;

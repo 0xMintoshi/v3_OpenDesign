@@ -15,7 +15,8 @@
     "lab": "vite --open /lab.html",
     "e2e": "playwright test",
     "lint": "eslint core/ layout/ treatment-overlays/ app/ lab/ src/",
-    "trace": "node scripts/trace-image.mjs"
+    "trace": "node scripts/trace-image.mjs",
+    "stroke-table": "node scripts/stroke-table.mjs"
   },
   "repository": {
     "type": "git",

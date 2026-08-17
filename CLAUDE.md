@@ -10,7 +10,12 @@ npm run lab    # ShapeLab editor
 npm run e2e    # Playwright tests
 npm run lint   # ESLint
 npm run build  # rebuild dist/ — REQUIRED for the v3 app iframe to see source edits
+npm run stroke-table   # print the 8 overlay stroke/geometry tunables, read from source
 ```
+
+**Stroke tuning:** use the `chart-stroke-tuning` skill. Never hand-maintain a table of these
+values — `npm run stroke-table` reads them from the named constants, and `?seed=cb`
+(`core/dev-seed.js`) puts all eight on one screen without needing Firestore.
 
 **Build gotcha:** the parent v3 app embeds this chart via `<iframe src="./chart/dist/...">` (built bundle), NOT the source. Running the v3 app's `npm run serve` does **not** rebuild the chart — edits to `teeth-data.jsx`/`dental-arch.jsx` won't appear until you run `npm run build` here (or `npm run build -- --watch` in a side terminal). Then hard-refresh the browser (Ctrl+Shift+R) — the iframe caches the old bundle. `dist/` is gitignored, so a fresh clone must build before the iframe works.
 
@@ -25,6 +30,8 @@ npm run build  # rebuild dist/ — REQUIRED for the v3 app iframe to see source 
 | `core/tooth-split.js` | Splits outline at cervical boundary via bisection + de Casteljau |
 | `core/treatment-registry.js` | Treatment type definitions |
 | `treatment-overlays/` | Per-treatment overlay components |
+| `core/conflict-rules.js` | Treatment-ID groupings — **single source of truth for `EXTRACTION_IDS`**; chart-context + treatments import it |
+| `core/dev-seed.js` | Dev-only `?seed=` scenes for visual tuning; inert in the built bundle |
 | `shapes-data/anatomy/` | Arch + teeth template JSONs (ShapeLab-only) |
 | `shapes-data/treatments/` | Treatment shape JSONs |
 
