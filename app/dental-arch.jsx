@@ -463,7 +463,7 @@ function DentalHeroInner() {
   useClinicTheme();
   const [t, setTweak] = useTweaks(DEFAULT_TWEAKS);
 
-  const { stage, setStage, presence, setPresence, treatments, setTreatments, loaded } = useChartState();
+  const { stage, setStage, presence, setPresence, treatments, setTreatments, loaded, effectivePresence } = useChartState();
   const { hoveredId, setHoveredId, selection, setSelection, popover, setPopover, focusedToothId, setFocusedToothId, panelHoverIds, setPanelHoverIds } = useUIState();
 
   const [openPanel, setOpenPanel] = useState('tweaks');
@@ -512,14 +512,14 @@ function DentalHeroInner() {
     const enriched = treatments.map((tx) =>
       (tx.id === 'bridge-span' || tx.id === 'implant-bridge-span')
         ? { ...tx, claimableCrowns: tx.targets.filter((id) =>
-            presence[id] !== 'missing' &&
-            presence[id] !== 'root-stump' &&
+            effectivePresence[id] !== 'missing' &&
+            effectivePresence[id] !== 'root-stump' &&
             !treatments.some((x) => (x.id === 'implant-only' || x.id === 'implant-crown') && x.targets.includes(id))
           ).length }
         : tx
     );
     emit('CHART_TREATMENT_APPLIED_BATCH', { treatments: enriched });
-  }, [treatments, presence, loaded]);
+  }, [treatments, effectivePresence, loaded]);
 
   // Marquee drag-to-select
   const svgRef = useRef(null);
@@ -549,9 +549,9 @@ function DentalHeroInner() {
   const allTeeth = [...scaledUpper, ...scaledLower];
 
   const archEdentulous = useMemo(() => ({
-    upper: scaledUpper.every((x) => presence[x.id] === 'missing'),
-    lower: scaledLower.every((x) => presence[x.id] === 'missing')
-  }), [presence]);
+    upper: scaledUpper.every((x) => effectivePresence[x.id] === 'missing'),
+    lower: scaledLower.every((x) => effectivePresence[x.id] === 'missing')
+  }), [effectivePresence]);
   const fullyEdentulous = archEdentulous.upper && archEdentulous.lower;
 
   const treatedTeeth = useMemo(() => {
@@ -568,14 +568,14 @@ function DentalHeroInner() {
   );
 
   const selectionStats = useMemo(() => {
-    const missing = selectedTeeth.filter((tooth) => presence[tooth.id] === 'missing').length;
+    const missing = selectedTeeth.filter((tooth) => effectivePresence[tooth.id] === 'missing').length;
     const present = selectedTeeth.length - missing;
     return {
       present,
       missing,
       label: selectedTeeth.slice(0, 5).map((tooth) => tooth.fdi).join(', ')
     };
-  }, [selectedTeeth, presence]);
+  }, [selectedTeeth, effectivePresence]);
 
   const openTreatmentForTeeth = useCallback((toothIds, anchor) => {
     const target = toothIds.map((tid) => allTeeth.find((x) => x.id === tid)).filter(Boolean);
@@ -750,10 +750,10 @@ function DentalHeroInner() {
       return;
     }
 
-    if (presence[id] === 'implant') return;
+    if (effectivePresence[id] === 'implant') return;
     setSelection([id]);
     openTreatmentForTeeth([id], { x: evt.clientX, y: evt.clientY });
-  }, [stage, presence, treatedTeeth, openTreatmentForTeeth, openBaselineForTeeth]);
+  }, [stage, presence, effectivePresence, treatedTeeth, openTreatmentForTeeth, openBaselineForTeeth]);
 
   const handleAnatomySelect = useCallback((ref, evt) => {
     if (stage !== 'treatment') return;
@@ -803,20 +803,12 @@ function DentalHeroInner() {
       setSelection([]);
       return;
     }
-    const autoMissing = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction', 'root-stump-extraction'];
     const SESSION_SPLIT_IDS = ['implant-only', 'implant-crown', 'gbr',
                                'simple-surgical-extraction', 'complex-surgical-extraction', 'root-stump-extraction'];
-    if (autoMissing.includes(txId) && popover.mode === 'tooth') {
-      setPresence((p) => {
-        const next = { ...p };
-        popover.target.filter(t => presence[t.id] !== 'implant').forEach((t) => {next[t.id] = 'missing';});
-        return next;
-      });
-    }
     setTreatments((prev) => {
       let next = [...prev];
       if (popover.mode === 'tooth') {
-        const targets = popover.target.filter(t => presence[t.id] !== 'implant').map((t) => t.id);
+        const targets = popover.target.filter(t => effectivePresence[t.id] !== 'implant').map((t) => t.id);
         const exclusive = getConflictingTreatmentIds(txId);
         next = next.map((tx) => {
           if (tx.scope !== 'tooth' || !exclusive.includes(tx.id)) return tx;
@@ -887,7 +879,7 @@ function DentalHeroInner() {
     });
     setPopover(null);
     setSelection([]);
-  }, [popover, fullyEdentulous, allTeeth, presence]);
+  }, [popover, fullyEdentulous, allTeeth, effectivePresence]);
 
   const handleApplyBaseline = useCallback((status) => {
     if (!popover) return;
@@ -920,13 +912,6 @@ function DentalHeroInner() {
       if (tx.scope !== 'tooth' || tx.id !== txId) return tx;
       return { ...tx, targets: tx.targets.filter((id) => id !== toothId) };
     }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length >= 1));
-    if (txId === 'extraction') {
-      setPresence((prev) => {
-        const next = { ...prev };
-        delete next[toothId];
-        return next;
-      });
-    }
   };
   const removeNonToothTreatment = (txId, target) => {
     setTreatments((prev) => prev.map((tx) => {
@@ -1265,7 +1250,7 @@ function DentalHeroInner() {
                     isHovered={hoveredId === tooth.id || panelHoverIds.includes(tooth.id)}
                     isSelected={selection.includes(tooth.id)}
                     isInDrag={marquee?.hits.has(tooth.id) ?? false}
-                    presence={presence[tooth.id]}
+                    presence={effectivePresence[tooth.id]}
                     onHover={setHoveredId}
                     onSelect={handleToothSelect}
                     onFocus={() => setFocusedToothId(tooth.id)}
@@ -1289,7 +1274,7 @@ function DentalHeroInner() {
                   isHovered={hoveredId === tooth.id || panelHoverIds.includes(tooth.id)}
                   isSelected={selection.includes(tooth.id)}
                   isInDrag={false}
-                  presence={presence[tooth.id]}
+                  presence={effectivePresence[tooth.id]}
                   onHover={setHoveredId}
                   onSelect={handleToothSelect}
                   onFocus={() => setFocusedToothId(tooth.id)}
@@ -1362,25 +1347,25 @@ function DentalHeroInner() {
         target={popover ? popover.target : null}
         archEdentulous={archEdentulous}
         allPresent={popover && popover.mode === 'tooth'
-          ? popover.target.every(t => presence[t.id] !== 'missing' && presence[t.id] !== 'implant' && presence[t.id] !== 'root-stump')
+          ? popover.target.every(t => effectivePresence[t.id] !== 'missing' && effectivePresence[t.id] !== 'implant' && effectivePresence[t.id] !== 'root-stump')
           : false}
         allMissing={popover && popover.mode === 'tooth'
-          ? popover.target.every(t => presence[t.id] === 'missing')
+          ? popover.target.every(t => effectivePresence[t.id] === 'missing')
           : false}
         allExtractable={popover && popover.mode === 'tooth'
-          ? popover.target.every(t => presence[t.id] !== 'missing' && presence[t.id] !== 'implant')
+          ? popover.target.every(t => effectivePresence[t.id] !== 'missing' && effectivePresence[t.id] !== 'implant')
           : false}
         allRootStump={popover && popover.mode === 'tooth'
-          ? popover.target.every(t => presence[t.id] === 'root-stump')
+          ? popover.target.every(t => effectivePresence[t.id] === 'root-stump')
           : false}
         hasBridgeAbutment={popover && popover.mode === 'tooth'
           ? popover.target.some(t =>
-              (presence[t.id] !== 'missing' && presence[t.id] !== 'implant' && presence[t.id] !== 'root-stump') ||
+              (effectivePresence[t.id] !== 'missing' && effectivePresence[t.id] !== 'implant' && effectivePresence[t.id] !== 'root-stump') ||
               treatments.some(x => x.id === 'implant-only' && x.targets.includes(t.id)))
           : false}
         hasBridgeGap={popover && popover.mode === 'tooth'
           ? popover.target.some(t =>
-              presence[t.id] === 'missing' &&
+              effectivePresence[t.id] === 'missing' &&
               !treatments.some(x => (x.id === 'implant-only' || x.id === 'implant-crown') && x.targets.includes(t.id)))
           : false}
         fullyEdentulous={fullyEdentulous}
@@ -1538,10 +1523,12 @@ function darkTheme() {
 }
 
 function DentalHero() {
-  const patientId = new URLSearchParams(window.location.search).get('patient') || undefined;
+  const params = new URLSearchParams(window.location.search);
+  const patientId = params.get('patient') || undefined;
+  const seed = params.get('seed') || undefined;   // dev-only, see core/dev-seed.js
   const isTablet = useIsTablet();
   return (
-    <ChartStateProvider patientId={patientId}>
+    <ChartStateProvider patientId={patientId} seed={seed}>
       <UIStateProvider>
         {isTablet ? <TabletChart /> : <DentalHeroInner />}
       </UIStateProvider>

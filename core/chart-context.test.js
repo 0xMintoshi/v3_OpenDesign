@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { EXTRACTION_IDS } from './conflict-rules.js';
 import { renderHook, act } from '@testing-library/react';
 import React from 'react';
 import { ChartStateProvider, useChartState } from './chart-context.jsx';
@@ -55,5 +56,108 @@ describe('ChartStateContext', () => {
       renderHook(() => useChartState(), { wrapper: ChartStateProvider });
     });
     expect(loadChart).not.toHaveBeenCalled();
+  });
+});
+
+// ---- effectivePresence derivation + plan isolation ----
+
+describe('effectivePresence', () => {
+  beforeEach(() => vi.clearAllMocks());
+
+  it('equals presence when stage is baseline', () => {
+    const { result } = renderHook(() => useChartState(), {
+      wrapper: ChartStateProvider,
+    });
+    // stage starts 'baseline'; both maps should be identical object
+    expect(result.current.effectivePresence).toBe(result.current.presence);
+  });
+
+  it('marks extraction targets missing in treatment stage', async () => {
+    const { result } = renderHook(() => useChartState(), {
+      wrapper: ChartStateProvider,
+    });
+
+    await act(async () => {
+      result.current.setStage('treatment');
+      result.current.setTreatments([
+        { id: 'extraction', scope: 'tooth', targets: ['11'] },
+      ]);
+    });
+
+    expect(result.current.effectivePresence['11']).toBe('missing');
+    // raw presence must be untouched
+    expect(result.current.presence['11']).toBeUndefined();
+  });
+
+  it('swapping treatments changes effectivePresence but leaves presence byte-identical', async () => {
+    const { result } = renderHook(() => useChartState(), {
+      wrapper: ChartStateProvider,
+    });
+
+    await act(async () => {
+      result.current.setStage('treatment');
+      result.current.setTreatments([
+        { id: 'extraction', scope: 'tooth', targets: ['11'] },
+      ]);
+    });
+
+    const presenceBefore = result.current.presence;
+
+    await act(async () => {
+      // Simulate SET_TREATMENTS plan switch — replace treatments entirely
+      result.current.setTreatments([
+        { id: 'extraction', scope: 'tooth', targets: ['21'] },
+      ]);
+    });
+
+    // presence object must be the exact same reference
+    expect(result.current.presence).toBe(presenceBefore);
+    // effectivePresence reflects the new plan
+    expect(result.current.effectivePresence['11']).toBeUndefined();
+    expect(result.current.effectivePresence['21']).toBe('missing');
+  });
+
+  // Pinned contract: parameterising over EXTRACTION_IDS alone would silently stop
+  // testing an ID that got dropped from the constant, so assert the set itself.
+  it('EXTRACTION_IDS covers all four extraction types', () => {
+    expect([...EXTRACTION_IDS].sort()).toEqual([
+      'complex-surgical-extraction',
+      'extraction',
+      'root-stump-extraction',
+      'simple-surgical-extraction',
+    ]);
+  });
+
+  // Regression: the extraction-ID list used to be duplicated in three files and
+  // root-stump-extraction was missing from one of them. All four IDs must drive
+  // effectivePresence, sourced from conflict-rules.js.
+  it.each(EXTRACTION_IDS)('%s marks its target missing in treatment stage', async (txId) => {
+    const { result } = renderHook(() => useChartState(), {
+      wrapper: ChartStateProvider,
+    });
+
+    await act(async () => {
+      result.current.setStage('treatment');
+      result.current.setTreatments([
+        { id: txId, scope: 'tooth', targets: ['11'] },
+      ]);
+    });
+
+    expect(result.current.effectivePresence['11']).toBe('missing');
+  });
+
+  it('non-extraction treatments do not mark a tooth missing', async () => {
+    const { result } = renderHook(() => useChartState(), {
+      wrapper: ChartStateProvider,
+    });
+
+    await act(async () => {
+      result.current.setStage('treatment');
+      result.current.setTreatments([
+        { id: 'crown', scope: 'tooth', targets: ['11'] },
+      ]);
+    });
+
+    expect(result.current.effectivePresence['11']).toBeUndefined();
   });
 });

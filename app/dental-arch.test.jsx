@@ -13,6 +13,7 @@ vi.mock('../core/chart-context.jsx', () => ({
   useChartState: () => ({
     stage: 'treatment',
     presence: {},
+    effectivePresence: {},
     treatments: [],
     loaded: true,
     setStage: vi.fn(),
