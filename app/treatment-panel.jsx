@@ -61,7 +61,7 @@ const TRX_STYLE = `
   .trx-rmv{appearance:none;border:0;background:transparent;padding:2px 4px;
     color:rgba(41,38,27,.35);font-size:13px;line-height:1;cursor:default;border-radius:4px}
   .trx-rmv:hover{background:rgba(0,0,0,.07);color:#29261b}
-  .trx-empty{padding:20px 14px;text-align:center;color:rgba(41,38,27,.42);font-size:11px}
+  .trx-empty{padding:22px 16px;text-align:center;color:var(--ink-muted);font-size:12px;line-height:1.5}
 `;
 
 // Bottom-right pill dock. Owns both pills so they sit side by side in one flex
@@ -142,7 +142,7 @@ export function TreatmentPanel({
         </div>
         <div className="twk-body">
           {sections.length === 0 ? (
-            <div className="trx-empty">No treatments planned</div>
+            <div className="trx-empty">Click a tooth to add a treatment.</div>
           ) : (
             sections.map((section) => (
               <div key={section.key}>
