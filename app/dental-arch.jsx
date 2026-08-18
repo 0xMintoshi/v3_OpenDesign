@@ -1021,6 +1021,19 @@ function DentalHeroInner() {
     return () => window.removeEventListener('message', onMsg);
   }, []);
 
+  // Listen for SET_STAGE from parent — jumps directly to 'baseline' or 'treatment'
+  // stage without requiring the user to click Advance. Mirrors handleAdvance() above.
+  useEffect(() => {
+    const onMsg = (e) => {
+      const msg = e.data;
+      if (!msg || msg.version !== 1 || msg.type !== 'SET_STAGE') return;
+      setStage(msg.payload?.stage === 'treatment' ? 'treatment' : 'baseline');
+      setSelection([]); setPopover(null);
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, []);
+
   // M3 — respond to GET_TOOTH_RECTS with viewport centres of all treated teeth.
   useEffect(() => {
     const onMsg = (e) => {
