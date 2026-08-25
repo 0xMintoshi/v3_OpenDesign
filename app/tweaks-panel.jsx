@@ -47,11 +47,9 @@ import React from 'react';
 //
 // ─────────────────────────────────────────────────────────────────────────────
 
-// Keep TWK_PILL_BOTTOM in sync with DOCK_BOTTOM in treatment-panel.jsx
-// and .twk-mini bottom below — all three must move together.
-const TWK_PILL_BOTTOM = 116;
-const TWK_PILL_H = 32;
-const TWK_PANEL_BOTTOM = TWK_PILL_BOTTOM + TWK_PILL_H + 18; // 166
+export const PILL_BOTTOM = 30;
+export const PILL_H = 32;
+const TWK_PANEL_BOTTOM = PILL_BOTTOM + PILL_H + 18; // 80
 
 export const __TWEAKS_STYLE = `
   .twk-panel{position:fixed;right:40px;bottom:${TWK_PANEL_BOTTOM}px;z-index:2147483646;width:240px;
@@ -73,7 +71,7 @@ export const __TWEAKS_STYLE = `
   .twk-collapse::before{content:"";width:7px;height:7px;border-right:1.5px solid currentColor;
     border-bottom:1.5px solid currentColor;transform:translateY(-2px) rotate(45deg)}
   .twk-collapse:hover{background:rgba(0,0,0,.06);color:#29261b}
-  .twk-mini{position:fixed;right:40px;bottom:116px;z-index:2147483646;
+  .twk-mini{position:fixed;right:40px;bottom:${PILL_BOTTOM}px;z-index:2147483646;
     appearance:none;border:.5px solid rgba(255,255,255,.7);border-radius:14px;
     height:32px;padding:0 12px;background:rgba(250,249,247,.88);color:#29261b;
     -webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);
@@ -123,9 +121,9 @@ export const __TWEAKS_STYLE = `
 
   .twk-seg{position:relative;display:flex;padding:2px;border-radius:8px;
     background:rgba(0,0,0,.06);user-select:none}
-  .twk-seg-thumb{position:absolute;top:2px;bottom:2px;border-radius:6px;
+  .twk-seg-thumb{position:absolute;top:2px;bottom:2px;left:2px;border-radius:6px;
     background:rgba(255,255,255,.9);box-shadow:0 1px 2px rgba(0,0,0,.12);
-    transition:left .15s cubic-bezier(.3,.7,.4,1),width .15s}
+    transition:transform .15s cubic-bezier(.3,.7,.4,1)}
   .twk-seg.dragging .twk-seg-thumb{transition:none}
   .twk-seg button{appearance:none;position:relative;z-index:1;flex:1;border:0;
     background:transparent;color:inherit;font:inherit;font-weight:500;min-height:22px;
@@ -414,8 +412,8 @@ function TweakRadio({ label, value, options, onChange }) {
       <div ref={trackRef} role="radiogroup" onPointerDown={onPointerDown}
            className={dragging ? 'twk-seg dragging' : 'twk-seg'}>
         <div className="twk-seg-thumb"
-             style={{ left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
-                      width: `calc((100% - 4px) / ${n})` }} />
+             style={{ width: `calc((100% - 4px) / ${n})`,
+                      transform: `translateX(${idx * 100}%)` }} />
         {opts.map((o) => (
           <button key={o.value} type="button" role="radio" aria-checked={o.value === value}>
             {o.label}
