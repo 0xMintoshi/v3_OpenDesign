@@ -963,6 +963,28 @@ function fdiToZone(fdi) {
   return 'u-ant';
 }
 
+// Arch order (patient-right to patient-left): upper Q1→Q2, lower Q4→Q3
+const FDI_ARCH_ORDER = [
+  18,17,16,15,14,13,12,11, 21,22,23,24,25,26,27,28,
+  48,47,46,45,44,43,42,41, 31,32,33,34,35,36,37,38,
+];
+function abbreviateTeeth(targets) {
+  if (!Array.isArray(targets) || targets.length === 0) return '';
+  if (targets.length === 1) return `#${targets[0].fdi}`;
+  const fdis = targets.map(t => t.fdi);
+  if (fdis.length > 5) {
+    const positions = fdis.map(f => FDI_ARCH_ORDER.indexOf(f));
+    if (positions.every(p => p !== -1)) {
+      positions.sort((a, b) => a - b);
+      const contiguous = positions.every((p, i) => i === 0 || p === positions[i - 1] + 1);
+      if (contiguous) {
+        return `#${FDI_ARCH_ORDER[positions[0]]}–${FDI_ARCH_ORDER[positions[positions.length - 1]]}`;
+      }
+    }
+  }
+  return `#${fdis.slice(0, 6).join(' ')}${fdis.length > 6 ? ` +${fdis.length - 6}` : ''}`;
+}
+
 // Connector: exits at midpoint of one of 4 box sides, perpendicular to that side,
 // then one bend to the anchor. Side picked by which face the anchor is on.
 function connectorPath(bx, by, hw, hh, ax, ay) {
@@ -1049,14 +1071,10 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
   if (!open) return null;
 
   if (mode === 'baseline') {
-    const BW = 264;
+    const BW = 260;
     const bleft = Math.max(20, Math.min(window.innerWidth - BW - 20, anchor.x - BW / 2));
     const btop  = Math.max(20, Math.min(anchor.y + 18, window.innerHeight - 210));
-    const btitle = Array.isArray(target) && target.length === 1
-      ? `#${target[0].fdi}`
-      : Array.isArray(target) && target.length > 1
-        ? `#${target.slice(0, 6).map(t => t.fdi).join(' ')}${target.length > 6 ? ` +${target.length - 6}` : ''}`
-        : '';
+    const btitle = abbreviateTeeth(Array.isArray(target) ? target : []);
     return (
       <>
         <div className="popover-veil" onClick={onClose} />
@@ -1110,9 +1128,7 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
 
   if (mode === 'tooth') {
     groups = TX_GROUPS;
-    title = target.length === 1
-      ? `#${target[0].fdi}`
-      : `#${target.slice(0, 6).map(t => t.fdi).join(' ')}${target.length > 6 ? ` +${target.length - 6}` : ''}`;
+    title = abbreviateTeeth(target);
   } else if (mode === 'sinus') {
     groups = [SINUS_GROUP];
     title = target.side === 'right' ? 'Right Maxillary Sinus' : 'Left Maxillary Sinus';
@@ -1121,7 +1137,7 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
     title = target.arch === 'upper' ? 'Maxilla' : 'Mandible';
   }
 
-  const W = 320;
+  const W = 256;
   const left = Math.max(20, Math.min(window.innerWidth - W - 20, anchor.x - W / 2));
 
   const isAvailable = (item) => {

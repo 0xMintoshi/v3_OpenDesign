@@ -1,19 +1,16 @@
 import React from 'react';
-import { __TWEAKS_STYLE } from './tweaks-panel.jsx';
+import { __TWEAKS_STYLE, PILL_BOTTOM, PILL_H } from './tweaks-panel.jsx';
 import { buildPanelSections } from '../core/treatment-panel-order.js';
 
-// Fixed geometry — pills sit in a dock at the bottom-right corner, above the
-// stage footer (whose action buttons occupy the corner itself); both panels
-// open at the same anchor directly above the dock. Nothing is draggable.
-const DOCK_BOTTOM = 116;
+// Fixed geometry — pills own the bottom-right corner; both panels open directly
+// above the pills. Nothing is draggable.
 const DOCK_RIGHT = 40;
-const PILL_H = 32;
-const PANEL_BOTTOM = DOCK_BOTTOM + PILL_H + 18;
+const PANEL_BOTTOM = PILL_BOTTOM + PILL_H + 18;
 
 export const __PANEL_ANCHOR = { right: DOCK_RIGHT, bottom: PANEL_BOTTOM };
 
 const DOCK_STYLE = `
-  .pnl-dock{position:fixed;right:${DOCK_RIGHT}px;bottom:${DOCK_BOTTOM}px;z-index:2147483645;
+  .pnl-dock{position:fixed;right:${DOCK_RIGHT}px;bottom:${PILL_BOTTOM}px;z-index:2147483645;
     display:flex;gap:8px;transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right}
   .pnl-pill{appearance:none;display:inline-flex;align-items:center;justify-content:center;
     border:.5px solid rgba(255,255,255,.7);border-radius:14px;
