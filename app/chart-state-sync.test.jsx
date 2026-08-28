@@ -15,7 +15,6 @@ import { UIStateProvider } from '../core/ui-context.jsx';
 import { healPresence } from '../core/conflict-rules.js';
 import { shallowEqualPresence, treatmentsEqual } from './dental-arch.jsx';
 
-vi.mock('../layout/use-is-tablet.js', () => ({ useIsTablet: () => false }));
 
 /* Capture outbound messages. emit() is a no-op outside an iframe, so the bridge is
    mocked rather than relying on window.parent. */

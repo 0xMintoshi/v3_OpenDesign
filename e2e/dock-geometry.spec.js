@@ -91,23 +91,40 @@ test.describe('Dock geometry (C4)', () => {
     expect(clearance).toBeGreaterThanOrEqual(10);
   });
 
-  // Phone-viewport note (2026-08-25):
-  // The chart uses useIsTablet() with TABLET_QUERY = '(max-width: 1180px)'.
-  // At ≤1180px the component renders .tablet-chart instead of .stage + .dock,
-  // so .dock does not exist at 375px or 480px.  The earlier test asserting dock
-  // centring at 375px could never pass.  The @media (max-width: 480px) .dock
-  // rule in src/styles.css is therefore unreachable — confirm with Minzhe
-  // whether it should be removed.
+  // Phone-viewport note — REVISED 2026-08-28.
   //
-  // This test verifies the tablet layout IS rendered at 375px instead.
-  test('phone viewport: tablet layout renders at 375px (dock absent)', async ({ page }) => {
+  // The 2026-08-25 version of this test asserted the opposite: that .dock is
+  // ABSENT at 375px, because ≤1180px rendered .tablet-chart instead of
+  // .stage + .dock. That reading treated a bug as intended design. The same note
+  // observed that the `@media (max-width: 480px) .dock` rule in src/styles.css
+  // had become unreachable and wondered whether to delete it — which was the
+  // clue: the rule was written for a dock that was supposed to be there.
+  //
+  // The tablet branch made the chart unusable on every iPad (no CHART_READY, so
+  // the parent's loading overlay never cleared) and has been removed. One layout
+  // now renders at every width, so the dock exists at 375px again and that media
+  // rule is live. See docs/plans/2026-08-28-phase-a-ipad-findings.md.
+  test('phone viewport: dock renders and stays on screen at 375px', async ({ page }) => {
     await page.setViewportSize({ width: 375, height: 812 });
     await page.waitForTimeout(300); // allow media-query reflow
-    const tabletChart = page.locator('.tablet-chart');
-    await expect(tabletChart).toBeVisible();
-    // .count() returns 0 immediately when element is absent — don't use .boundingBox()
-    // which waits for the element to exist/visible and hangs when it never renders.
-    const dockCount = await page.locator('.dock').count();
-    expect(dockCount).toBe(0); // dock must not exist in tablet layout
+    await expect(page.locator('.dock')).toBeVisible();
+    const box = await page.locator('.dock').boundingBox();
+    expect(box).not.toBeNull();
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(375);
+  });
+
+  // Regression guard for the iPad break. This asserts through the REAL call site
+  // at a real iPad width — the previous unit test rendered TabletChart with
+  // explicit props the production render never passed, so it stayed green while
+  // the app was dead on the device it was meant to cover.
+  test('iPad width renders the interactive chart, not a static one', async ({ page }) => {
+    await page.setViewportSize({ width: 810, height: 1080 });
+    await page.waitForTimeout(300);
+    await expect(page.locator('.dock')).toBeVisible();
+    // role=button is what makes a tooth an interactive control; the removed
+    // tablet layout drew bare <g data-tooth-id> with no role and no handlers.
+    await expect(page.locator('[role="button"][data-tooth-id]')).toHaveCount(32);
+    await expect(page.locator('.tablet-chart')).toHaveCount(0);
   });
 });

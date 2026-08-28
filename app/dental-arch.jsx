@@ -20,8 +20,6 @@ import { useClinicTheme } from '../core/use-clinic-theme.js';
 export function cyclePresence(cur) {
   return cur === undefined ? 'missing' : cur === 'missing' ? 'implant' : cur === 'implant' ? 'root-stump' : undefined;
 }
-import { useIsTablet } from '../layout/use-is-tablet.js';
-import { TabletChart } from '../layout/tablet-chart.jsx';
 import { toothYAdjust, toothBBoxes, computeMarquee } from '../core/marquee-select.js';
 
 const { useState, useEffect, useMemo, useCallback, useRef } = React;
@@ -1622,15 +1620,42 @@ function darkTheme() {
   };
 }
 
+/**
+ * One layout at every width.
+ *
+ * This used to be `isTablet ? <TabletChart /> : <DentalHeroInner />` against a
+ * `(max-width: 1180px)` query, and that made the chart UNUSABLE on every iPad
+ * (see docs/plans/2026-08-28-phase-a-ipad-findings.md). Two things went wrong at
+ * once:
+ *
+ *   1. TabletChart was rendered with NO props, so its onSelect/onHover fell back
+ *      to no-ops — every tooth tap did nothing.
+ *   2. All parent-bridge wiring lives in DentalHeroInner: CHART_READY,
+ *      CHART_STATE_CHANGED, the SET_CHART_STATE listener, NAVIGATE_SUMMARY, the
+ *      dock, the treatment panel and the popover. None of it exists on the
+ *      tablet path, so the parent never received CHART_READY and never hid
+ *      #chart-loading-overlay. The dentist sat on a permanent "Loading…" screen.
+ *
+ * 1180px swept in every iPad in portrait and the iPad 10.2" in both
+ * orientations — the most common chairside device there is.
+ *
+ * DentalHeroInner was measured at 375, 600, 768, 810, 834, 1080 and 1194px
+ * before this change: 32 teeth, dock on screen, all three bridge messages, and
+ * no horizontal overflow at every one. It is responsive; the branch was not
+ * buying anything.
+ *
+ * If a purpose-built phone or tablet layout is wanted later, build it with
+ * handlers and bridge wiring from the start — do not restore TabletChart, which
+ * had neither. It is in git history at b05a719~1 if the geometry is useful.
+ */
 function DentalHero() {
   const params = new URLSearchParams(window.location.search);
   const patientId = params.get('patient') || undefined;
   const seed = params.get('seed') || undefined;   // dev-only, see core/dev-seed.js
-  const isTablet = useIsTablet();
   return (
     <ChartStateProvider patientId={patientId} seed={seed}>
       <UIStateProvider>
-        {isTablet ? <TabletChart /> : <DentalHeroInner />}
+        <DentalHeroInner />
       </UIStateProvider>
     </ChartStateProvider>
   );
