@@ -9,7 +9,7 @@ import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, BoneGraf
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
 import { TreatmentPanel, PanelDock } from './treatment-panel.jsx';
 import { Dock, DockDivider, DockItem, ArchIcon, StageForwardIcon, StageBackIcon, SummaryIcon, ClearIcon } from './dock.jsx';
-import { getConflictingTreatmentIds } from '../core/conflict-rules.js';
+import { getConflictingTreatmentIds, healPresence } from '../core/conflict-rules.js';
 import { areContiguous } from '../core/contiguity.js';
 import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
 import { emit } from '../core/iframe-bridge.js';
@@ -459,6 +459,34 @@ const DEFAULT_TWEAKS = /*EDITMODE-BEGIN*/{
   "wisdomImpacted": false
 } /*EDITMODE-END*/;
 
+/**
+ * Dirty-check helpers for the SET_CHART_STATE echo guard (Phase 1.1).
+ *
+ * Exported for direct unit testing: the loop these prevent is invisible in manual
+ * use until it drains a battery, so it is asserted rather than eyeballed.
+ */
+export function shallowEqualPresence(a, b) {
+  if (a === b) return true;
+  if (!a || !b) return false;
+  const ka = Object.keys(a), kb = Object.keys(b);
+  if (ka.length !== kb.length) return false;
+  return ka.every((k) => a[k] === b[k]);
+}
+
+/**
+ * Treatments compare by id + scope + target SET (order-insensitive), matching how
+ * _chartTxId is built parent-side. A reordered targets array is the same treatment
+ * and must not be treated as a change, or the guard never terminates.
+ */
+export function treatmentsEqual(a, b) {
+  if (a === b) return true;
+  if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+  const key = (tx) => tx.id + '|' + (tx.scope || '') + '|' +
+    (tx.targets || []).slice().sort().join(',');
+  const ka = a.map(key).sort(), kb = b.map(key).sort();
+  return ka.every((k, i) => k === kb[i]);
+}
+
 function DentalHeroInner() {
   useClinicTheme();
   const [t, setTweak] = useTweaks(DEFAULT_TWEAKS);
@@ -503,23 +531,50 @@ function DentalHeroInner() {
     return () => window.removeEventListener('wheel', onWheel);
   }, [stage]);
 
-  // Broadcast full treatments array on every change, but only after Firestore load
-  // so the parent never receives an empty [] that wipes its quote items.
   // Bridge spans carry claimableCrowns = count of true natural abutments (present AND not
   // implant-bearing); implant abutments and pontics are excluded from CHAS permanent-crown claims.
+  // Computed once and shared by both outbound channels below so the quote and the
+  // persisted copy can never disagree about a span's claimable count.
+  const enrichedTreatments = useMemo(() => treatments.map((tx) =>
+    (tx.id === 'bridge-span' || tx.id === 'implant-bridge-span')
+      ? { ...tx, claimableCrowns: tx.targets.filter((id) =>
+          effectivePresence[id] !== 'missing' &&
+          effectivePresence[id] !== 'root-stump' &&
+          !treatments.some((x) => (x.id === 'implant-only' || x.id === 'implant-crown') && x.targets.includes(id))
+        ).length }
+      : tx
+  ), [treatments, effectivePresence]);
+
+  // Broadcast full treatments array on every change, but only after Firestore load
+  // so the parent never receives an empty [] that wipes its quote items.
+  // Immediate (undebounced): this drives the parent's quote line items, which must
+  // track a tooth tap without a visible lag.
   useEffect(() => {
     if (!loaded) return;
-    const enriched = treatments.map((tx) =>
-      (tx.id === 'bridge-span' || tx.id === 'implant-bridge-span')
-        ? { ...tx, claimableCrowns: tx.targets.filter((id) =>
-            effectivePresence[id] !== 'missing' &&
-            effectivePresence[id] !== 'root-stump' &&
-            !treatments.some((x) => (x.id === 'implant-only' || x.id === 'implant-crown') && x.targets.includes(id))
-          ).length }
-        : tx
-    );
-    emit('CHART_TREATMENT_APPLIED_BATCH', { treatments: enriched });
-  }, [treatments, effectivePresence, loaded]);
+    emit('CHART_TREATMENT_APPLIED_BATCH', { treatments: enrichedTreatments });
+  }, [enrichedTreatments, loaded]);
+
+  // Persistence channel (Phase 1.1). One message carries all three fields because
+  // they are saved together and must be restored together — a presence from one
+  // moment paired with treatments from another is exactly the corruption this
+  // phase exists to prevent. Debounced to the 800 ms cadence the chart's own
+  // Firestore save used, so a drag across ten teeth is one emit, not ten.
+  //
+  // Loop termination is the dirty check in the SET_CHART_STATE handler, NOT a
+  // suppress-next-emit flag. The distinction matters: healPresence() can modify an
+  // inbound map, leaving the chart holding something the parent does not have. A
+  // blanket suppression would strand that repair here forever, and the parent would
+  // re-send the illegal map on every restore. Emitting after a restore is correct;
+  // what must not happen is emitting when nothing actually changed, and the dirty
+  // check already guarantees that — healing is idempotent, so the echo of a healed
+  // map compares equal on the way back in and stops there.
+  useEffect(() => {
+    if (!loaded) return;
+    const timer = setTimeout(() => {
+      emit('CHART_STATE_CHANGED', { stage, presence, treatments: enrichedTreatments });
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [stage, presence, enrichedTreatments, loaded]);
 
   // Marquee drag-to-select
   const svgRef = useRef(null);
@@ -1020,6 +1075,38 @@ function DentalHeroInner() {
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
   }, []);
+
+  // Listen for SET_CHART_STATE from parent (Phase 1.3) — replaces stage, presence and
+  // treatments atomically. Supersedes SET_TREATMENTS, which is kept for one release so
+  // the comparison-plan switching path is not disturbed in the same change.
+  //
+  // Two guards, for two different failure modes:
+  //  - healPresence() repairs an illegal 'missing'-plus-extraction-target map on the
+  //    way in, wherever the state came from (Phase 1.1a).
+  //  - The dirty check skips the state write entirely when nothing actually changed.
+  //    React bails out on identical primitives but NOT on a fresh object identity, so
+  //    setPresence({...identical}) would still re-render and emit. That is the echo
+  //    loop; this is where it terminates.
+  useEffect(() => {
+    const onMsg = (e) => {
+      const msg = e.data;
+      if (!msg || msg.version !== 1 || msg.type !== 'SET_CHART_STATE') return;
+      const p = msg.payload || {};
+      const nextStage = p.stage === 'treatment' || p.stage === 'baseline' ? p.stage : 'baseline';
+      const nextTreatments = Array.isArray(p.treatments) ? [...p.treatments] : [];
+      const nextPresence = healPresence(p.presence, nextTreatments);
+
+      if (nextStage === stage &&
+          shallowEqualPresence(nextPresence, presence) &&
+          treatmentsEqual(nextTreatments, treatments)) return;
+
+      setStage(nextStage);
+      setPresence(nextPresence);
+      setTreatments(nextTreatments);
+    };
+    window.addEventListener('message', onMsg);
+    return () => window.removeEventListener('message', onMsg);
+  }, [stage, presence, treatments]);
 
   // Listen for SET_STAGE from parent — jumps directly to 'baseline' or 'treatment'
   // stage without requiring the user to click Advance. Mirrors handleAdvance() above.

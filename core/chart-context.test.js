@@ -32,13 +32,13 @@ describe('ChartStateContext', () => {
     );
   });
 
-  it('loads chart from backend on mount when patientId provided', async () => {
+  /* Phase 1.4 — the chart's own cloud round-trip is off, so the parent's copy is
+     the single source of truth. This test previously asserted the opposite (that a
+     patientId triggers loadChart); it is inverted rather than deleted because
+     "the chart must not fetch its own copy" is now the contract worth pinning.
+     A second copy is what permits a partial restore. */
+  it('never loads its own chart copy, even when a patientId is supplied', async () => {
     loadChart.mockResolvedValue({ stage: 'treatment', presence: { '11': 'missing' }, treatments: [] });
-
-    function Consumer() {
-      const { stage } = useChartState();
-      return React.createElement('div', { 'data-testid': 'stage' }, stage);
-    }
 
     let result;
     await act(async () => {
@@ -47,15 +47,29 @@ describe('ChartStateContext', () => {
       });
     });
 
-    expect(loadChart).toHaveBeenCalledWith('p1');
-    expect(result.result.current.stage).toBe('treatment');
+    expect(loadChart).not.toHaveBeenCalled();
+    // State stays at the mount default — it arrives via SET_CHART_STATE instead.
+    expect(result.result.current.stage).toBe('baseline');
   });
 
-  it('does not call loadChart when patientId is absent', async () => {
+  it('never saves its own chart copy, even when a patientId is supplied', async () => {
     await act(async () => {
-      renderHook(() => useChartState(), { wrapper: ChartStateProvider });
+      renderHook(() => useChartState(), {
+        wrapper: ({ children }) => React.createElement(ChartStateProvider, { patientId: 'p1' }, children),
+      });
     });
-    expect(loadChart).not.toHaveBeenCalled();
+    await new Promise((r) => setTimeout(r, 900));   // past the old 800 ms save debounce
+    expect(saveChart).not.toHaveBeenCalled();
+  });
+
+  it('reports loaded on mount so outbound emits are not gated forever', async () => {
+    let result;
+    await act(async () => {
+      result = renderHook(() => useChartState(), {
+        wrapper: ({ children }) => React.createElement(ChartStateProvider, { patientId: 'p1' }, children),
+      });
+    });
+    expect(result.result.current.loaded).toBe(true);
   });
 });
 
