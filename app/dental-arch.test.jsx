@@ -5,8 +5,6 @@ import DentalHero from './dental-arch.jsx';
 import { ChartStateProvider } from '../core/chart-context.jsx';
 import { UIStateProvider } from '../core/ui-context.jsx';
 
-vi.mock('../core/chart-service.js', () => ({ loadChart: vi.fn(), saveChart: vi.fn() }));
-vi.mock('../core/firebase.js', () => ({ db: {} }));
 vi.mock('../layout/use-is-tablet.js', () => ({ useIsTablet: () => false }));
 vi.mock('../core/chart-context.jsx', () => ({
   ChartStateProvider: ({ children }) => children,

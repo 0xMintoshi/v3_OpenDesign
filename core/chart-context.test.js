@@ -4,12 +4,10 @@ import { renderHook, act } from '@testing-library/react';
 import React from 'react';
 import { ChartStateProvider, useChartState } from './chart-context.jsx';
 
-vi.mock('./chart-service.js', () => ({
-  loadChart: vi.fn(),
-  saveChart: vi.fn(),
-}));
-
-import { loadChart, saveChart } from './chart-service.js';
+/* Phase 1.5 deleted chart-service.js and firebase.js, so there is nothing left to
+   mock here. The tests that asserted the load/save round trip are gone with the
+   module; what replaces them is the contract below — the provider must reach the
+   network for nothing at all. */
 
 describe('ChartStateContext', () => {
   beforeEach(() => vi.clearAllMocks());
@@ -32,13 +30,15 @@ describe('ChartStateContext', () => {
     );
   });
 
-  /* Phase 1.4 — the chart's own cloud round-trip is off, so the parent's copy is
-     the single source of truth. This test previously asserted the opposite (that a
-     patientId triggers loadChart); it is inverted rather than deleted because
-     "the chart must not fetch its own copy" is now the contract worth pinning.
-     A second copy is what permits a partial restore. */
-  it('never loads its own chart copy, even when a patientId is supplied', async () => {
-    loadChart.mockResolvedValue({ stage: 'treatment', presence: { '11': 'missing' }, treatments: [] });
+  /* Phase 1.5 — the parent's copy is the ONLY copy. A second persistence path is
+     what permits a partial restore (one plan's treatments over another plan's
+     presence), so "the chart reaches the network for nothing" is the contract.
+     Asserted against fetch/XHR rather than a module mock, because the module is
+     gone: this version keeps failing if someone reintroduces persistence through
+     any route, not just through chart-service.js. */
+  it('performs no network I/O of its own, even when a patientId is supplied', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response('{}'));
+    const xhrSpy = vi.spyOn(XMLHttpRequest.prototype, 'open').mockImplementation(() => {});
 
     let result;
     await act(async () => {
@@ -46,20 +46,28 @@ describe('ChartStateContext', () => {
         wrapper: ({ children }) => React.createElement(ChartStateProvider, { patientId: 'p1' }, children),
       });
     });
+    await new Promise((r) => setTimeout(r, 900));   // past the old 800 ms save debounce
 
-    expect(loadChart).not.toHaveBeenCalled();
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(xhrSpy).not.toHaveBeenCalled();
     // State stays at the mount default — it arrives via SET_CHART_STATE instead.
     expect(result.result.current.stage).toBe('baseline');
+
+    fetchSpy.mockRestore();
+    xhrSpy.mockRestore();
   });
 
-  it('never saves its own chart copy, even when a patientId is supplied', async () => {
+  it('ignores patientId entirely — it is accepted but inert', async () => {
+    let withId, withoutId;
     await act(async () => {
-      renderHook(() => useChartState(), {
+      withId = renderHook(() => useChartState(), {
         wrapper: ({ children }) => React.createElement(ChartStateProvider, { patientId: 'p1' }, children),
       });
+      withoutId = renderHook(() => useChartState(), { wrapper: ChartStateProvider });
     });
-    await new Promise((r) => setTimeout(r, 900));   // past the old 800 ms save debounce
-    expect(saveChart).not.toHaveBeenCalled();
+    expect(withId.result.current.stage).toBe(withoutId.result.current.stage);
+    expect(withId.result.current.presence).toEqual(withoutId.result.current.presence);
+    expect(withId.result.current.loaded).toBe(withoutId.result.current.loaded);
   });
 
   it('reports loaded on mount so outbound emits are not gated forever', async () => {

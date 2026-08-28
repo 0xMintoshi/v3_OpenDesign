@@ -1,11 +1,10 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { render } from '@testing-library/react';
 import React from 'react';
 import { TabletChart } from './tablet-chart.jsx';
 import { ChartStateProvider } from '../core/chart-context.jsx';
 import { UIStateProvider } from '../core/ui-context.jsx';
 
-vi.mock('../core/chart-service.js', () => ({ loadChart: vi.fn(), saveChart: vi.fn() }));
 
 function Wrapper({ children }) {
   return (
