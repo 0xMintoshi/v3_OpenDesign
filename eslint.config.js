@@ -43,4 +43,18 @@ export default [
       }],
     },
   },
+  {
+    // Unit tests run under vitest in Node, so they reach for Node globals
+    // (`global.fetch` stubs, `require` for a CJS interop import) that the
+    // browser-only global set above does not declare. Vitest's own API
+    // (describe/it/expect/vi) is imported explicitly in every test file, so the
+    // Node environment is the only thing missing. Verified 2026-08-31: the tests
+    // themselves pass — this was a lint-only gap, not a runtime bug.
+    files: ['**/*.test.js', '**/*.test.jsx'],
+    languageOptions: {
+      globals: {
+        ...globals.node,
+      },
+    },
+  },
 ];

@@ -119,6 +119,26 @@ function Tooth({
         strokeLinecap="round"
         style={{ pointerEvents: 'visibleStroke' }} />
 
+      {/* WCAG 2.5.8 minimum tap-target guarantee (24px × 24px).
+          Lower central incisors (w=18) render at 22 CSS px wide at the 768px
+          supported floor — 2px short. MIN_TAP_W=33 SVG units gives ≥24 CSS px
+          at 768px (viewBox 1600, scale ≈ 0.74 px/SVG-unit when chart fills
+          viewport). For wider teeth (w+12 > 33) the rect is no-op. */}
+      {(() => {
+        const MIN_TAP_W = 33;
+        const tapW = Math.max(w + 12, MIN_TAP_W);
+        const tapH = Math.max(h + 12, MIN_TAP_W);
+        return (
+          <rect
+            x={-tapW / 2}
+            y={-h}
+            width={tapW}
+            height={tapH}
+            fill="transparent"
+            style={{ pointerEvents: 'all' }} />
+        );
+      })()}
+
       <g
         style={{
           transform: `translateY(${liftY}px)`,

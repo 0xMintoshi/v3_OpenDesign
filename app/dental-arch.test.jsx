@@ -111,13 +111,15 @@ describe('DentalHero — tooth accessibility (A5)', () => {
 });
 
 describe('DentalHero — hit area accuracy', () => {
-  it('no padded rect hit targets exist inside tooth groups', () => {
+  it('each tooth group contains exactly one minimum-tap-target rect (WCAG 2.5.8)', () => {
     const { container } = renderHero();
     const teeth = container.querySelectorAll('[data-tooth-id]');
     teeth.forEach((g) => {
-      // Previously there was a rect with pointerEvents="all" — must not exist
+      // dental-arch.jsx renders a transparent rect with pointerEvents="all" to
+      // guarantee a ≥24px bounding box at the 768px supported floor.
+      // Lower central incisors (w=18) were 22px wide without it.
       const rects = g.querySelectorAll('rect[style*="pointerEvents: all"], rect[style*="pointer-events: all"]');
-      expect(rects.length).toBe(0);
+      expect(rects.length).toBe(1);
     });
   });
 
