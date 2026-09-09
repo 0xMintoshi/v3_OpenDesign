@@ -43,7 +43,7 @@ const CANAL_BASE_OPACITY = 0.30;
 
 function Tooth({
   tooth, jawFlip, accent, isHovered, isSelected, isInDrag,
-  presence, onHover, onSelect, onFocus, tabIndex = 0, showNumber, stage, hasTreatment
+  presence, onHover, onSelect, onFocus, tabIndex = 0, showNumber, showCanals, stage, hasTreatment
 }) {
   const { cx, h, w, type, fdi, tilt = 0, yOffset = 0 } = tooth;
 
@@ -192,8 +192,10 @@ function Tooth({
           }
 
           {/* Pulp canal — root only, so it survives a root stump. Hidden on
-              implants (no root) and on missing teeth. */}
-          {!missing && !isImplant && paths.canal &&
+              implants (no root) and on missing teeth. Off by default: the canal
+              is anatomical detail most quotes never need, so it is opt-in from
+              the Tweaks panel rather than always painted. */}
+          {showCanals && !missing && !isImplant && paths.canal &&
           <path
             d={paths.canal}
             fill={isSelected ? accent : 'var(--tooth-stroke)'}
@@ -490,7 +492,8 @@ const DEFAULT_TWEAKS = /*EDITMODE-BEGIN*/{
 "showNumbering": true,
   "showLayoutGuides": false,
   "archDepth": 0,
-  "wisdomImpacted": false
+  "wisdomImpacted": false,
+  "showCanals": false
 } /*EDITMODE-END*/;
 
 /**
@@ -1421,7 +1424,7 @@ function DentalHeroInner() {
                     onSelect={handleToothSelect}
                     onFocus={() => setFocusedToothId(tooth.id)}
                     tabIndex={focusedToothId === tooth.id || isFirst ? 0 : -1}
-                    showNumber={t.showNumbering}
+                    showNumber={t.showNumbering} showCanals={t.showCanals}
                     stage={stage}
                     hasTreatment={treatedTeeth.has(tooth.id)} />
                 </g>
@@ -1445,7 +1448,7 @@ function DentalHeroInner() {
                   onSelect={handleToothSelect}
                   onFocus={() => setFocusedToothId(tooth.id)}
                   tabIndex={focusedToothId === tooth.id ? 0 : -1}
-                  showNumber={t.showNumbering}
+                  showNumber={t.showNumbering} showCanals={t.showCanals}
                   stage={stage}
                   hasTreatment={treatedTeeth.has(tooth.id)} />
               </g>
@@ -1547,6 +1550,7 @@ function DentalHeroInner() {
         onClose={() => setOpenPanel(null)}
       >
         <TweakToggle label="#38/48 Impaction" value={t.wisdomImpacted} onChange={(v) => setTweak('wisdomImpacted', v)} />
+        <TweakToggle label="Root Canals" value={t.showCanals} onChange={(v) => setTweak('showCanals', v)} />
         <TweakToggle label="FDI Numbers" value={t.showNumbering} onChange={(v) => setTweak('showNumbering', v)} />
         <TweakToggle label="Sinus Zones" value={t.showSinus} onChange={(v) => setTweak('showSinus', v)} />
         <TweakToggle label="ID Nerve" value={t.showIDN} onChange={(v) => setTweak('showIDN', v)} />
