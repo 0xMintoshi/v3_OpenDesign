@@ -528,6 +528,12 @@ function DentalHeroInner() {
   const { stage, setStage, presence, setPresence, treatments, setTreatments, loaded, effectivePresence } = useChartState();
   const { hoveredId, setHoveredId, selection, setSelection, popover, setPopover, focusedToothId, setFocusedToothId, panelHoverIds, setPanelHoverIds } = useUIState();
 
+  // Undo echo-guard (Phase 2, 2026-09-09): the restoreId carried by an inbound
+  // SET_CHART_STATE. Read by the very next CHART_TREATMENT_APPLIED_BATCH emit so the
+  // parent can match that batch to the restore that caused it, then cleared so a later,
+  // unrelated batch doesn't carry a stale id.
+  const pendingRestoreIdRef = useRef(null);
+
   const [openPanel, setOpenPanel] = useState('tweaks');
   useEffect(() => setOpenPanel(stage === 'treatment' ? 'treatment' : 'tweaks'), [stage]);
 
@@ -583,10 +589,21 @@ function DentalHeroInner() {
   // so the parent never receives an empty [] that wipes its quote items.
   // Immediate (undebounced): this drives the parent's quote line items, which must
   // track a tooth tap without a visible lag.
+  //
+  // presence/stage ride along on this same undebounced channel (undo plan, Phase 2,
+  // 2026-09-09) — the persistence channel below is debounced 800ms, so a snapshot taken
+  // right after this fires is the only one guaranteed not to read stale presence/stage.
+  // restoreId, when set, echoes the SET_CHART_STATE restore that produced this batch so
+  // the parent's echo guard can tell its own restore apart from a stray user edit.
   useEffect(() => {
     if (!loaded) return;
-    emit('CHART_TREATMENT_APPLIED_BATCH', { treatments: enrichedTreatments });
-  }, [enrichedTreatments, loaded]);
+    const payload = { treatments: enrichedTreatments, presence, stage };
+    if (pendingRestoreIdRef.current != null) {
+      payload.restoreId = pendingRestoreIdRef.current;
+      pendingRestoreIdRef.current = null;
+    }
+    emit('CHART_TREATMENT_APPLIED_BATCH', payload);
+  }, [enrichedTreatments, loaded, presence, stage]);
 
   // Persistence channel (Phase 1.1). One message carries all three fields because
   // they are saved together and must be restored together — a presence from one
@@ -1036,6 +1053,17 @@ function DentalHeroInner() {
         } else {
           openTreatmentForSelection();
         }
+      } else if ((evt.ctrlKey || evt.metaKey) && !evt.shiftKey && evt.key.toLowerCase() === 'z') {
+        // Undo plan, Phase 2 (2026-09-09): forward to the parent rather than handle it
+        // here — the chart has no undo stack of its own. Bail inside an editable so a
+        // text field's own undo still works, and on key-repeat so holding the key down
+        // doesn't flood the parent with requests (July plan case h).
+        const active = document.activeElement;
+        const isEditable = active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable);
+        if (!isEditable && !evt.repeat) {
+          evt.preventDefault();
+          emit('UNDO_REQUEST', {});
+        }
       }
     };
     window.addEventListener('keydown', onKeyDown);
@@ -1133,6 +1161,10 @@ function DentalHeroInner() {
       if (nextStage === stage &&
           shallowEqualPresence(nextPresence, presence) &&
           treatmentsEqual(nextTreatments, treatments)) return;
+
+      // Stash restoreId for the CHART_TREATMENT_APPLIED_BATCH this state change is
+      // about to trigger, so the parent's echo guard can match it back to this restore.
+      if (p.restoreId != null) pendingRestoreIdRef.current = p.restoreId;
 
       setStage(nextStage);
       setPresence(nextPresence);
