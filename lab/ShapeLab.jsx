@@ -56,6 +56,10 @@ const ANATOMY_TEETH_SHAPES = {
   'wisdomL':   { label: 'Lower Wisdom Tooth',   loader: () => import('../shapes-data/anatomy/teeth/wisdomL.json'),   w: 28, h: 66,  isTwoPath: true },
 };
 
+// Editable paths carried by a tooth template, in tab order. A template is only
+// offered the keys it actually has, so an older JSON without a canal still loads.
+const TOOTH_PATH_KEYS = ['outline', 'cervical', 'canal'];
+
 const TREATMENT_SHAPES = {
   'crown-molar-upper': {
     label: 'Upper Molar Crown',
@@ -228,8 +232,8 @@ export default function ShapeLab() {
   const [jsonError, setJsonError] = useState(null);
   const jsonFocused = useRef(false);
 
-  // For two-path tooth templates
-  const [activePath, setActivePath] = useState('outline'); // 'outline' | 'cervical'
+  // For multi-path tooth templates (outline / cervical / canal)
+  const [activePath, setActivePath] = useState('outline');
   const [fullToothShape, setFullToothShape] = useState(null);
 
   // Ghost anatomy shapes for composite view (arch/sinus editing)
@@ -238,6 +242,9 @@ export default function ShapeLab() {
   const meta = ALL_SHAPES[selectedId];
   const W = meta.w;
   const H = meta.h;
+
+  // Which paths this loaded template actually offers for editing.
+  const toothPathKeys = TOOTH_PATH_KEYS.filter(k => fullToothShape?.[k]?.segments?.length);
 
   const isArch      = ARCH_SHAPE_IDS.has(selectedId);
   const isTooth     = TOOTH_SHAPE_IDS.has(selectedId);
@@ -302,9 +309,8 @@ export default function ShapeLab() {
     setSelectedSegIdx(null);
     setPhantomPoint(null);
     // Load the other path's segments into the editor
-    if (fullToothShape) {
-      const pathShape = { ...fullToothShape, segments: fullToothShape[newPath].segments };
-      setInitialShape(pathShape);
+    if (fullToothShape?.[newPath]?.segments) {
+      setInitialShape({ ...fullToothShape, segments: fullToothShape[newPath].segments });
     }
   }
 
@@ -401,16 +407,15 @@ export default function ShapeLab() {
     );
   }
 
-  // Inactive path ghost for tooth template two-path editing
-  function inactivePathGhost() {
-    if (!isTooth || !fullToothShape) return null;
-    const inactivePath = activePath === 'outline' ? 'cervical' : 'outline';
-    const inactiveSegs = fullToothShape[inactivePath]?.segments;
-    if (!inactiveSegs?.length) return null;
-    return shapeToPath({ segments: inactiveSegs }, W, H);
+  // Every path of the tooth template except the one being edited, drawn as a ghost.
+  function inactivePathGhosts() {
+    if (!isTooth || !fullToothShape) return [];
+    return toothPathKeys
+      .filter(k => k !== activePath)
+      .map(k => ({ key: k, d: shapeToPath({ segments: fullToothShape[k].segments }, W, H) }));
   }
 
-  const ghostPath = inactivePathGhost();
+  const ghostPaths = inactivePathGhosts();
 
   function transformShape({ dx = 0, dy = 0, sx = 1, sy = 1 }) {
     setShape(prev => ({
@@ -428,8 +433,15 @@ export default function ShapeLab() {
     setPhantomPoint(null);
   }
 
+  // Scaling has to happen about the centre of the shape's own coordinate space.
+  // Treatment and arch shapes run 0..1, so that centre is 0.5. Tooth templates
+  // are centred on the origin instead (x spans -0.5..0.5, y runs 0 at the biting
+  // edge to -1 at the apex), so scaling those about 0.5 pushes them outward:
+  // "Narrower" made a canal wider, and "Shorter" moved the tooth off its edge.
+  const SCALE_ANCHOR = isTooth ? 0 : 0.5;
+
   function transformCoord(value, delta, scale) {
-    return roundCoord(0.5 + (value - 0.5) * scale + delta);
+    return roundCoord(SCALE_ANCHOR + (value - SCALE_ANCHOR) * scale + delta);
   }
 
   function transformSegment(seg, dx, dy, sx, sy) {
@@ -567,7 +579,9 @@ export default function ShapeLab() {
         const loaded = JSON.parse(evt.target.result);
         if (isTooth && loaded.outline) {
           setFullToothShape(loaded);
-          setShape({ ...loaded, segments: loaded[activePath].segments });
+          const key = loaded[activePath]?.segments ? activePath : 'outline';
+          setActivePath(key);
+          setShape({ ...loaded, segments: loaded[key].segments });
         } else {
           setShape(loaded);
         }
@@ -595,7 +609,9 @@ export default function ShapeLab() {
       setJsonError(null);
       if (isTooth && parsed.outline && parsed.cervical) {
         setFullToothShape(parsed);
-        setShape(prev => ({ ...prev, segments: parsed[activePath].segments }));
+        if (parsed[activePath]?.segments) {
+          setShape(prev => ({ ...prev, segments: parsed[activePath].segments }));
+        }
       } else if (parsed.segments) {
         setShape(prev => ({ ...prev, segments: parsed.segments }));
       }
@@ -636,10 +652,10 @@ export default function ShapeLab() {
         </select>
       </div>
 
-      {/* Path selector tabs for two-path tooth templates */}
-      {isTooth && (
+      {/* Path selector tabs for multi-path tooth templates */}
+      {isTooth && toothPathKeys.length > 0 && (
         <div style={{ display: 'flex', gap: 6 }}>
-          {['outline', 'cervical'].map(p => (
+          {toothPathKeys.map(p => (
             <button
               key={p}
               onClick={() => switchPath(p)}
@@ -654,7 +670,7 @@ export default function ShapeLab() {
             </button>
           ))}
           <span style={{ fontSize: 11, color: '#888', alignSelf: 'center' }}>
-            Editing {activePath} — other path shown as ghost
+            Editing {activePath} — other paths shown as dashed ghosts
           </span>
         </div>
       )}
@@ -799,11 +815,11 @@ export default function ShapeLab() {
               </g>
             ))}
 
-            {/* Inactive path ghost for tooth templates */}
-            {ghostPath && (
-              <path d={ghostPath} fill="none" stroke="#a78bfa" strokeWidth={1} strokeDasharray="4 3" opacity={0.5}
+            {/* Inactive path ghosts for tooth templates */}
+            {ghostPaths.map(g => (
+              <path key={g.key} d={g.d} fill="none" stroke="#a78bfa" strokeWidth={1} strokeDasharray="4 3" opacity={0.5}
                 transform={`translate(${CX}, ${CY})`} />
-            )}
+            ))}
 
             {/* Active shape path */}
             {shapePath && (
@@ -886,9 +902,10 @@ export default function ShapeLab() {
             </p>
           ) : isTooth ? (
             <p style={{ fontSize: 11, color: '#888', marginTop: 12, lineHeight: 1.5 }}>
-              Tooth template — two paths (outline + cervical).<br/>
-              Download saves both paths together as {selectedId}.json.<br/>
-              Replace shapes-data/anatomy/teeth/{selectedId}.json to persist.<br/>
+              Tooth template — {toothPathKeys.join(' + ') || 'outline'}.<br/>
+              Download saves every path together as {selectedId}.json.<br/>
+              Outline edits: transplant into layout/teeth-data.jsx.<br/>
+              Canal edits: run node scripts/canal-from-lab.mjs {selectedId}.json.<br/>
               This template applies to all FDI positions that use it.<br/>
               Left-side FDI positions are rendered as a mirror at runtime.
             </p>

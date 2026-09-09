@@ -57,3 +57,4 @@ playwright-report/
 # git-bash (treats `nul` as a literal filename instead of the null device).
 /nul
 
+_design-brief/

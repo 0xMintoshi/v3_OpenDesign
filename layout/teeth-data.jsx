@@ -1,13 +1,15 @@
 // =========================================================================
 // Tooth path generators v2 — outlined anatomical style (modern flat schematic).
-// Each tooth returns { outline, cervical, crown, root } where:
+// Each tooth returns { outline, cervical, crown, root, canal } where:
 //   - outline: closed silhouette (crown + root, single path) — unchanged
 //   - cervical: corrected open arc landing exactly on the wall at the neck
 //   - crown: closed shape for the crown portion only
 //   - root: closed shape for the root portion only
+//   - canal: closed pulp-canal shape(s) inside the root (see canal-data.js)
 // Origin at biting edge (y=0). Root extends into negative y.
 // =========================================================================
 import { CERVICAL } from '../core/arch-math.js';
+import { canalPath } from './canal-data.js';
 import { splitToothAtCervical } from '../core/tooth-split.js';
 
 const TOOTH_TYPES = {
@@ -306,7 +308,9 @@ function toothPaths(type, w, h) {
   const { y, dip } = CERVICAL[type] ?? CERVICAL.incisor;
   const { crown, root, cervical } = splitToothAtCervical(outline, -y * h, dip * h);
 
-  const result = { outline, cervical, crown, root };
+  const canal = canalPath(type, w, h);
+
+  const result = { outline, cervical, crown, root, canal };
   _pathCache.set(key, result);
   return result;
 }

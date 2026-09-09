@@ -37,6 +37,10 @@ function toothBaseTransform(tooth, jawFlip, yAdjust = 0) {
 // ====================================================================
 // Tooth — outlined anatomical style
 // ====================================================================
+// Baseline pulp-canal paint. The same geometry is filled in the treatment
+// accent when the tooth carries a root canal — one shape, two paint recipes.
+const CANAL_BASE_OPACITY = 0.30;
+
 function Tooth({
   tooth, jawFlip, accent, isHovered, isSelected, isInDrag,
   presence, onHover, onSelect, onFocus, tabIndex = 0, showNumber, stage, hasTreatment
@@ -185,6 +189,18 @@ function Tooth({
             strokeLinecap="round"
             opacity={isSelected ? 0.9 : 0.7} />
 
+          }
+
+          {/* Pulp canal — root only, so it survives a root stump. Hidden on
+              implants (no root) and on missing teeth. */}
+          {!missing && !isImplant && paths.canal &&
+          <path
+            d={paths.canal}
+            fill={isSelected ? accent : 'var(--tooth-stroke)'}
+            fillRule="nonzero"
+            stroke="none"
+            opacity={CANAL_BASE_OPACITY}
+            style={{ pointerEvents: 'none' }} />
           }
         </g>
 

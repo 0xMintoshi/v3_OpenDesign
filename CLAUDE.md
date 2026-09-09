@@ -24,8 +24,8 @@ values — `npm run stroke-table` reads them from the named constants, and `?see
 | File | Purpose |
 |------|---------|
 | `app/dental-arch.jsx` | **Main chart component** — all desktop tooth visual changes go here |
-| `layout/tablet-chart.jsx` | Tablet/narrow screen only — do NOT edit for desktop changes |
-| `layout/teeth-data.jsx` | **JS source of truth** for all tooth outlines; `toothPaths()` returns `{ outline, cervical, crown, root }` |
+| `layout/teeth-data.jsx` | **JS source of truth** for all tooth outlines; `toothPaths()` returns `{ outline, cervical, crown, root, canal }` |
+| `layout/canal-data.js` | **Source of truth for root canal shapes** — normalized path strings, one per tooth type |
 | `core/arch-math.js` | Shared arch helpers: `chRatioFor`, `scallopRL`, `scallopLR`, `ARCH_LAYOUT`, `upperBiteY`, `lowerBiteY`, `CERVICAL`, `crownDepth()` |
 | `core/tooth-split.js` | Splits outline at cervical boundary via bisection + de Casteljau |
 | `core/treatment-registry.js` | Treatment type definitions |
@@ -47,7 +47,16 @@ values — `npm run stroke-table` reads them from the named constants, and `?see
 
 - `shapes-data/anatomy/teeth/*.json` — ShapeLab-only; app ignores hand-edited cervicals
 - After editing in ShapeLab: transplant `outline.segments` into the relevant `*Outline()` function in `teeth-data.jsx`, then run `node scripts/extract-tooth-shapes.mjs` to regenerate JSON for ShapeLab parity
-- `toothPaths()` is memoised and returns `{ outline, cervical, crown, root }` — destructure it; never `.map()` the return value
+- `toothPaths()` is memoised and returns `{ outline, cervical, crown, root, canal }` — destructure it; never `.map()` the return value
+
+### Root canals
+- Geometry lives in `layout/canal-data.js` as normalized strings, **not** in `teeth-data.jsx` — canals are hand-refined in ShapeLab, which speaks normalized coordinates. Only `M`/`L`/`C`/`Z` are accepted; the scaler throws on anything else.
+- Multi-canal teeth are several closed subpaths in one string. Root only: `CrownOverlay` paints over the crown, and root canal plus crown is the commonest pairing.
+- Round trip: edit the **Canal** tab in ShapeLab → Download JSON → `node scripts/canal-from-lab.mjs <file>` rewrites that one entry in `canal-data.js` → `node scripts/extract-tooth-shapes.mjs` → `npm run build`.
+- `extract-tooth-shapes.mjs` now **keeps any on-disk outline that has diverged from its generator** and warns; `canine.json` was hand-edited in the lab and a plain rerun used to revert it silently. Pass `--force` to overwrite deliberately.
+
+### ShapeLab scale anchor
+- `SCALE_ANCHOR` is `0` for tooth templates and `0.5` for everything else. Tooth space is centred on the origin (x spans −0.5..0.5, y runs 0 at the biting edge to −1 at the apex); treatment and arch shapes run 0..1. Scaling a tooth about 0.5 pushes it outward, which made **Narrower widen a canal**. Fixed 2026-09-09 — do not collapse it back to a literal 0.5.
 
 ## Locked Conventions
 
@@ -85,9 +94,6 @@ values — `npm run stroke-table` reads them from the named constants, and `?see
 
 ### Proportional interproximal gap
 - `ARCH_LAYOUT.gapFrac = 0.08` (fraction of tooth width) in `core/arch-math.js`, not absolute pixels — a fixed gap reads ~2× wider between narrow incisors than wide molars. `layoutArch` computes `gaps[i] = w * gapFrac` and accounts for it in `totalW`. ShapeLab passes explicit `gap` (gapFrac stays null there).
-
-### tablet-chart.jsx yOffset
-- Translate y is `55 + yOffset` — **unsigned**, same direction for both rows; `scale(1, flipY)` alone handles tooth orientation. Negating yOffset for the lower row moves molarU-style crowns to the upper half of the lower SVG (teeth look upside down).
 
 ### t.id vs t.fdi
 - `t.id` is a string (`"upper-18"`)

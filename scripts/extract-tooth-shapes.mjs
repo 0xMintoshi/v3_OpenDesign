@@ -5,7 +5,8 @@
  * Usage: node scripts/extract-tooth-shapes.mjs
  */
 import { parseSVGPath } from './normalize-svg.mjs';
-import { writeFileSync, mkdirSync } from 'fs';
+import { CANAL_PATHS } from '../layout/canal-data.js';
+import { writeFileSync, mkdirSync, readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -79,23 +80,33 @@ const TEMPLATES = [
   { id: 'wisdomL',   label: 'Lower Wisdom Tooth',   outline: wisdomLOutline,        cervical: wisdomCervical },
 ];
 
-function r(n) { return Math.round(n * 1000) / 1000; }
+function r(n, dp = 3) { const k = Math.pow(10, dp); return Math.round(n * k) / k; }
 
-function roundSegs(segs) {
+// Canals carry 4 decimals; rounding them to 3 like the outlines would make the
+// JSON a lossy copy of canal-data.js and put a drift into every round trip.
+const CANAL_DP = 4;
+
+function roundSegs(segs, dp = 3) {
   return segs.map(s => {
     if (s.type === 'Z') return s;
     const n = { type: s.type };
-    if (s.x  !== undefined) { n.x  = r(s.x);  n.y  = r(s.y);  }
-    if (s.x1 !== undefined) { n.x1 = r(s.x1); n.y1 = r(s.y1); }
-    if (s.x2 !== undefined) { n.x2 = r(s.x2); n.y2 = r(s.y2); }
+    if (s.x  !== undefined) { n.x  = r(s.x,  dp); n.y  = r(s.y,  dp); }
+    if (s.x1 !== undefined) { n.x1 = r(s.x1, dp); n.y1 = r(s.y1, dp); }
+    if (s.x2 !== undefined) { n.x2 = r(s.x2, dp); n.y2 = r(s.y2, dp); }
     return n;
   });
 }
+
+const FORCE = process.argv.includes('--force');
 
 for (const t of TEMPLATES) {
   // Call generators with w=1, h=1 → coords are already normalized fractions
   const outlinePath  = t.outline(1, 1);
   const cervicalPath = t.cervical(1, 1);
+
+  // Canal strings are already normalized (w=1, h=1), so they are parsed as-is.
+  const canalPath = CANAL_PATHS[t.id];
+  if (!canalPath) throw new Error(`extract-tooth-shapes: no canal geometry for "${t.id}"`);
 
   const shape = {
     id: t.id,
@@ -104,9 +115,26 @@ for (const t of TEMPLATES) {
     note: 'x = rawX/w, y = rawY/h. Origin at biting edge center; root extends to y≈-1. Left-side FDI positions rendered via SVG mirror (scale(-1,1)) at runtime.',
     outline:  { segments: roundSegs(parseSVGPath(outlinePath)) },
     cervical: { segments: roundSegs(parseSVGPath(cervicalPath)) },
+    canal:    { segments: roundSegs(parseSVGPath(canalPath), CANAL_DP) },
   };
 
   const out = path.join(OUT_DIR, `${t.id}.json`);
+
+  // canine.json was hand-edited in ShapeLab and never transplanted back into
+  // teeth-data.jsx, so a plain rerun of this script silently reverted it. Keep
+  // any on-disk path that has diverged from its generator unless --force says
+  // otherwise; the canal key is still added either way.
+  if (existsSync(out) && !FORCE) {
+    const prev = JSON.parse(readFileSync(out, 'utf-8'));
+    for (const key of ['outline', 'cervical']) {
+      if (!prev[key]) continue;
+      if (JSON.stringify(prev[key]) === JSON.stringify(shape[key])) continue;
+      console.warn(`  ! ${t.id}.${key} on disk differs from its generator — kept the disk version.`);
+      console.warn(`    Transplant it into layout/teeth-data.jsx, or rerun with --force to discard it.`);
+      shape[key] = prev[key];
+    }
+  }
+
   writeFileSync(out, JSON.stringify(shape, null, 2));
   console.log(`wrote ${out}`);
 }
