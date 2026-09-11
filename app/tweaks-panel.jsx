@@ -51,9 +51,28 @@ export const PILL_BOTTOM = 30;
 export const PILL_H = 32;
 const TWK_PANEL_BOTTOM = PILL_BOTTOM + PILL_H + 18; // 80
 
+// Both panels grow upward from the bottom-right pills, so their max-height is what
+// decides where their TOP edge lands. The parent app floats an undo button fixed near
+// the top-right of the page (v3/css/main.css, .undo-float) directly over this iframe,
+// and the panels are wide enough to reach under it. Without this reserve a full-height
+// panel grows up behind the button and the two controls collide.
+//
+// Derived, not guessed. A panel sits at bottom:PANEL_BOTTOM with
+// max-height:calc(100vh - (PANEL_BOTTOM + 16 + UNDO_CLEARANCE)), so its top edge lands
+// at 16 + UNDO_CLEARANCE from the top of THIS iframe, independent of viewport height.
+// In the parent, the button's bottom edge is --undo-float-top + 34px = 159px down the
+// page, and the iframe starts at --header-h = 69px, putting that edge 90px into the
+// iframe. 16 + 114 = 130 leaves a 40px gap below it.
+//
+// Note the iframe is NOT the full page height: it begins below the header, so this
+// cannot be derived from --undo-float-top alone. Exported so treatment-panel.jsx
+// reserves the identical strip; if the two ever drift, one panel clashes and the
+// other does not.
+export const UNDO_CLEARANCE = 114;
+
 export const __TWEAKS_STYLE = `
   .twk-panel{position:fixed;right:40px;bottom:${TWK_PANEL_BOTTOM}px;z-index:2147483646;width:240px;
-    max-height:calc(100vh - ${TWK_PANEL_BOTTOM + 16}px);display:flex;flex-direction:column;
+    max-height:calc(100vh - ${TWK_PANEL_BOTTOM + 16 + UNDO_CLEARANCE}px);display:flex;flex-direction:column;
     transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
     background:rgba(250,249,247,.78);color:#29261b;
     -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);

@@ -1,5 +1,5 @@
 import React from 'react';
-import { __TWEAKS_STYLE, PILL_BOTTOM, PILL_H } from './tweaks-panel.jsx';
+import { __TWEAKS_STYLE, PILL_BOTTOM, PILL_H, UNDO_CLEARANCE } from './tweaks-panel.jsx';
 import { buildPanelSections } from '../core/treatment-panel-order.js';
 
 // Fixed geometry — pills own the bottom-right corner; both panels open directly
@@ -28,7 +28,7 @@ const DOCK_STYLE = `
 
 const TRX_STYLE = `
   .trx-panel{position:fixed;right:${DOCK_RIGHT}px;bottom:${PANEL_BOTTOM}px;z-index:2147483645;width:280px;
-    max-height:calc(100vh - ${PANEL_BOTTOM + 16}px);display:flex;flex-direction:column;
+    max-height:calc(100vh - ${PANEL_BOTTOM + 16 + UNDO_CLEARANCE}px);display:flex;flex-direction:column;
     transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
     background:rgba(250,249,247,.78);color:#29261b;
     -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
