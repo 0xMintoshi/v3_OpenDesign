@@ -1,6 +1,8 @@
 import React from 'react';
 import { __TWEAKS_STYLE, PILL_BOTTOM, PILL_H, UNDO_CLEARANCE } from './tweaks-panel.jsx';
 import { buildPanelSections } from '../core/treatment-panel-order.js';
+import { MEDISAVE_BUNDLE_IDS, isBundleable, getConflictingTreatmentIds } from '../core/conflict-rules.js';
+import { txRef as txRefOf } from '../core/mv-sessions.js';
 
 // Fixed geometry — pills own the bottom-right corner; both panels open directly
 // above the pills. Nothing is draggable.
@@ -59,6 +61,28 @@ const TRX_STYLE = `
     color:rgba(41,38,27,.35);font-size:13px;line-height:1;cursor:default;border-radius:4px}
   .trx-rmv:hover{background:rgba(0,0,0,.07);color:#29261b}
   .trx-empty{padding:22px 16px;text-align:center;color:var(--ink-muted);font-size:12px;line-height:1.5}
+  .trx-add{appearance:none;border:0;background:transparent;padding:2px 4px;
+    color:rgba(41,38,27,.35);font-size:13px;line-height:1;cursor:default;border-radius:4px}
+  .trx-add:hover{background:rgba(0,0,0,.07);color:#29261b}
+  .trx-add[data-on="1"]{background:rgba(0,0,0,.07);color:#29261b}
+  .trx-visit{display:inline-flex;align-items:center;gap:3px;flex:0 0 auto;
+    height:15px;padding:0 5px;border-radius:7px;
+    background:rgba(41,38,27,.08);color:rgba(41,38,27,.62);
+    font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+    white-space:nowrap}
+  .trx-visit-x{appearance:none;border:0;background:transparent;padding:0;margin:0 -1px 0 0;
+    color:inherit;font-size:10px;line-height:1;cursor:default;opacity:.6}
+  .trx-visit-x:hover{opacity:1}
+  .trx-menu{margin:0 10px 6px;padding:5px 0;border-radius:8px;
+    background:rgba(255,255,255,.72);border:.5px solid rgba(0,0,0,.08)}
+  .trx-card-num+.trx-card-rows .trx-menu{margin-left:0}
+  .trx-menu-hd{padding:4px 9px 3px;font-size:8.5px;font-weight:700;letter-spacing:.09em;
+    text-transform:uppercase;color:rgba(41,38,27,.38)}
+  .trx-menu-it{display:block;width:100%;text-align:left;appearance:none;border:0;
+    background:transparent;padding:4px 9px;font:inherit;font-size:10.5px;line-height:1.35;
+    color:#29261b;cursor:default;border-radius:5px}
+  .trx-menu-it:hover{background:rgba(0,0,0,.06)}
+  .trx-menu-none{padding:4px 9px;font-size:10px;color:rgba(41,38,27,.4);line-height:1.35}
 `;
 
 // Bottom-right pill dock. Owns both pills so they sit side by side in one flex
@@ -107,7 +131,13 @@ export function TreatmentPanel({
   onRemoveSpan,
   onRemoveOther,
   onHoverTargets,
+  onAddToVisit,
+  onJoinVisit,
+  onLeaveVisit,
 }) {
+  // Which row's + menu is open, addressed by `${ref}|${txId}` so two rows of the same
+  // treatment on different teeth do not share one open menu.
+  const [menuKey, setMenuKey] = React.useState(null);
   const handleRemove = (row) => {
     const { txId, scope, targets, collapse } = row;
     if (collapse) {
@@ -127,6 +157,35 @@ export function TreatmentPanel({
     () => buildPanelSections(treatments, allTeeth, txLabel),
     [treatments, allTeeth, txLabel],
   );
+
+  // "Visit 1" reads as a clinic appointment; the stored tag is "s1".
+  const visitLabel = (session) => `Visit ${String(session).replace(/^s/, '')}`;
+
+  // MediSave treatments that can be added to this row's teeth. A treatment that would
+  // conflict with the row's own is excluded rather than offered and then silently
+  // stripped — getConflictingTreatmentIds is the same rule the chart applies on apply,
+  // so the menu cannot drift from it.
+  const addOptionsFor = (row) => MEDISAVE_BUNDLE_IDS.filter((id) => {
+    if (id === row.txId) return false;
+    if (getConflictingTreatmentIds(id).includes(row.txId)) return false;
+    // Spans need a contiguous multi-tooth selection; a panel row cannot supply one.
+    if (id === 'implant-bridge-span') return false;
+    return true;
+  });
+
+  // Other MediSave entries in the plan that this row could join. Same-bundle rows are
+  // left out; a row in a DIFFERENT bundle stays in, because joining merges the two.
+  const joinOptionsFor = (row) => {
+    const seen = new Set([row.ref]);
+    const out = [];
+    for (const tx of treatments) {
+      if (!isBundleable(tx.id) || seen.has(txRefOf(tx))) continue;
+      if (row.session && tx.session === row.session) continue;
+      seen.add(txRefOf(tx));
+      out.push(tx);
+    }
+    return out;
+  };
 
   if (!open) return null;
 
@@ -150,14 +209,40 @@ export function TreatmentPanel({
                       <div className="trx-card-num">{card.heading}</div>
                     )}
                     <div className="trx-card-rows">
-                      {card.rows.map((row, i) => (
+                      {card.rows.map((row, i) => {
+                        const rowKey = `${row.ref}|${row.txId}`;
+                        const bundleable = isBundleable(row.txId);
+                        const addOpts = bundleable ? addOptionsFor(row) : [];
+                        const joinOpts = bundleable ? joinOptionsFor(row) : [];
+                        return (
+                        <React.Fragment key={`${row.txId}-${i}`}>
                         <div
-                          key={`${row.txId}-${i}`}
                           className="trx-row"
                           onMouseEnter={() => onHoverTargets(card.toothIds.length > 0 ? card.toothIds : row.targets)}
                           onMouseLeave={() => onHoverTargets([])}
                         >
                           <span className="trx-row-lbl">{row.label}</span>
+                          {row.session && (
+                            <span className="trx-visit" title="Shares one $830 consumable">
+                              {visitLabel(row.session)}
+                              <button
+                                type="button"
+                                className="trx-visit-x"
+                                aria-label={`Remove ${row.label} from ${visitLabel(row.session)}`}
+                                onClick={() => onLeaveVisit(row.ref)}
+                              >✕</button>
+                            </span>
+                          )}
+                          {bundleable && (
+                            <button
+                              type="button"
+                              className="trx-add"
+                              data-on={menuKey === rowKey ? '1' : '0'}
+                              aria-expanded={menuKey === rowKey}
+                              aria-label={`Add to the same visit as ${row.label}`}
+                              onClick={() => setMenuKey((k) => (k === rowKey ? null : rowKey))}
+                            >+</button>
+                          )}
                           <button
                             type="button"
                             className="trx-rmv"
@@ -165,7 +250,35 @@ export function TreatmentPanel({
                             onClick={() => handleRemove(row)}
                           >✕</button>
                         </div>
-                      ))}
+                        {menuKey === rowKey && (
+                          <div className="trx-menu">
+                            <div className="trx-menu-hd">Add to this visit</div>
+                            {addOpts.length === 0 ? (
+                              <div className="trx-menu-none">Nothing else applies here.</div>
+                            ) : addOpts.map((id) => (
+                              <button
+                                type="button"
+                                key={id}
+                                className="trx-menu-it"
+                                onClick={() => { onAddToVisit(id, row.targets, row.ref); setMenuKey(null); }}
+                              >{txLabel[id] ?? id}</button>
+                            ))}
+                            <div className="trx-menu-hd">Join</div>
+                            {joinOpts.length === 0 ? (
+                              <div className="trx-menu-none">No other MediSave treatment yet.</div>
+                            ) : joinOpts.map((tx) => (
+                              <button
+                                type="button"
+                                key={txRefOf(tx)}
+                                className="trx-menu-it"
+                                onClick={() => { onJoinVisit(row.ref, txRefOf(tx)); setMenuKey(null); }}
+                              >{txLabel[tx.id] ?? tx.id}{tx.session ? ` · ${visitLabel(tx.session)}` : ''}</button>
+                            ))}
+                          </div>
+                        )}
+                        </React.Fragment>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}

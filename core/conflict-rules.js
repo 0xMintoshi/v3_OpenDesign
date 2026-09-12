@@ -50,3 +50,42 @@ export function getConflictingTreatmentIds(txId) {
   if (EXTRACTION_IDS.includes(txId)) return [...ALL_PROSTHETICS, ...EXTRACTION_IDS];
   return [txId];
 }
+
+/**
+ * Treatments that start their own MediSave session on every apply, instead of merging
+ * their targets into an existing entry with the same id. Moved here from a local const
+ * inside handleApplyTreatment when same-visit bundling started needing the same list.
+ *
+ * This "one apply = one entry" property is what makes `session` (below) safe to attach:
+ * two entries sharing an id but sitting in different visits can never be collapsed into
+ * one by the merge path, because these ids never take the merge path.
+ */
+export const SESSION_SPLIT_IDS = ['implant-only', 'implant-crown', 'gbr',
+                                  'simple-surgical-extraction', 'complex-surgical-extraction',
+                                  'root-stump-extraction'];
+
+/**
+ * MediSave treatments that may be bundled into a shared-consumable visit.
+ *
+ * implant-bridge-span is not in SESSION_SPLIT_IDS but belongs here anyway: it pushes a
+ * fresh entry per jaw on every apply and never merges by id, which is the only property
+ * bundling depends on.
+ */
+export const MEDISAVE_BUNDLE_IDS = [...SESSION_SPLIT_IDS, 'implant-bridge-span'];
+
+/**
+ * The MediSave treatments deliberately left out of bundling. Both merge their targets
+ * into an existing entry — sinus-lift by side, alveolectomy by arch — so one entry can
+ * represent several applies and cannot carry a single visit's tag honestly.
+ *
+ * Named rather than simply absent so the parent-side parity test can assert that
+ * MEDISAVE_BUNDLE_IDS and this list together account for EVERY surgical treatment in
+ * CHART_TREATMENT_MAP. Adding a surgical treatment later then fails a test instead of
+ * silently arriving unbundleable.
+ */
+export const MEDISAVE_MERGE_IDS = ['sinus-lift', 'alveolectomy'];
+
+/** True when this treatment can join a same-visit bundle. */
+export function isBundleable(txId) {
+  return MEDISAVE_BUNDLE_IDS.includes(txId);
+}

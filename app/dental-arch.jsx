@@ -9,7 +9,8 @@ import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, BoneGraf
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
 import { TreatmentPanel, PanelDock } from './treatment-panel.jsx';
 import { Dock, DockDivider, DockItem, ArchIcon, StageForwardIcon, StageBackIcon, SummaryIcon, ClearIcon } from './dock.jsx';
-import { getConflictingTreatmentIds, healPresence } from '../core/conflict-rules.js';
+import { getConflictingTreatmentIds, healPresence, SESSION_SPLIT_IDS } from '../core/conflict-rules.js';
+import { txRef, pruneSessions, joinSessions, leaveSession } from '../core/mv-sessions.js';
 import { areContiguous } from '../core/contiguity.js';
 import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
 import { emit } from '../core/iframe-bridge.js';
@@ -578,15 +579,20 @@ function DentalHeroInner() {
   // implant-bearing); implant abutments and pontics are excluded from CHAS permanent-crown claims.
   // Computed once and shared by both outbound channels below so the quote and the
   // persisted copy can never disagree about a span's claimable count.
-  const enrichedTreatments = useMemo(() => treatments.map((tx) =>
+  // Same-visit bundles are pruned as a DERIVED step rather than maintained at each of
+  // the many setTreatments call sites: every removal path can orphan a bundle member,
+  // and a bundle of one would keep claiming a consumable it no longer shares.
+  const sessionedTreatments = useMemo(() => pruneSessions(treatments), [treatments]);
+
+  const enrichedTreatments = useMemo(() => sessionedTreatments.map((tx) =>
     (tx.id === 'bridge-span' || tx.id === 'implant-bridge-span')
       ? { ...tx, claimableCrowns: tx.targets.filter((id) =>
           effectivePresence[id] !== 'missing' &&
           effectivePresence[id] !== 'root-stump' &&
-          !treatments.some((x) => (x.id === 'implant-only' || x.id === 'implant-crown') && x.targets.includes(id))
+          !sessionedTreatments.some((x) => (x.id === 'implant-only' || x.id === 'implant-crown') && x.targets.includes(id))
         ).length }
       : tx
-  ), [treatments, effectivePresence]);
+  ), [sessionedTreatments, effectivePresence]);
 
   // Broadcast full treatments array on every change, but only after Firestore load
   // so the parent never receives an empty [] that wipes its quote items.
@@ -912,8 +918,6 @@ function DentalHeroInner() {
       setSelection([]);
       return;
     }
-    const SESSION_SPLIT_IDS = ['implant-only', 'implant-crown', 'gbr',
-                               'simple-surgical-extraction', 'complex-surgical-extraction', 'root-stump-extraction'];
     setTreatments((prev) => {
       let next = [...prev];
       if (popover.mode === 'tooth') {
@@ -1039,6 +1043,37 @@ function DentalHeroInner() {
       return !tx.targets.some((id) => targetSet.has(id));
     }));
   };
+
+  // ---- Same-visit MediSave bundles (panel + button) ----
+
+  // Apply another MediSave treatment to the SAME teeth as an existing one and put both
+  // in one visit. Mirrors the SESSION_SPLIT branch of handleApplyTreatment — conflict
+  // strip, then move any re-selected teeth out of a same-id entry — but takes its
+  // targets from the clicked panel row instead of the current selection.
+  const addToVisit = (txId, targets, ref) => {
+    setTreatments((prev) => {
+      const host = prev.find((tx) => txRef(tx) === ref);
+      if (!host) return prev;
+      const exclusive = getConflictingTreatmentIds(txId);
+      let next = prev.map((tx) => {
+        if (tx.scope !== 'tooth' || !exclusive.includes(tx.id)) return tx;
+        return { ...tx, targets: tx.targets.filter((id) => !targets.includes(id)) };
+      }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0);
+      next = next.map((tx) =>
+        (tx.scope === 'tooth' && tx.id === txId)
+          ? { ...tx, targets: tx.targets.filter((id) => !targets.includes(id)) }
+          : tx
+      ).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0);
+      next.push({ id: txId, scope: 'tooth', targets: [...targets] });
+      // The host may have been rebuilt by the strip above; re-address it by ref.
+      const hostRef = next.some((tx) => txRef(tx) === ref) ? ref : null;
+      const addedRef = txRef({ id: txId, targets });
+      return hostRef ? joinSessions(next, [hostRef, addedRef]) : next;
+    });
+  };
+
+  const joinVisit = (refA, refB) => setTreatments((prev) => joinSessions(prev, [refA, refB]));
+  const leaveVisit = (ref) => setTreatments((prev) => leaveSession(prev, ref));
 
   const handleAdvance = () => {setStage('treatment');setSelection([]);setPopover(null);};
   const handleBack = () => {setStage('baseline');setSelection([]);setPopover(null);};
@@ -1559,7 +1594,7 @@ function DentalHeroInner() {
         <TreatmentPanel
           open={openPanel === 'treatment'}
           onClose={() => setOpenPanel(null)}
-          treatments={treatments}
+          treatments={sessionedTreatments}
           allTeeth={allTeeth}
           accent={t.accent}
           txLabel={TX_LABEL}
@@ -1567,6 +1602,9 @@ function DentalHeroInner() {
           onRemoveSpan={removeSpanTreatment}
           onRemoveOther={removeNonToothTreatment}
           onHoverTargets={setPanelHoverIds}
+          onAddToVisit={addToVisit}
+          onJoinVisit={joinVisit}
+          onLeaveVisit={leaveVisit}
         />
       )}
       <PanelDock

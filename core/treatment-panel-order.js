@@ -1,5 +1,7 @@
 // Pure logic — no React. Converts flat treatments array into ordered panel sections.
 
+import { txRef } from './mv-sessions.js';
+
 // Area treatments that collapse into a single "#from–to" range card per contiguous run.
 const COLLAPSE_IDS = new Set(['gbr', 'simultaneous-graft']);
 
@@ -74,7 +76,10 @@ export function spanHeading(fdis) {
 
 // Returns array of section objects; empty sections are omitted.
 // Each section: { key, label, cards }
-// Each card: { key, heading, toothIds, rows: [{ txId, label, scope, targets, rank }] }
+// Each card: { key, heading, toothIds, rows: [{ txId, label, scope, targets, rank, session, ref }] }
+//   session — the same-visit bundle tag, when the owning entry carries one
+//   ref     — addresses the owning treatment entry; a single-tooth row's `targets`
+//             holds only its own tooth and so cannot identify a multi-tooth entry
 export function buildPanelSections(treatments, allTeeth, txLabel) {
   // Index teeth by id for fast lookup
   const teethById = Object.fromEntries(allTeeth.map((t) => [t.id, t]));
@@ -96,7 +101,7 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
         key: `fm-${tx.id}`,
         heading: null,
         toothIds: [],
-        rows: [{ txId: tx.id, label: rowLabel, scope: tx.scope, targets: tx.targets, rank }],
+        rows: [{ txId: tx.id, label: rowLabel, scope: tx.scope, targets: tx.targets, rank, session: tx.session, ref: txRef(tx) }],
       });
       continue;
     }
@@ -112,7 +117,7 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
           heading,
           toothIds: [],
           _sortKey: sortKey,
-          rows: [{ txId: tx.id, label: rowLabel, scope: tx.scope, targets: [target], rank }],
+          rows: [{ txId: tx.id, label: rowLabel, scope: tx.scope, targets: [target], rank, session: tx.session, ref: txRef(tx) }],
         });
       }
       continue;
@@ -127,7 +132,7 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
           heading,
           toothIds: [],
           _sortKey: 0,
-          rows: [{ txId: tx.id, label: rowLabel, scope: tx.scope, targets: [target], rank }],
+          rows: [{ txId: tx.id, label: rowLabel, scope: tx.scope, targets: [target], rank, session: tx.session, ref: txRef(tx) }],
         };
         if (isUpper) upperOtherCards.push(card);
         else lowerOtherCards.push(card);
@@ -160,6 +165,8 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
             targets: runIds,
             collapse: true,
             rank,
+            session: tx.session,
+            ref: txRef(tx),
           }],
         };
         if (jaw === 'upper') upperFdiCards.set(cardKey, card);
@@ -191,7 +198,7 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
         toothIds: tx.targets,
         _cx: minCx,
         _fdi: anchorTooth.fdi,
-        rows: [{ txId: tx.id, label: rowLabel, scope: tx.scope, targets: tx.targets, rank }],
+        rows: [{ txId: tx.id, label: rowLabel, scope: tx.scope, targets: tx.targets, rank, session: tx.session, ref: txRef(tx) }],
       };
 
       if (jaw === 'upper') upperFdiCards.set(cardKey, card);
@@ -224,6 +231,8 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
         scope: tx.scope,
         targets: [toothId],
         rank,
+        session: tx.session,
+        ref: txRef(tx),
       });
     }
   }

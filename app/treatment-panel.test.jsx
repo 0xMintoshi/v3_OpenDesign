@@ -15,6 +15,11 @@ const TX_LABEL = {
   crown: 'Crown',
   extraction: 'Extraction',
   gbr: 'Bone Graft (GBR)',
+  'simple-surgical-extraction': 'Simple Surgical Extraction',
+  'complex-surgical-extraction': 'Complex Surgical Extraction',
+  'implant-only': 'Implant',
+  'implant-crown': 'Implant + Crown',
+  'root-stump-extraction': 'Root Stump Extraction',
   'bridge-span': 'Bridge',
   alveolectomy: 'Alveolectomy',
 };
@@ -30,6 +35,9 @@ const defaults = {
   onRemoveSpan: vi.fn(),
   onRemoveOther: vi.fn(),
   onHoverTargets: vi.fn(),
+  onAddToVisit: vi.fn(),
+  onJoinVisit: vi.fn(),
+  onLeaveVisit: vi.fn(),
 };
 
 function setup(overrides = {}) {
@@ -168,5 +176,83 @@ describe('PanelDock', () => {
     expect(onToggle).toHaveBeenCalledWith('tweaks');
     fireEvent.click(pills[0]);
     expect(onToggle).toHaveBeenCalledWith('treatment');
+  });
+});
+
+describe('TreatmentPanel — same-visit MediSave bundles', () => {
+  const EXO = { id: 'simple-surgical-extraction', scope: 'tooth', targets: ['upper-13'] };
+  const GBR = { id: 'gbr', scope: 'tooth', targets: ['upper-13'] };
+
+  it('offers + on a MediSave row', () => {
+    const { container } = setup({ treatments: [EXO] });
+    expect(container.querySelector('.trx-add')).toBeTruthy();
+  });
+
+  it('does NOT offer + on a non-MediSave row — the feature is MediSave only', () => {
+    const { container } = setup({ treatments: [{ id: 'crown', scope: 'tooth', targets: ['upper-13'] }] });
+    expect(container.querySelector('.trx-add')).toBeNull();
+  });
+
+  it('does NOT offer + on a treatment that merges its targets (alveolectomy)', () => {
+    const { container } = setup({ treatments: [{ id: 'alveolectomy', scope: 'arch', targets: ['upper'] }] });
+    expect(container.querySelector('.trx-add')).toBeNull();
+  });
+
+  it('the + menu adds a MediSave treatment to the teeth of the row it was opened on', () => {
+    const onAddToVisit = vi.fn();
+    const { container } = setup({ treatments: [EXO], onAddToVisit });
+    fireEvent.click(container.querySelector('.trx-add'));
+    const item = [...container.querySelectorAll('.trx-menu-it')]
+      .find((b) => b.textContent === 'Bone Graft (GBR)');
+    fireEvent.click(item);
+    expect(onAddToVisit).toHaveBeenCalledWith('gbr', ['upper-13'], 'simple-surgical-extraction::upper-13');
+  });
+
+  it('never offers a treatment that would conflict with the row it is added to', () => {
+    const { container } = setup({ treatments: [EXO] });
+    fireEvent.click(container.querySelector('.trx-add'));
+    const labels = [...container.querySelectorAll('.trx-menu-it')].map((b) => b.textContent);
+    // Extraction types are mutually exclusive on one tooth — offering one would apply
+    // it and silently strip the row the operator clicked.
+    expect(labels).not.toContain('Complex Surgical Extraction');
+    expect(labels).toContain('Bone Graft (GBR)');
+  });
+
+  it('Join lists the other MediSave entry and passes both refs', () => {
+    const onJoinVisit = vi.fn();
+    const { container } = setup({ treatments: [EXO, GBR], onJoinVisit });
+    fireEvent.click(container.querySelector('.trx-add'));
+    const join = [...container.querySelectorAll('.trx-menu-it')]
+      .find((b) => b.textContent === 'Bone Graft (GBR)' && b.previousElementSibling?.textContent === 'Join');
+    fireEvent.click(join);
+    expect(onJoinVisit).toHaveBeenCalledWith(
+      'simple-surgical-extraction::upper-13', 'gbr::upper-13');
+  });
+
+  it('a bundled row shows its visit tag, and its ✕ leaves the visit', () => {
+    const onLeaveVisit = vi.fn();
+    const { container } = setup({
+      treatments: [{ ...EXO, session: 's1' }, { ...GBR, session: 's1' }],
+      onLeaveVisit,
+    });
+    const tag = container.querySelector('.trx-visit');
+    expect(tag.textContent).toContain('Visit 1');
+    fireEvent.click(tag.querySelector('.trx-visit-x'));
+    expect(onLeaveVisit).toHaveBeenCalledWith('simple-surgical-extraction::upper-13');
+  });
+
+  it('an untagged row shows no visit tag', () => {
+    const { container } = setup({ treatments: [EXO] });
+    expect(container.querySelector('.trx-visit')).toBeNull();
+  });
+
+  it('Join does not offer a row already in the same visit', () => {
+    const { container } = setup({
+      treatments: [{ ...EXO, session: 's1' }, { ...GBR, session: 's1' }],
+    });
+    fireEvent.click(container.querySelector('.trx-add'));
+    const headings = [...container.querySelectorAll('.trx-menu-hd')].map((h) => h.textContent);
+    expect(headings).toContain('Join');
+    expect(container.querySelector('.trx-menu-none')).toBeTruthy();
   });
 });
