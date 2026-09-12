@@ -115,6 +115,33 @@ values — `npm run stroke-table` reads them from the named constants, and `?see
 - Rule: >5 teeth AND contiguous on arch → `#first–last` (e.g. `#42–34`); otherwise up to 6 FDIs space-separated with `+N` overflow.
 - `FDI_ARCH_ORDER` defines arch sequence (Q1→Q2 upper, Q4→Q3 lower). Both Stage 1 and Stage 2 use this helper — do not revert to inline string logic.
 
+### Treatment panel card grouping (core/treatment-panel-order.js)
+- **One card per (entry, jaw) for every bundleable MediSave treatment.** One apply on three teeth
+  is one entry, one summary row and ONE claim, so it is one card. Gated on
+  `isBundleable(tx.id) && tx.targets.length > 1`. The `> 1` gate is load-bearing: a single-tooth
+  treatment must keep falling through to the ordinary tooth card so it still sits beside that
+  tooth's other treatments, or the commonest case doubles the panel's height.
+- `simultaneous-graft` is NOT on `MEDISAVE_BUNDLE_IDS`, so `isBundleable` does not catch it. It is
+  listed in `AREA_IDS` to keep the collapse it already had. Check that set when adding an area
+  treatment.
+- **This replaced `COLLAPSE_IDS` + one card per contiguous run** (2026-09-12). Neither definition
+  of "contiguous" in this codebase is the claim boundary: `splitRuns` here bridges missing and
+  extracted teeth, while `countToothAreas` in the parent breaks on any positional gap. They
+  already disagreed; the entry is now the claim, so the disagreement is a display detail rather
+  than a money bug. `splitRuns` survives only as a heading formatter.
+- **A printed range must never span teeth that were not selected.** Two separate rules do this.
+  Non-contiguous targets print as a list (`#43, #41`), never a dash. And a run that crosses the
+  midline is split at the quadrant, because FDI numbers do not run continuously across it —
+  #14 #13 #12 #11 #21 is contiguous in the mouth but prints `#11–12`-style spans per quadrant
+  (`#11–14, #21`), not `#11–21`, which would read as covering #15 through #18. Measured live on
+  2026-09-12 with the misleading form on screen; `quadrantRuns` is the fix.
+- Note there is a SECOND tooth-span convention in this repo, `abbreviateTeeth` above, which uses
+  `FDI_ARCH_ORDER`. It describes a live selection in the popover; this one describes a claim in
+  the panel. They are deliberately not shared.
+- **`rowKey` in `app/treatment-panel.jsx` must be card-scoped** — `${card.key}|${row.ref}|${row.txId}`.
+  A cross-jaw entry yields two cards from ONE ref, so `ref|txId` was identical on both and opening
+  one `+` menu opened the other. Collapsing hides this for the common case; it does not fix it.
+
 ### Extraction treatment conventions
 - `autoMissing` array in `dental-arch.jsx` `handleApplyTreatment` controls which treatment IDs mark the tooth as `'missing'` (dashed) on apply — add any new extraction-type IDs here
 - `EXTRACTION_IDS = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction']` is re-declared inline in `TreatmentLayer`; if adding more extraction types, update both this and `autoMissing`

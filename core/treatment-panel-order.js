@@ -1,14 +1,36 @@
 // Pure logic — no React. Converts flat treatments array into ordered panel sections.
 
 import { txRef } from './mv-sessions.js';
+import { isBundleable } from './conflict-rules.js';
 
-// Area treatments that collapse into a single "#from–to" range card per contiguous run.
-const COLLAPSE_IDS = new Set(['gbr', 'simultaneous-graft']);
+// Area treatments that collapse like a MediSave entry but are NOT bundleable — they
+// are not on MEDISAVE_BUNDLE_IDS, so isBundleable() does not catch them and without
+// this they would regress to one card per tooth.
+const AREA_IDS = new Set(['simultaneous-graft']);
 
-// "#43–33" using cx-order endpoints (first = leftmost cx, last = rightmost cx).
-function rangeHeading(runTeeth) {
-  if (runTeeth.length === 1) return `#${runTeeth[0].fdi}`;
-  return `#${runTeeth[0].fdi}–${runTeeth[runTeeth.length - 1].fdi}`;
+// One run's heading. spanHeading renders a single-tooth run as '#21–21', which reads
+// as a range of one; a lone tooth gets the plain '#21' form instead.
+function runHeading(runTeeth) {
+  return runTeeth.length === 1
+    ? `#${runTeeth[0].fdi}`
+    : spanHeading(runTeeth.map(t => t.fdi));
+}
+
+// A run is positionally contiguous but may cross the midline, and FDI numbers do not
+// run continuously across it: #14 #13 #12 #11 #21 is contiguous in the mouth, yet
+// spanHeading's numeric min–max prints '#11–21', a range that reads as including #15
+// through #18. Splitting the run at each quadrant change gives '#11–14, #21' instead —
+// every printed range then sits inside one quadrant, where ascending FDI is exactly how
+// a dentist writes it. Measured live 2026-09-12; the misleading form was on screen.
+function quadrantRuns(runTeeth) {
+  const out = [];
+  for (const t of runTeeth) {
+    const q = Math.floor(t.fdi / 10);
+    const last = out[out.length - 1];
+    if (last && Math.floor(last[0].fdi / 10) === q) last.push(t);
+    else out.push([t]);
+  }
+  return out;
 }
 
 // Splits targetIds into one or more contiguous runs per jaw.
@@ -143,26 +165,51 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
     // scope === 'tooth' — may be a span (multiple targets) or single-tooth
     if (tx.targets.length === 0) continue;
 
-    // Area treatments (GBR, simultaneous-graft): collapse into one range card per contiguous run.
-    if (COLLAPSE_IDS.has(tx.id)) {
-      const runs = splitRuns(tx.targets, allTeeth);
-      for (const runTeeth of runs) {
+    // ONE CARD PER ENTRY for every MediSave treatment applied to more than one tooth.
+    //
+    // One apply = one entry = one claim (the operation and the consumable are both
+    // claimed once for the line), so one entry must read as one row. Listing three
+    // extractions as three cards said "three procedures" about something the quote
+    // bills, and CPF pays, as one.
+    //
+    // This replaced a narrower COLLAPSE_IDS rule that gave gbr and simultaneous-graft
+    // one card PER CONTIGUOUS RUN. Runs are not the claim boundary and cannot be: this
+    // file's splitRuns bridges missing/extracted/implant teeth, while the parent's
+    // countToothAreas breaks on any positional gap. The two already disagree, so making
+    // cards follow either one asserts a clinical claim the app cannot back. A genuinely
+    // separate second site is a second APPLY, which is a second entry and a second card.
+    //
+    // Runs survive as a heading formatter only: '#11–13' when contiguous, '#14–15, #17'
+    // when not, so the card never implies teeth that were not treated.
+    //
+    // Split per jaw because sections are Maxilla/Mandible. A cross-jaw entry therefore
+    // yields two cards sharing one ref — which is exactly why rowKey in
+    // treatment-panel.jsx is card-scoped.
+    if ((isBundleable(tx.id) || AREA_IDS.has(tx.id)) && tx.targets.length > 1) {
+      const byJaw = new Map();
+      for (const runTeeth of splitRuns(tx.targets, allTeeth)) {
         if (runTeeth.length === 0) continue;
         const jaw = runTeeth[0].jaw;
-        const runIds = runTeeth.map(t => t.id);
-        const minCx = runTeeth[0].cx;
-        const cardKey = `collapse-${tx.id}-${runIds.join('-')}`;
+        if (!byJaw.has(jaw)) byJaw.set(jaw, []);
+        byJaw.get(jaw).push(runTeeth);
+      }
+      for (const [jaw, jawRuns] of byJaw) {
+        const teeth = jawRuns.flat();
+        const ids = teeth.map(t => t.id);
+        const cardKey = `entry-${txRef(tx)}-${jaw}`;
         const card = {
           key: cardKey,
-          heading: rangeHeading(runTeeth),
-          toothIds: runIds,
-          _cx: minCx,
-          _fdi: runTeeth[0].fdi,
+          // Numerically sorted, giving '#11–13' rather than a cx-ordered '#13–11', and
+          // matching the format bridge spans already use in this same panel.
+          heading: jawRuns.flatMap(quadrantRuns).map(runHeading).join(', '),
+          toothIds: ids,
+          _cx: Math.min(...teeth.map(t => t.cx)),
+          _fdi: teeth[0].fdi,
           rows: [{
             txId: tx.id,
             label: rowLabel,
             scope: tx.scope,
-            targets: runIds,
+            targets: ids,
             collapse: true,
             rank,
             session: tx.session,

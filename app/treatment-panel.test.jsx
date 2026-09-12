@@ -142,15 +142,17 @@ describe('TreatmentPanel', () => {
     expect(cards[0].querySelectorAll('.trx-row').length).toBe(2);
   });
 
-  it('gbr on a tooth creates its own separate collapse card', () => {
+  it('gbr on ONE tooth shares that tooth card rather than splitting off', () => {
+    // Changed 2026-09-12 with one-card-per-entry: collapsing is gated on more than one
+    // target, so a graft and an extraction on the same tooth read as one site.
     const { container } = setup({
       treatments: [
         { id: 'extraction', scope: 'tooth', targets: ['upper-21'] },
         { id: 'gbr', scope: 'tooth', targets: ['upper-21'] },
       ],
     });
-    const cards = container.querySelectorAll('.trx-card');
-    expect(cards.length).toBe(2);
+    expect(container.querySelectorAll('.trx-card').length).toBe(1);
+    expect(container.querySelectorAll('.trx-row').length).toBe(2);
   });
 });
 
@@ -246,13 +248,44 @@ describe('TreatmentPanel — same-visit MediSave bundles', () => {
     expect(container.querySelector('.trx-visit')).toBeNull();
   });
 
-  it('Join does not offer a row already in the same visit', () => {
+  it('Join is not shown at all when the only other row is already in this visit', () => {
+    // Changed 2026-09-12. The heading used to stand above 'No other MediSave treatment
+    // yet.' — a state the operator cannot act on. The heading now appears only when
+    // there is something to join. The add list's own empty line stays: it reports that a
+    // conflict rule excluded everything, which IS information.
     const { container } = setup({
       treatments: [{ ...EXO, session: 's1' }, { ...GBR, session: 's1' }],
     });
     fireEvent.click(container.querySelector('.trx-add'));
     const headings = [...container.querySelectorAll('.trx-menu-hd')].map((h) => h.textContent);
-    expect(headings).toContain('Join');
-    expect(container.querySelector('.trx-menu-none')).toBeTruthy();
+    expect(headings).not.toContain('Join');
+    expect(headings).toEqual(['Add Another MediSave Procedure']);
+  });
+
+  it('the + becomes a chevron while its menu is open', () => {
+    const { container } = setup({ treatments: [EXO] });
+    const btn = container.querySelector('.trx-add');
+    expect(btn.textContent).toBe('+');
+    expect(btn.querySelector('.trx-chev')).toBeNull();
+    expect(btn.getAttribute('aria-label')).toContain('Add to the same visit');
+    fireEvent.click(btn);
+    expect(btn.textContent).toBe('');
+    expect(btn.querySelector('.trx-chev')).toBeTruthy();
+    // The label has to describe the click, not the button's old purpose.
+    expect(btn.getAttribute('aria-label')).toContain('Close the visit menu');
+  });
+
+  it('opening one card\'s menu does not open another card\'s', () => {
+    // THE rowKey GUARD. One cross-jaw entry yields two cards sharing one ref, so a
+    // rowKey of ref|txId was identical on both and one click opened both menus.
+    const { container } = setup({
+      treatments: [
+        { id: 'simple-surgical-extraction', scope: 'tooth', targets: ['upper-13', 'lower-46'] },
+      ],
+    });
+    const adds = [...container.querySelectorAll('.trx-add')];
+    expect(adds.length).toBe(2);
+    fireEvent.click(adds[0]);
+    expect(container.querySelectorAll('.trx-menu').length).toBe(1);
   });
 });

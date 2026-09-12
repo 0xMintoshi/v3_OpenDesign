@@ -106,20 +106,21 @@ describe('buildPanelSections', () => {
     expect(rows.map((r) => r.txId)).toEqual(['implant-only', 'crown']);
   });
 
-  it('gbr on multiple teeth → gets its own collapse range card', () => {
+  it('SINGLE-tooth MediSave treatments share the tooth card, they do not split off', () => {
+    // Changed 2026-09-12. gbr used to take its own collapse card even on one tooth,
+    // which put an extraction and a graft on the SAME tooth into two cards — the
+    // commonest bundling case, shown as if it were two unrelated sites. Collapsing is
+    // now gated on more than one target, so one tooth reads as one card.
     const treatments = [
       { id: 'crown', scope: 'tooth', targets: ['upper-21'] },
       { id: 'gbr', scope: 'tooth', targets: ['upper-21'] },
       { id: 'implant-only', scope: 'tooth', targets: ['upper-21'] },
     ];
     const sections = buildPanelSections(treatments, ALL_TEETH, TX_LABEL);
-    expect(sections[0].cards).toHaveLength(2);
-    // tooth card (crown+implant-only) is inserted first since crown is processed first
-    const toothRows = sections[0].cards[0].rows;
-    expect(toothRows.map(r => r.txId)).toEqual(['implant-only', 'crown']);
-    // GBR collapse card is inserted after the tooth card (same cx, stable sort preserves order)
-    expect(sections[0].cards[1].rows[0].txId).toBe('gbr');
-    expect(sections[0].cards[1].rows[0].collapse).toBe(true);
+    expect(sections[0].cards).toHaveLength(1);
+    expect(sections[0].cards[0].heading).toBe('#21');
+    expect(sections[0].cards[0].rows.map(r => r.txId).sort())
+      .toEqual(['crown', 'gbr', 'implant-only']);
   });
 
   it('gbr on contiguous lower teeth → one range card', () => {
@@ -129,21 +130,77 @@ describe('buildPanelSections', () => {
     const sections = buildPanelSections(treatments, ALL_TEETH, TX_LABEL);
     expect(sections[0].key).toBe('lower');
     expect(sections[0].cards).toHaveLength(1);
-    expect(sections[0].cards[0].heading).toBe('#43–41');
+    // '#41–43', not the old cx-ordered '#43–41': numeric ordering is what
+    // spanHeading gives and what bridge spans in this same panel already use.
+    expect(sections[0].cards[0].heading).toBe('#41–43');
     expect(sections[0].cards[0].rows[0].collapse).toBe(true);
     expect(sections[0].cards[0].toothIds.sort()).toEqual(['lower-41', 'lower-42', 'lower-43']);
   });
 
-  it('gbr on non-contiguous teeth → two separate range cards', () => {
-    // lower-43 (cx=60) and lower-41 (cx=80) with lower-42 (cx=70) present between
+  it('gbr on non-contiguous teeth → ONE card listing both, never a false range', () => {
+    // THE MUTATION GUARD on the one-card-per-entry decision. This used to be two cards,
+    // one per contiguous run. One apply is one claim, so it is one card — but the
+    // heading must not read '#41–43' and imply the untreated #42 between them.
+    // lower-43 (cx=60) and lower-41 (cx=80) with lower-42 (cx=70) present between.
     const treatments = [
       { id: 'gbr', scope: 'tooth', targets: ['lower-43', 'lower-41'] },
     ];
     const sections = buildPanelSections(treatments, ALL_TEETH, TX_LABEL);
     expect(sections[0].key).toBe('lower');
+    expect(sections[0].cards).toHaveLength(1);
+    expect(sections[0].cards[0].heading).toBe('#43, #41');
+    expect(sections[0].cards[0].toothIds.sort()).toEqual(['lower-41', 'lower-43']);
+  });
+
+  it('a 3-tooth surgical extraction is ONE card headed #11–13', () => {
+    // The headline case. Three cards read as three procedures; the quote bills, and
+    // CPF pays, one.
+    const treatments = [
+      { id: 'simple-surgical-extraction', scope: 'tooth',
+        targets: ['upper-11', 'upper-12', 'upper-13'] },
+    ];
+    const sections = buildPanelSections(treatments, ALL_TEETH,
+      { 'simple-surgical-extraction': 'Simple Surgical Extraction' });
+    expect(sections[0].cards).toHaveLength(1);
+    expect(sections[0].cards[0].heading).toBe('#11–13');
+    expect(sections[0].cards[0].rows).toHaveLength(1);
+  });
+
+  it('a run crossing the midline splits its heading at the quadrant', () => {
+    // Measured live 2026-09-12: a marquee over #14–#11 plus #21 printed '#11–21',
+    // a range that reads as covering #15–#18 as well. FDI numbers do not run
+    // continuously across the midline, so a range is only truthful inside one quadrant.
+    const treatments = [
+      { id: 'simple-surgical-extraction', scope: 'tooth',
+        targets: ['upper-11', 'upper-12', 'upper-21'] },
+    ];
+    const sections = buildPanelSections(treatments, ALL_TEETH,
+      { 'simple-surgical-extraction': 'Simple Surgical Extraction' });
+    expect(sections[0].cards).toHaveLength(1);
+    expect(sections[0].cards[0].heading).toBe('#11–12, #21');
+  });
+
+  it('a NON-bundleable multi-tooth treatment still gets one card per tooth', () => {
+    // The gate is isBundleable, not "has several targets". A crown is billed per tooth
+    // and must keep saying so.
+    const treatments = [
+      { id: 'crown', scope: 'tooth', targets: ['upper-11', 'upper-12'] },
+    ];
+    const sections = buildPanelSections(treatments, ALL_TEETH, TX_LABEL);
     expect(sections[0].cards).toHaveLength(2);
-    const headings = sections[0].cards.map(c => c.heading);
-    expect(headings).toEqual(['#43', '#41']);
+    expect(sections[0].cards.map(c => c.heading).sort()).toEqual(['#11', '#12']);
+  });
+
+  it('a cross-jaw entry yields one card per jaw, both sharing one ref', () => {
+    const treatments = [
+      { id: 'simple-surgical-extraction', scope: 'tooth', targets: ['upper-11', 'lower-41'] },
+    ];
+    const sections = buildPanelSections(treatments, ALL_TEETH,
+      { 'simple-surgical-extraction': 'Simple Surgical Extraction' });
+    const cards = sections.flatMap(sec => sec.cards);
+    expect(cards).toHaveLength(2);
+    // One entry, one claim, two cards — which is why rowKey must be card-scoped.
+    expect(new Set(cards.map(c => c.rows[0].ref)).size).toBe(1);
   });
 
   it('simultaneous-graft collapses the same way as gbr', () => {
@@ -152,8 +209,8 @@ describe('buildPanelSections', () => {
     ];
     const sections = buildPanelSections(treatments, ALL_TEETH, { 'simultaneous-graft': 'Simultaneous Graft' });
     expect(sections[0].cards).toHaveLength(1);
-    // cx-order: upper-12(cx=70) → upper-11(cx=80), so heading uses fdi 12 then 11
-    expect(sections[0].cards[0].heading).toBe('#12–11');
+    // Numerically ordered now, so '#11–12' rather than the cx-ordered '#12–11'.
+    expect(sections[0].cards[0].heading).toBe('#11–12');
     expect(sections[0].cards[0].rows[0].collapse).toBe(true);
   });
 

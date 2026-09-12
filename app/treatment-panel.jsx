@@ -65,6 +65,8 @@ const TRX_STYLE = `
     color:rgba(41,38,27,.35);font-size:13px;line-height:1;cursor:default;border-radius:4px}
   .trx-add:hover{background:rgba(0,0,0,.07);color:#29261b}
   .trx-add[data-on="1"]{background:rgba(0,0,0,.07);color:#29261b}
+  .trx-chev{display:inline-block;width:6px;height:6px;border-right:1.5px solid currentColor;
+    border-bottom:1.5px solid currentColor;transform:translateY(1px) rotate(-135deg)}
   .trx-visit{display:inline-flex;align-items:center;gap:3px;flex:0 0 auto;
     height:15px;padding:0 5px;border-radius:7px;
     background:rgba(41,38,27,.08);color:rgba(41,38,27,.62);
@@ -210,7 +212,9 @@ export function TreatmentPanel({
                     )}
                     <div className="trx-card-rows">
                       {card.rows.map((row, i) => {
-                        const rowKey = `${row.ref}|${row.txId}`;
+                        // Card-scoped: a cross-jaw entry gives two cards from ONE ref,
+                        // so `${row.ref}|${row.txId}` alone opened both menus at once.
+                        const rowKey = `${card.key}|${row.ref}|${row.txId}`;
                         const bundleable = isBundleable(row.txId);
                         const addOpts = bundleable ? addOptionsFor(row) : [];
                         const joinOpts = bundleable ? joinOptionsFor(row) : [];
@@ -239,9 +243,11 @@ export function TreatmentPanel({
                               className="trx-add"
                               data-on={menuKey === rowKey ? '1' : '0'}
                               aria-expanded={menuKey === rowKey}
-                              aria-label={`Add to the same visit as ${row.label}`}
+                              aria-label={menuKey === rowKey
+                                ? `Close the visit menu for ${row.label}`
+                                : `Add to the same visit as ${row.label}`}
                               onClick={() => setMenuKey((k) => (k === rowKey ? null : rowKey))}
-                            >+</button>
+                            >{menuKey === rowKey ? <i className="trx-chev" /> : '+'}</button>
                           )}
                           <button
                             type="button"
@@ -252,7 +258,7 @@ export function TreatmentPanel({
                         </div>
                         {menuKey === rowKey && (
                           <div className="trx-menu">
-                            <div className="trx-menu-hd">Add to this visit</div>
+                            <div className="trx-menu-hd">Add Another MediSave Procedure</div>
                             {addOpts.length === 0 ? (
                               <div className="trx-menu-none">Nothing else applies here.</div>
                             ) : addOpts.map((id) => (
@@ -263,10 +269,10 @@ export function TreatmentPanel({
                                 onClick={() => { onAddToVisit(id, row.targets, row.ref); setMenuKey(null); }}
                               >{txLabel[id] ?? id}</button>
                             ))}
-                            <div className="trx-menu-hd">Join</div>
-                            {joinOpts.length === 0 ? (
-                              <div className="trx-menu-none">No other MediSave treatment yet.</div>
-                            ) : joinOpts.map((tx) => (
+                            {joinOpts.length > 0 && (
+                              <div className="trx-menu-hd">Join</div>
+                            )}
+                            {joinOpts.map((tx) => (
                               <button
                                 type="button"
                                 key={txRefOf(tx)}
