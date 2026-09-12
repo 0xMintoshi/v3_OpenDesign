@@ -289,3 +289,101 @@ describe('TreatmentPanel — same-visit MediSave bundles', () => {
     expect(container.querySelectorAll('.trx-menu').length).toBe(1);
   });
 });
+
+describe('TreatmentPanel — the manual MediSave procedure', () => {
+  const EXO = { id: 'simple-surgical-extraction', scope: 'tooth', targets: ['upper-13'] };
+  const openMenu = (container) => fireEvent.click(container.querySelector('.trx-add'));
+  const clickManual = (container) => fireEvent.click(
+    [...container.querySelectorAll('.trx-menu-it')].find((b) => /Add manually/.test(b.textContent)));
+  const openManualForm = (container) => { openMenu(container); clickManual(container); };
+
+  it('the + menu offers a manual entry, and it opens a name box and a table list', () => {
+    const { container } = setup({ treatments: [EXO] });
+    openMenu(container);
+    expect(container.querySelector('.trx-man')).toBeNull();
+    clickManual(container);
+    const form = container.querySelector('.trx-man');
+    expect(form).toBeTruthy();
+    expect(form.querySelector('input[type=text]')).toBeTruthy();
+    // 21 CPF tables plus the empty prompt.
+    expect(form.querySelectorAll('option').length).toBe(22);
+  });
+
+  it('Add stays disabled until BOTH a name and a table are given', () => {
+    // Half a manual procedure is worse than none: a nameless row cannot be read on a
+    // quote, and a tableless one cannot be priced at all.
+    const { container } = setup({ treatments: [EXO] });
+    openManualForm(container);
+    const btn = container.querySelector('.trx-man-add');
+    expect(btn.disabled).toBe(true);
+    fireEvent.change(container.querySelector('.trx-man input[type=text]'),
+      { target: { value: 'Frenectomy' } });
+    expect(btn.disabled).toBe(true);
+    fireEvent.change(container.querySelector('.trx-man select'), { target: { value: '2C' } });
+    expect(btn.disabled).toBe(false);
+  });
+
+  it('whitespace alone is not a name', () => {
+    const { container } = setup({ treatments: [EXO] });
+    openManualForm(container);
+    fireEvent.change(container.querySelector('.trx-man input[type=text]'),
+      { target: { value: '   ' } });
+    fireEvent.change(container.querySelector('.trx-man select'), { target: { value: '2C' } });
+    expect(container.querySelector('.trx-man-add').disabled).toBe(true);
+  });
+
+  it('Add hands the host row, its teeth, and the typed name and table upward', () => {
+    const onAddToVisit = vi.fn();
+    const { container } = setup({ treatments: [EXO], onAddToVisit });
+    openManualForm(container);
+    fireEvent.change(container.querySelector('.trx-man input[type=text]'),
+      { target: { value: '  Frenectomy  ' } });
+    fireEvent.change(container.querySelector('.trx-man select'), { target: { value: '2C' } });
+    fireEvent.click(container.querySelector('.trx-man-add'));
+    expect(onAddToVisit).toHaveBeenCalledWith(
+      'manual-medisave', ['upper-13'], 'simple-surgical-extraction::upper-13',
+      { label: 'Frenectomy', table: '2C' },
+    );
+    // The menu closes on add, the same as picking a catalogue treatment does.
+    expect(container.querySelector('.trx-menu')).toBeNull();
+  });
+
+  it('a half-typed name does not follow the operator to the next row', () => {
+    // The draft lives outside the form, so without a reset on menu change the next
+    // tooth's menu opens holding the last one's text.
+    const { container } = setup({
+      treatments: [EXO, { id: 'gbr', scope: 'tooth', targets: ['upper-11'] }],
+    });
+    const adds = [...container.querySelectorAll('.trx-add')];
+    openManualForm(container);
+    fireEvent.change(container.querySelector('.trx-man input[type=text]'),
+      { target: { value: 'Frenectomy' } });
+    fireEvent.click(adds[0]);            // close
+    fireEvent.click(adds[1]);            // open the other row's menu
+    expect(container.querySelector('.trx-man')).toBeNull();
+    clickManual(container);
+    expect(container.querySelector('.trx-man input[type=text]').value).toBe('');
+  });
+
+  it('a manual row shows the typed name and removes by ref, not by tooth', () => {
+    // Removing by (tooth, id) would strip this tooth from EVERY manual entry on it.
+    const onRemoveManual = vi.fn();
+    const onRemoveTooth = vi.fn();
+    const { container } = setup({
+      onRemoveManual,
+      onRemoveTooth,
+      treatments: [
+        { id: 'manual-medisave', scope: 'tooth', targets: ['upper-13'], uid: 'm1',
+          label: 'Frenectomy', table: '2C' },
+        { id: 'manual-medisave', scope: 'tooth', targets: ['upper-13'], uid: 'm2',
+          label: 'Coronectomy', table: '1B' },
+      ],
+    });
+    const labels = [...container.querySelectorAll('.trx-row-lbl')].map((e) => e.textContent);
+    expect(labels.sort()).toEqual(['Coronectomy', 'Frenectomy']);
+    fireEvent.click(container.querySelectorAll('.trx-rmv')[0]);
+    expect(onRemoveTooth).not.toHaveBeenCalled();
+    expect(onRemoveManual).toHaveBeenCalledTimes(1);
+    expect(onRemoveManual.mock.calls[0][0]).toMatch(/^manual-medisave::upper-13::m[12]$/);
+  });
+});

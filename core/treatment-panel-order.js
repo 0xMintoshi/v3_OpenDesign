@@ -1,7 +1,7 @@
 // Pure logic — no React. Converts flat treatments array into ordered panel sections.
 
 import { txRef } from './mv-sessions.js';
-import { isBundleable } from './conflict-rules.js';
+import { isBundleable, MANUAL_MV_ID } from './conflict-rules.js';
 
 // Area treatments that collapse like a MediSave entry but are NOT bundleable — they
 // are not on MEDISAVE_BUNDLE_IDS, so isBundleable() does not catch them and without
@@ -85,6 +85,7 @@ export const CLINICAL_RANK = {
   'sinus-lift': 2, 'alveolectomy': 2,
   'socket-preservation': 2, 'simultaneous-graft': 2, 'gbr': 2,
   'implant-only': 3, 'implant-crown': 3, 'implant-bridge-span': 3,
+  'manual-medisave': 2,
   'crown': 4, 'bridge-span': 4,
   'complete-denture': 5, 'partial-denture-upper': 5, 'partial-denture-lower': 5,
   'ortho-brackets': 6, 'ortho-aligners': 6,
@@ -116,7 +117,12 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
 
   for (const tx of treatments) {
     const rank = CLINICAL_RANK[tx.id] ?? 99;
-    const rowLabel = txLabel[tx.id] ?? tx.id;
+    // A manual procedure's name is typed by the operator and carried on the entry
+    // itself, so it has no txLabel — every manual entry would otherwise read
+    // 'manual-medisave'. Rank 2 puts it with the other surgical adjuncts.
+    const rowLabel = tx.id === MANUAL_MV_ID
+      ? (tx.label || 'MediSave Procedure')
+      : (txLabel[tx.id] ?? tx.id);
 
     if (tx.scope === 'full-mouth') {
       fullMouthCards.push({

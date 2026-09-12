@@ -142,6 +142,32 @@ values — `npm run stroke-table` reads them from the named constants, and `?see
   A cross-jaw entry yields two cards from ONE ref, so `ref|txId` was identical on both and opening
   one `+` menu opened the other. Collapsing hides this for the common case; it does not fix it.
 
+### The manual MediSave procedure (`manual-medisave`)
+- An operator-defined procedure: a name they type and a CPF table they pick, added from the `+`
+  menu of any bundleable row. The entry is
+  `{ id: 'manual-medisave', scope: 'tooth', targets, uid, label, table, session? }` and rides the
+  ordinary `treatments` array, so persistence, restore and same-visit bundling all work with no
+  new message type.
+- **It is NOT in `CHART_TREATMENT_MAP` or `MEDISAVE_BUNDLE_IDS`, deliberately.** Both describe
+  catalogue treatments, and a parent parity test asserts the bundle list holds only ids the parent
+  bills as surgical THROUGH that map. `isBundleable` therefore checks `MANUAL_MV_ID` on its own
+  line, which keeps that drift guard strict.
+- **`uid` is the identity, not `(id, targets)`.** Two manual procedures can sit on one tooth,
+  which is the point of the feature, and every path that addresses a treatment by id and targets
+  will silently destroy one of them. Three were fixed when this shipped and each is a test:
+  `getConflictingTreatmentIds` returns `[]` for the manual id; `addToVisit` skips its same-id
+  target strip; and removal goes through `removeManualEntry(ref)` rather than the per-tooth path.
+  `txRef` and `chartTxKey` both append the uid, additively — no uid, and the string is unchanged,
+  so no saved quote needs migrating.
+- **The dropdown holds codes only** (`core/cpf-tables.js`). Every dollar amount lives in the
+  parent's `v3/data/tosptables.js`; a parent test asserts the two lists are equal. Posting the
+  list through the bridge instead was rejected: the chart runs standalone in its own dev server
+  and test suite, so it would still need a fallback, plus an empty-dropdown race on first paint.
+- **The typed name is operator text crossing into `innerHTML`.** It is cleaned once at the parent's
+  bridge boundary (`sanitizeChartTreatments` in `js/main.js`), stripped rather than escaped so the
+  PDF never prints an entity. Every other chart label is a hardcoded constant; this is the first
+  that is not.
+
 ### Extraction treatment conventions
 - `autoMissing` array in `dental-arch.jsx` `handleApplyTreatment` controls which treatment IDs mark the tooth as `'missing'` (dashed) on apply — add any new extraction-type IDs here
 - `EXTRACTION_IDS = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction']` is re-declared inline in `TreatmentLayer`; if adding more extraction types, update both this and `autoMissing`

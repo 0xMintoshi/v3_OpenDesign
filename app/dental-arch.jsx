@@ -9,8 +9,8 @@ import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, BoneGraf
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
 import { TreatmentPanel, PanelDock } from './treatment-panel.jsx';
 import { Dock, DockDivider, DockItem, ArchIcon, StageForwardIcon, StageBackIcon, SummaryIcon, ClearIcon } from './dock.jsx';
-import { getConflictingTreatmentIds, healPresence, SESSION_SPLIT_IDS } from '../core/conflict-rules.js';
-import { txRef, pruneSessions, joinSessions, leaveSession } from '../core/mv-sessions.js';
+import { getConflictingTreatmentIds, healPresence, SESSION_SPLIT_IDS, MANUAL_MV_ID } from '../core/conflict-rules.js';
+import { txRef, chartTxKey, nextManualUid, pruneSessions, joinSessions, leaveSession } from '../core/mv-sessions.js';
 import { areContiguous } from '../core/contiguity.js';
 import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
 import { emit } from '../core/iframe-bridge.js';
@@ -1026,6 +1026,11 @@ function DentalHeroInner() {
       return { ...tx, targets: tx.targets.filter((id) => id !== toothId) };
     }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length >= 1));
   };
+  // Manual MediSave procedures are addressed by ref, never by (tooth, id): they all
+  // share one id, so the per-tooth path would strip this tooth from every one of them.
+  const removeManualEntry = (ref) =>
+    setTreatments((prev) => prev.filter((tx) => txRef(tx) !== ref));
+
   const removeNonToothTreatment = (txId, target) => {
     setTreatments((prev) => prev.map((tx) => {
       if (tx.id !== txId) return tx;
@@ -1050,24 +1055,37 @@ function DentalHeroInner() {
   // in one visit. Mirrors the SESSION_SPLIT branch of handleApplyTreatment — conflict
   // strip, then move any re-selected teeth out of a same-id entry — but takes its
   // targets from the clicked panel row instead of the current selection.
-  const addToVisit = (txId, targets, ref) => {
+  const addToVisit = (txId, targets, ref, manual) => {
     setTreatments((prev) => {
       const host = prev.find((tx) => txRef(tx) === ref);
       if (!host) return prev;
-      const exclusive = getConflictingTreatmentIds(txId);
+      // `manual` carries the operator's typed name and chosen CPF table. Its uid is
+      // derived from the list so it survives a restore, and it is what keeps two manual
+      // procedures on one tooth distinguishable everywhere downstream.
+      const added = manual
+        ? { id: MANUAL_MV_ID, scope: 'tooth', targets: [...targets],
+            uid: nextManualUid(prev), label: manual.label, table: manual.table }
+        : { id: txId, scope: 'tooth', targets: [...targets] };
+      const exclusive = getConflictingTreatmentIds(added.id);
       let next = prev.map((tx) => {
         if (tx.scope !== 'tooth' || !exclusive.includes(tx.id)) return tx;
         return { ...tx, targets: tx.targets.filter((id) => !targets.includes(id)) };
       }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0);
-      next = next.map((tx) =>
-        (tx.scope === 'tooth' && tx.id === txId)
-          ? { ...tx, targets: tx.targets.filter((id) => !targets.includes(id)) }
-          : tx
-      ).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0);
-      next.push({ id: txId, scope: 'tooth', targets: [...targets] });
+      // Moving re-selected teeth out of a same-id entry is right for a catalogue
+      // treatment — one tooth cannot hold two GBRs — and wrong for a manual one, where
+      // the id is shared by every operator-named procedure and the second add would
+      // quietly delete the first.
+      if (!manual) {
+        next = next.map((tx) =>
+          (tx.scope === 'tooth' && tx.id === txId)
+            ? { ...tx, targets: tx.targets.filter((id) => !targets.includes(id)) }
+            : tx
+        ).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0);
+      }
+      next.push(added);
       // The host may have been rebuilt by the strip above; re-address it by ref.
       const hostRef = next.some((tx) => txRef(tx) === ref) ? ref : null;
-      const addedRef = txRef({ id: txId, targets });
+      const addedRef = txRef(added);
       return hostRef ? joinSessions(next, [hostRef, addedRef]) : next;
     });
   };
@@ -1152,11 +1170,7 @@ function DentalHeroInner() {
       const msg = e.data;
       if (!msg || msg.version !== 1 || msg.type !== 'REMOVE_CHART_TREATMENT') return;
       const { chartTxId } = msg.payload;
-      setTreatments(prev =>
-        prev.filter(tx =>
-          (tx.id + ':' + (tx.targets || []).slice().sort().join(',')) !== chartTxId
-        )
-      );
+      setTreatments(prev => prev.filter(tx => chartTxKey(tx) !== chartTxId));
     };
     window.addEventListener('message', onMsg);
     return () => window.removeEventListener('message', onMsg);
@@ -1601,6 +1615,7 @@ function DentalHeroInner() {
           onRemoveTooth={removeTreatmentForTooth}
           onRemoveSpan={removeSpanTreatment}
           onRemoveOther={removeNonToothTreatment}
+          onRemoveManual={removeManualEntry}
           onHoverTargets={setPanelHoverIds}
           onAddToVisit={addToVisit}
           onJoinVisit={joinVisit}

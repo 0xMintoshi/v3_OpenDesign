@@ -19,7 +19,44 @@ import { isBundleable } from './conflict-rules.js';
  * two jobs one format would couple a panel interaction to the quote's row identity.
  */
 export function txRef(tx) {
-  return `${tx.id}::${[...(tx.targets || [])].sort().join(',')}`;
+  // `uid` (manual MediSave procedures only) is part of the identity: two manual entries
+  // can hold the same id and the same teeth, and without it they would share a ref —
+  // the panel would address the wrong one on remove, join and leave. Additive: an entry
+  // without a uid keeps exactly the ref it had.
+  return `${tx.id}::${[...(tx.targets || [])].sort().join(',')}${tx.uid ? `::${tx.uid}` : ''}`;
+}
+
+/**
+ * The next free manual-procedure uid for this treatment list.
+ *
+ * Derived from what is present rather than from a counter, for the same reason as
+ * `nextSessionId`: a counter restarts at 1 after a Firestore restore and collides with
+ * the entries that were just restored.
+ */
+export function nextManualUid(treatments) {
+  let max = 0;
+  for (const tx of treatments) {
+    const m = /^m(\d+)$/.exec(tx.uid || '');
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  }
+  return `m${max + 1}`;
+}
+
+/**
+ * The key the PARENT app uses to address this entry across the bridge.
+ *
+ * Mirrors `txKey` in `v3/js/chart-treatment-map.js` byte for byte. It exists here
+ * because REMOVE_CHART_TREATMENT arrives carrying one of these strings and the chart has
+ * to match it against its own list. It was built inline in that handler until 2026-09-12;
+ * one definition per repo is the most this split can offer, and a parent parity test
+ * covers the rest.
+ *
+ * `uid` appears only on manual MediSave procedures, where id and targets no longer
+ * identify an entry. Appending it is additive: no uid, and the string is unchanged.
+ */
+export function chartTxKey(tx) {
+  const targets = (tx.targets || []).slice().sort().join(',');
+  return `${tx.id}:${targets}${tx.uid ? `:${tx.uid}` : ''}`;
 }
 
 /**

@@ -39,9 +39,25 @@ export function healPresence(presence, treatments) {
   );
 }
 
+/**
+ * The operator-defined MediSave procedure: a name they type and a CPF table they pick,
+ * for work the catalogue does not carry. Deliberately NOT in CHART_TREATMENT_MAP or in
+ * MEDISAVE_BUNDLE_IDS below — both of those describe catalogue treatments, and the
+ * parent's parity tests read them that way.
+ *
+ * Entries carry a `uid`, because id and targets no longer identify one: two manual
+ * procedures can sit on the same tooth, which is the whole point.
+ */
+export const MANUAL_MV_ID = 'manual-medisave';
+
 // Returns the set of treatment IDs that must be stripped from affected targets
 // when txId is applied.
 export function getConflictingTreatmentIds(txId) {
+  // A manual procedure conflicts with NOTHING, including other manual procedures. The
+  // default return below is [txId], which would have stripped the previous manual entry
+  // off these teeth — silent data loss, not a visual glitch, since the operator's typed
+  // name goes with it. Two procedures on one tooth is the ordinary case here.
+  if (txId === MANUAL_MV_ID) return [];
   if (IMPLANT_GROUP.includes(txId)) return ALL_PROSTHETICS;
   // bridge-span preserves implant-only so it can span over placed implants as abutments.
   if (txId === 'bridge-span') return ALL_PROSTHETICS.filter(id => id !== 'implant-only');
@@ -85,7 +101,16 @@ export const MEDISAVE_BUNDLE_IDS = [...SESSION_SPLIT_IDS, 'implant-bridge-span']
  */
 export const MEDISAVE_MERGE_IDS = ['sinus-lift', 'alveolectomy'];
 
-/** True when this treatment can join a same-visit bundle. */
+/**
+ * True when this treatment can join a same-visit bundle.
+ *
+ * The manual procedure is checked separately rather than being added to
+ * MEDISAVE_BUNDLE_IDS: that list is asserted, by a parent test, to contain only
+ * treatments the parent bills as surgical THROUGH THE CATALOGUE. A manual entry is
+ * billed as surgical without a catalogue entry, so adding it to the list would force
+ * that test to be loosened, and the drift it catches is worth more than the one-line
+ * saving here.
+ */
 export function isBundleable(txId) {
-  return MEDISAVE_BUNDLE_IDS.includes(txId);
+  return txId === MANUAL_MV_ID || MEDISAVE_BUNDLE_IDS.includes(txId);
 }

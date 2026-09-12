@@ -1,7 +1,8 @@
 import React from 'react';
 import { __TWEAKS_STYLE, PILL_BOTTOM, PILL_H, UNDO_CLEARANCE } from './tweaks-panel.jsx';
 import { buildPanelSections } from '../core/treatment-panel-order.js';
-import { MEDISAVE_BUNDLE_IDS, isBundleable, getConflictingTreatmentIds } from '../core/conflict-rules.js';
+import { MEDISAVE_BUNDLE_IDS, isBundleable, getConflictingTreatmentIds, MANUAL_MV_ID } from '../core/conflict-rules.js';
+import { CPF_TABLE_CODES } from '../core/cpf-tables.js';
 import { txRef as txRefOf } from '../core/mv-sessions.js';
 
 // Fixed geometry — pills own the bottom-right corner; both panels open directly
@@ -67,6 +68,10 @@ const TRX_STYLE = `
   .trx-add[data-on="1"]{background:rgba(0,0,0,.07);color:#29261b}
   .trx-chev{display:inline-block;width:6px;height:6px;border-right:1.5px solid currentColor;
     border-bottom:1.5px solid currentColor;transform:translateY(1px) rotate(-135deg)}
+  .trx-man{display:flex;flex-direction:column;gap:4px;padding:4px 8px 7px}
+  .trx-man-add{appearance:none;width:100%;height:24px;border:0;border-radius:5px;
+    background:rgba(41,38,27,.86);color:#faf9f7;font-size:11px;font-weight:600;cursor:default}
+  .trx-man-add:disabled{background:rgba(41,38,27,.18);color:rgba(41,38,27,.5)}
   .trx-visit{display:inline-flex;align-items:center;gap:3px;flex:0 0 auto;
     height:15px;padding:0 5px;border-radius:7px;
     background:rgba(41,38,27,.08);color:rgba(41,38,27,.62);
@@ -132,17 +137,26 @@ export function TreatmentPanel({
   onRemoveTooth,
   onRemoveSpan,
   onRemoveOther,
+  onRemoveManual,
   onHoverTargets,
   onAddToVisit,
   onJoinVisit,
   onLeaveVisit,
 }) {
-  // Which row's + menu is open, addressed by `${ref}|${txId}` so two rows of the same
-  // treatment on different teeth do not share one open menu.
+  // Which row's + menu is open, addressed by `${card.key}|${ref}|${txId}` so two rows of
+  // the same treatment on different teeth do not share one open menu.
   const [menuKey, setMenuKey] = React.useState(null);
+  // Which row's manual-procedure form is open, and its draft. Same addressing.
+  const [manualKey, setManualKey] = React.useState(null);
+  const [manualDraft, setManualDraft] = React.useState({ label: '', table: '' });
   const handleRemove = (row) => {
     const { txId, scope, targets, collapse } = row;
-    if (collapse) {
+    // Manual procedures share one id, so removeTreatmentForTooth would strip this tooth
+    // from EVERY manual entry on it and delete procedures the operator did not click.
+    // The ref carries the uid, which is the only thing that tells them apart.
+    if (txId === MANUAL_MV_ID) {
+      onRemoveManual(row.ref);
+    } else if (collapse) {
       // Area treatment run — remove only this run's targets one-by-one;
       // removeTreatmentForTooth prunes the tx when the last target is gone.
       targets.forEach((t) => onRemoveTooth(t, txId));
@@ -154,6 +168,13 @@ export function TreatmentPanel({
       targets.forEach((t) => onRemoveOther(txId, t));
     }
   };
+
+  // The draft is per-open-menu: leaving it mounted would carry a half-typed procedure
+  // name from one tooth's menu into the next one the operator opens.
+  React.useEffect(() => {
+    setManualKey(null);
+    setManualDraft({ label: '', table: '' });
+  }, [menuKey]);
 
   const sections = React.useMemo(
     () => buildPanelSections(treatments, allTeeth, txLabel),
@@ -269,6 +290,45 @@ export function TreatmentPanel({
                                 onClick={() => { onAddToVisit(id, row.targets, row.ref); setMenuKey(null); }}
                               >{txLabel[id] ?? id}</button>
                             ))}
+                            <button
+                              type="button"
+                              className="trx-menu-it"
+                              aria-expanded={manualKey === rowKey}
+                              onClick={() => setManualKey((k) => (k === rowKey ? null : rowKey))}
+                            >{manualKey === rowKey ? 'Cancel' : 'Add manually\u2026'}</button>
+                            {manualKey === rowKey && (
+                              <div className="trx-man">
+                                <input
+                                  className="twk-field"
+                                  type="text"
+                                  placeholder="Procedure name"
+                                  aria-label="Manual MediSave procedure name"
+                                  value={manualDraft.label}
+                                  onChange={(e) => setManualDraft((d) => ({ ...d, label: e.target.value }))}
+                                />
+                                <select
+                                  className="twk-field"
+                                  aria-label="CPF table"
+                                  value={manualDraft.table}
+                                  onChange={(e) => setManualDraft((d) => ({ ...d, table: e.target.value }))}
+                                >
+                                  <option value="">CPF table\u2026</option>
+                                  {CPF_TABLE_CODES.map((c) => (
+                                    <option key={c} value={c}>{c}</option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  className="trx-man-add"
+                                  disabled={!manualDraft.label.trim() || !manualDraft.table}
+                                  onClick={() => {
+                                    onAddToVisit(MANUAL_MV_ID, row.targets, row.ref,
+                                      { label: manualDraft.label.trim(), table: manualDraft.table });
+                                    setMenuKey(null);
+                                  }}
+                                >Add</button>
+                              </div>
+                            )}
                             {joinOpts.length > 0 && (
                               <div className="trx-menu-hd">Join</div>
                             )}
