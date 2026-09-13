@@ -184,6 +184,7 @@ describe('PanelDock', () => {
 describe('TreatmentPanel — same-visit MediSave bundles', () => {
   const EXO = { id: 'simple-surgical-extraction', scope: 'tooth', targets: ['upper-13'] };
   const GBR = { id: 'gbr', scope: 'tooth', targets: ['upper-13'] };
+  const IMPLANT = { id: 'implant-only', scope: 'tooth', targets: ['upper-13'] };
 
   it('offers + on a MediSave row', () => {
     const { container } = setup({ treatments: [EXO] });
@@ -220,35 +221,73 @@ describe('TreatmentPanel — same-visit MediSave bundles', () => {
     expect(labels).toContain('Bone Graft (GBR)');
   });
 
-  it('Join lists the other MediSave entry and passes both refs', () => {
-    const onJoinVisit = vi.fn();
-    const { container } = setup({ treatments: [EXO, GBR], onJoinVisit });
+  /* Join removed 2026-09-13. Membership is created ONLY from inside a bundle, via the +
+     menu of one of its rows — never by a row elsewhere in the plan electing to join it.
+     The consequence accepted with it: a bundle can only hold procedures on the host
+     row's teeth, so a visit can no longer span two separate entries on different teeth. */
+  it("offers no way for one row to join another row's visit", () => {
+    const { container } = setup({ treatments: [EXO, { ...GBR, session: 's1' }] });
     fireEvent.click(container.querySelector('.trx-add'));
-    const join = [...container.querySelectorAll('.trx-menu-it')]
-      .find((b) => b.textContent === 'Bone Graft (GBR)' && b.previousElementSibling?.textContent === 'Join');
-    fireEvent.click(join);
-    expect(onJoinVisit).toHaveBeenCalledWith(
-      'simple-surgical-extraction::upper-13', 'gbr::upper-13');
+    const headings = [...container.querySelectorAll('.trx-menu-hd')].map((h) => h.textContent);
+    expect(headings).toEqual(['Add Another MediSave Procedure']);
+    // GBR still appears as an ADD option, which is a different thing: it creates a new
+    // procedure on THIS row's teeth. What is gone is any item naming an existing entry's
+    // visit — the Join items rendered as "Bone Graft (GBR) · Visit 1".
+    const items = [...container.querySelectorAll('.trx-menu-it')].map((b) => b.textContent);
+    expect(items.filter((t) => /Visit \d/.test(t))).toEqual([]);
   });
 
-  it('a bundled row shows its visit tag, and its ✕ leaves the visit', () => {
+  /* The per-row "Visit 1" chip was replaced 2026-09-13 by a group marker: the members are
+     drawn together under ONE heading. The distinction it carries is load-bearing and is
+     asserted below — a card groups by TOOTH, and one tooth routinely spans two visits
+     (extract + graft today, implant in four months), so "same card" cannot mean
+     "same visit". */
+  it('draws a bundle as one group holding all its members', () => {
+    const { container } = setup({
+      treatments: [{ ...EXO, session: 's1' }, { ...GBR, session: 's1' }],
+    });
+    const bundles = container.querySelectorAll('.trx-bundle');
+    expect(bundles).toHaveLength(1);
+    expect(bundles[0].querySelector('.trx-bundle-hd').textContent).toBe('Same visit');
+    expect(bundles[0].querySelectorAll('.trx-row')).toHaveLength(2);
+  });
+
+  it('leaves unbundled rows outside any group — one tooth, two visits stays readable', () => {
+    const { container } = setup({ treatments: [EXO, GBR] });
+    expect(container.querySelector('.trx-bundle')).toBeNull();
+    expect(container.querySelectorAll('.trx-row')).toHaveLength(2);
+  });
+
+  it('groups only the bundled members when a tooth carries both', () => {
+    const { container } = setup({
+      treatments: [{ ...EXO, session: 's1' }, { ...GBR, session: 's1' }, IMPLANT],
+    });
+    const bundle = container.querySelector('.trx-bundle');
+    expect(bundle.querySelectorAll('.trx-row')).toHaveLength(2);
+    expect(container.querySelectorAll('.trx-row')).toHaveLength(3);
+  });
+
+  it('leaving a visit is offered in the + menu, not as a second ✕ on the row', () => {
     const onLeaveVisit = vi.fn();
     const { container } = setup({
       treatments: [{ ...EXO, session: 's1' }, { ...GBR, session: 's1' }],
       onLeaveVisit,
     });
-    const tag = container.querySelector('.trx-visit');
-    expect(tag.textContent).toContain('Visit 1');
-    fireEvent.click(tag.querySelector('.trx-visit-x'));
+    fireEvent.click(container.querySelector('.trx-add'));
+    const leave = [...container.querySelectorAll('.trx-menu-it')]
+      .find((b) => b.textContent === 'Remove from this visit');
+    fireEvent.click(leave);
     expect(onLeaveVisit).toHaveBeenCalledWith('simple-surgical-extraction::upper-13');
   });
 
-  it('an untagged row shows no visit tag', () => {
+  it('an unbundled row is offered no way to leave a visit', () => {
     const { container } = setup({ treatments: [EXO] });
-    expect(container.querySelector('.trx-visit')).toBeNull();
+    fireEvent.click(container.querySelector('.trx-add'));
+    const items = [...container.querySelectorAll('.trx-menu-it')].map((b) => b.textContent);
+    expect(items).not.toContain('Remove from this visit');
   });
 
-  it('Join is not shown at all when the only other row is already in this visit', () => {
+  it('the menu never shows a Join heading', () => {
     // Changed 2026-09-12. The heading used to stand above 'No other MediSave treatment
     // yet.' — a state the operator cannot act on. The heading now appears only when
     // there is something to join. The add list's own empty line stays: it reports that a

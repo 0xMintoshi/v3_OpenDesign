@@ -105,6 +105,14 @@ export function nextSessionId(treatments) {
 /**
  * Put the entries named by `refs` into one visit, returning a new treatments array.
  *
+ * REACHABLE CALLS ARE NARROWER THAN THIS FUNCTION. Since the Join interaction was removed
+ * (2026-09-13) the only caller is `addToVisit`, which always passes exactly two refs: an
+ * existing host row, and an entry it has just created and which therefore carries no
+ * session. So of the three merge rules below, only the first two can happen from the UI —
+ * the several-tagged merge is retained because the function is pure and tested, not
+ * because anything can still reach it. Do not read it as a product capability: a visit
+ * can no longer span two separate entries, and its members are always on the host's teeth.
+ *
  * Merge rules:
  *  - none of them tagged  -> a fresh session
  *  - exactly one tagged   -> the others join it

@@ -512,15 +512,37 @@ export function shallowEqualPresence(a, b) {
 }
 
 /**
- * Treatments compare by id + scope + target SET (order-insensitive), matching how
- * _chartTxId is built parent-side. A reordered targets array is the same treatment
- * and must not be treated as a change, or the guard never terminates.
+ * Fields the PARENT derives on the way out and this chart recomputes on the way in.
+ * Excluded from the comparison below so an inbound restore can still compare equal
+ * and the guard terminates. Everything NOT listed here counts as a change.
+ */
+const DERIVED_TX_FIELDS = ['claimableCrowns'];
+
+/**
+ * Treatments compare by every own field EXCEPT the derived ones, with a target SET
+ * rather than a target list — a reordered targets array is the same treatment and
+ * must not read as a change, or the guard never terminates.
+ *
+ * Compared by EXCLUSION rather than by a list of fields that matter. Until 2026-09-13
+ * this keyed on id + scope + targets alone, so a restore differing only by a `session`
+ * tag — or by a manual procedure's uid, label or table — compared EQUAL and was thrown
+ * away in full: the chart kept showing "Visit 1" while the parent billed the procedures
+ * separately, and nothing logged it. A field list is how that stayed invisible, and a
+ * new field would have re-introduced it, so the default is now "counts as a change" and
+ * only genuinely derived fields are named. The failure mode if one is ever missed is a
+ * restore loop, which the termination test catches at once.
  */
 export function treatmentsEqual(a, b) {
   if (a === b) return true;
   if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
-  const key = (tx) => tx.id + '|' + (tx.scope || '') + '|' +
-    (tx.targets || []).slice().sort().join(',');
+  const key = (tx) => JSON.stringify(
+    Object.keys(tx || {})
+      // An absent key and one set to undefined are the same treatment. Dropping both
+      // keeps a restore from looping on a field one side spells and the other omits.
+      .filter((k) => !DERIVED_TX_FIELDS.includes(k) && tx[k] !== undefined)
+      .sort()
+      .map((k) => [k, k === 'targets' ? (tx[k] || []).slice().sort() : tx[k]])
+  );
   const ka = a.map(key).sort(), kb = b.map(key).sort();
   return ka.every((k, i) => k === kb[i]);
 }
@@ -1090,7 +1112,6 @@ function DentalHeroInner() {
     });
   };
 
-  const joinVisit = (refA, refB) => setTreatments((prev) => joinSessions(prev, [refA, refB]));
   const leaveVisit = (ref) => setTreatments((prev) => leaveSession(prev, ref));
 
   const handleAdvance = () => {setStage('treatment');setSelection([]);setPopover(null);};
@@ -1618,7 +1639,6 @@ function DentalHeroInner() {
           onRemoveManual={removeManualEntry}
           onHoverTargets={setPanelHoverIds}
           onAddToVisit={addToVisit}
-          onJoinVisit={joinVisit}
           onLeaveVisit={leaveVisit}
         />
       )}

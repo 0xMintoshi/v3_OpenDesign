@@ -244,4 +244,44 @@ describe('dirty-check helpers', () => {
       [{ id: 'veneer', scope: 'tooth', targets: ['upper-11'] }],
     )).toBe(false);
   });
+
+  /* Same-visit bundling and manual-procedure identity live on the treatment entry, so a
+     restore that changes only those must still reach the chart. Until 2026-09-13 every
+     case below compared EQUAL, and the restore carrying it was discarded in full. */
+  it('treatmentsEqual sees a session tag appear', () => {
+    const untagged = [{ id: 'simple-surgical-extraction', scope: 'tooth', targets: ['upper-15'] }];
+    const tagged = [{ ...untagged[0], session: 's1' }];
+    expect(treatmentsEqual(untagged, tagged)).toBe(false);
+  });
+
+  it('treatmentsEqual sees a session tag removed — undoing a join must reach the chart', () => {
+    const tagged = [
+      { id: 'simple-surgical-extraction', scope: 'tooth', targets: ['upper-15'], session: 's1' },
+      { id: 'gbr', scope: 'tooth', targets: ['upper-15'], session: 's1' },
+    ];
+    const untagged = tagged.map(({ session, ...rest }) => rest);
+    expect(treatmentsEqual(tagged, untagged)).toBe(false);
+  });
+
+  it('treatmentsEqual distinguishes two manual procedures on one tooth', () => {
+    const a = [{ id: 'manual-medisave', scope: 'tooth', targets: ['upper-15'], uid: 'm1', label: 'Bone Graft', table: '2C' }];
+    expect(treatmentsEqual(a, [{ ...a[0], uid: 'm2' }])).toBe(false);   // different entry
+    expect(treatmentsEqual(a, [{ ...a[0], label: 'Sinus Lift' }])).toBe(false);
+    expect(treatmentsEqual(a, [{ ...a[0], table: '4A' }])).toBe(false); // different claim
+  });
+
+  /* TERMINATION GUARD. The parent enriches spans with claimableCrowns on the way out and
+     restores that enriched copy; the chart recomputes it. If it counted as a change the
+     restore would never settle, so this case must stay EQUAL — the price of comparing by
+     exclusion, and the reason the denylist exists at all. */
+  it('treatmentsEqual ignores claimableCrowns — the parent derives it', () => {
+    const bare = [{ id: 'bridge-span', scope: 'tooth', targets: ['upper-11', 'upper-12'] }];
+    expect(treatmentsEqual(bare, [{ ...bare[0], claimableCrowns: 2 }])).toBe(true);
+  });
+
+  /* A key one side omits and the other spells as undefined is the same treatment. */
+  it('treatmentsEqual treats an absent field and an undefined one as the same', () => {
+    const a = [{ id: 'gbr', scope: 'tooth', targets: ['upper-15'] }];
+    expect(treatmentsEqual(a, [{ ...a[0], session: undefined }])).toBe(true);
+  });
 });

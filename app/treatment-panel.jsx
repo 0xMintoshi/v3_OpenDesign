@@ -3,7 +3,6 @@ import { __TWEAKS_STYLE, PILL_BOTTOM, PILL_H, UNDO_CLEARANCE } from './tweaks-pa
 import { buildPanelSections } from '../core/treatment-panel-order.js';
 import { MEDISAVE_BUNDLE_IDS, isBundleable, getConflictingTreatmentIds, MANUAL_MV_ID } from '../core/conflict-rules.js';
 import { CPF_TABLE_CODES } from '../core/cpf-tables.js';
-import { txRef as txRefOf } from '../core/mv-sessions.js';
 
 // Fixed geometry — pills own the bottom-right corner; both panels open directly
 // above the pills. Nothing is draggable.
@@ -72,14 +71,27 @@ const TRX_STYLE = `
   .trx-man-add{appearance:none;width:100%;height:24px;border:0;border-radius:5px;
     background:rgba(41,38,27,.86);color:#faf9f7;font-size:11px;font-weight:600;cursor:default}
   .trx-man-add:disabled{background:rgba(41,38,27,.18);color:rgba(41,38,27,.5)}
-  .trx-visit{display:inline-flex;align-items:center;gap:3px;flex:0 0 auto;
-    height:15px;padding:0 5px;border-radius:7px;
-    background:rgba(41,38,27,.08);color:rgba(41,38,27,.62);
-    font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
-    white-space:nowrap}
-  .trx-visit-x{appearance:none;border:0;background:transparent;padding:0;margin:0 -1px 0 0;
-    color:inherit;font-size:10px;line-height:1;cursor:default;opacity:.6}
-  .trx-visit-x:hover{opacity:1}
+  /* A visit is drawn as a GROUP, not as a tag repeated on every row: a card groups by
+     tooth, and one tooth routinely spans two visits (extract + graft today, implant in
+     four months), so the rows that share the $830 have to be visibly set apart from the
+     ones that do not. Said once per bundle instead of once per row. */
+  /* A brace hanging off the tooth number: one continuous stroke, closed top and bottom
+     by its corner radii. Arcs alone (no spine) were tried on 2026-09-13 and rejected —
+     the two marks drift apart as a bundle grows and stop reading as one enclosure.
+     Weight, arm depth and ink here are the three tuning values; change them, not the
+     structure. */
+  .trx-card:has(.trx-bundle){align-items:stretch}
+  .trx-card:has(.trx-bundle) .trx-card-num{display:flex;align-items:center;padding-right:0}
+  .trx-bundle{position:relative;margin:6px 6px 6px 8px;padding-left:13px}
+  .trx-bundle::before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:9px;
+    border:1.5px solid rgba(41,38,27,.36);border-right:0;border-radius:5px 0 0 5px}
+  /* Must out-specify the .trx-card-num+.trx-card-rows .trx-row padding-left:0 rule above
+     (3 classes), or the heading keeps its 2px inset while the rows lose theirs and the
+     two text left edges disagree by 2px. Hence .trx-card-rows in this selector. */
+  .trx-card-rows .trx-bundle .trx-row{padding:4px 2px}
+  .trx-bundle .trx-row+.trx-row{border-top:.5px solid rgba(41,38,27,.06)}
+  .trx-bundle-hd{padding:0 0 4px 2px;font-size:8px;font-weight:700;
+    letter-spacing:.1em;text-transform:uppercase;color:rgba(41,38,27,.42)}
   .trx-menu{margin:0 10px 6px;padding:5px 0;border-radius:8px;
     background:rgba(255,255,255,.72);border:.5px solid rgba(0,0,0,.08)}
   .trx-card-num+.trx-card-rows .trx-menu{margin-left:0}
@@ -140,7 +152,6 @@ export function TreatmentPanel({
   onRemoveManual,
   onHoverTargets,
   onAddToVisit,
-  onJoinVisit,
   onLeaveVisit,
 }) {
   // Which row's + menu is open, addressed by `${card.key}|${ref}|${txId}` so two rows of
@@ -181,9 +192,6 @@ export function TreatmentPanel({
     [treatments, allTeeth, txLabel],
   );
 
-  // "Visit 1" reads as a clinic appointment; the stored tag is "s1".
-  const visitLabel = (session) => `Visit ${String(session).replace(/^s/, '')}`;
-
   // MediSave treatments that can be added to this row's teeth. A treatment that would
   // conflict with the row's own is excluded rather than offered and then silently
   // stripped — getConflictingTreatmentIds is the same rule the chart applies on apply,
@@ -196,18 +204,25 @@ export function TreatmentPanel({
     return true;
   });
 
-  // Other MediSave entries in the plan that this row could join. Same-bundle rows are
-  // left out; a row in a DIFFERENT bundle stays in, because joining merges the two.
-  const joinOptionsFor = (row) => {
-    const seen = new Set([row.ref]);
-    const out = [];
-    for (const tx of treatments) {
-      if (!isBundleable(tx.id) || seen.has(txRefOf(tx))) continue;
-      if (row.session && tx.session === row.session) continue;
-      seen.add(txRefOf(tx));
-      out.push(tx);
+  /**
+   * A card's rows split into blocks: each bundle's rows collected into one block at the
+   * position of its first member, every unbundled row a block of its own.
+   *
+   * Grouping is the only thing that marks a visit now, so the members have to be drawn
+   * together — the panel's own ordering does not guarantee they are already adjacent.
+   */
+  const groupRows = (rows) => {
+    const blocks = [];
+    const bySession = new Map();
+    for (const row of rows) {
+      if (!row.session) { blocks.push({ session: null, rows: [row] }); continue; }
+      const seen = bySession.get(row.session);
+      if (seen) { seen.rows.push(row); continue; }
+      const block = { session: row.session, rows: [row] };
+      bySession.set(row.session, block);
+      blocks.push(block);
     }
-    return out;
+    return blocks;
   };
 
   if (!open) return null;
@@ -232,13 +247,13 @@ export function TreatmentPanel({
                       <div className="trx-card-num">{card.heading}</div>
                     )}
                     <div className="trx-card-rows">
-                      {card.rows.map((row, i) => {
+                      {groupRows(card.rows).map((block, bi) => {
+                      const blockBody = block.rows.map((row, i) => {
                         // Card-scoped: a cross-jaw entry gives two cards from ONE ref,
                         // so `${row.ref}|${row.txId}` alone opened both menus at once.
                         const rowKey = `${card.key}|${row.ref}|${row.txId}`;
                         const bundleable = isBundleable(row.txId);
                         const addOpts = bundleable ? addOptionsFor(row) : [];
-                        const joinOpts = bundleable ? joinOptionsFor(row) : [];
                         return (
                         <React.Fragment key={`${row.txId}-${i}`}>
                         <div
@@ -247,17 +262,6 @@ export function TreatmentPanel({
                           onMouseLeave={() => onHoverTargets([])}
                         >
                           <span className="trx-row-lbl">{row.label}</span>
-                          {row.session && (
-                            <span className="trx-visit" title="Shares one $830 consumable">
-                              {visitLabel(row.session)}
-                              <button
-                                type="button"
-                                className="trx-visit-x"
-                                aria-label={`Remove ${row.label} from ${visitLabel(row.session)}`}
-                                onClick={() => onLeaveVisit(row.ref)}
-                              >✕</button>
-                            </span>
-                          )}
                           {bundleable && (
                             <button
                               type="button"
@@ -329,21 +333,28 @@ export function TreatmentPanel({
                                 >Add</button>
                               </div>
                             )}
-                            {joinOpts.length > 0 && (
-                              <div className="trx-menu-hd">Join</div>
-                            )}
-                            {joinOpts.map((tx) => (
+                            {/* Leaving a visit lives in the menu rather than on the row:
+                                the group marking replaced the per-row tag that used to
+                                carry it, and a second ✕ beside the delete ✕ would be two
+                                controls a keystroke apart meaning very different things. */}
+                            {row.session && (
                               <button
                                 type="button"
-                                key={txRefOf(tx)}
                                 className="trx-menu-it"
-                                onClick={() => { onJoinVisit(row.ref, txRefOf(tx)); setMenuKey(null); }}
-                              >{txLabel[tx.id] ?? tx.id}{tx.session ? ` · ${visitLabel(tx.session)}` : ''}</button>
-                            ))}
+                                onClick={() => { onLeaveVisit(row.ref); setMenuKey(null); }}
+                              >Remove from this visit</button>
+                            )}
                           </div>
                         )}
                         </React.Fragment>
                         );
+                      });
+                      return block.session ? (
+                        <div key={`b${bi}`} className="trx-bundle">
+                          <div className="trx-bundle-hd" title="These share one $830 consumable">Same visit</div>
+                          {blockBody}
+                        </div>
+                      ) : <React.Fragment key={`b${bi}`}>{blockBody}</React.Fragment>;
                       })}
                     </div>
                   </div>

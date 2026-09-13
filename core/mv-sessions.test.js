@@ -24,6 +24,9 @@ describe('joinSessions', () => {
     expect(out[1].session).toBe('s1');
   });
 
+  /* UNREACHABLE FROM THE UI since Join was removed (2026-09-13): the + menu applies the
+     added procedure to the HOST row's teeth, so a visit is always one entry's teeth. Kept
+     as a statement about this pure function, not as a promise about the product. */
   it('bundles across different teeth — the consumable belongs to the visit, not the tooth', () => {
     const list = [tx('simple-surgical-extraction', ['upper-18']), tx('gbr', ['lower-36'])];
     const out = joinSessions(list, list.map(txRef));
@@ -36,6 +39,8 @@ describe('joinSessions', () => {
     expect(out.map((t) => t.session)).toEqual(['s4', 's4']);
   });
 
+  /* Also unreachable from the UI: addToVisit's second ref is always a brand-new entry,
+     so two tagged bundles can never be named in one call. Same caveat as above. */
   it('merging two bundles keeps the lower id and strands nobody', () => {
     const list = [
       tx('simple-surgical-extraction', ['upper-13'], 's1'),
