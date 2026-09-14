@@ -99,8 +99,9 @@ values — `npm run stroke-table` reads them from the named constants, and `?see
   (a sinus lift with a real side and its overlay) has no reachable way to join a visit at all.
   Adding from it never worked; joining two entries that already exist was removed on 2026-09-13.
   What area treatments have is the reverse path — added FROM a tooth row — which is what produces
-  the verified $3,340 bundle. Real joining returns with Phase 5 of
-  `docs/plans/2026-09-14-visit-record-above-both-avenues.md` (parent repo). A unit test written
+  the verified $3,340 bundle. Joining two entries that already exist is NOT coming back: the plan
+  that would have restored it (`docs/plans/2026-09-14-visit-record-above-both-avenues.md`, parent
+  repo) was shelved on 2026-09-14 when Minzhe ruled out cross-avenue bundling. A unit test written
   2026-09-14 asserted the + IS offered on an area row; it pinned the affordance, not the outcome,
   and has been rewritten to assert the rule above.
 
