@@ -142,6 +142,39 @@ values — `npm run stroke-table` reads them from the named constants, and `?see
   A cross-jaw entry yields two cards from ONE ref, so `ref|txId` was identical on both and opening
   one `+` menu opened the other. Collapsing hides this for the common case; it does not fix it.
 
+### Same-visit bundles in the panel (2026-09-13)
+
+- **There is no Join.** Membership is created ONLY from inside a bundle, via the `+` menu of one of
+  its rows. A row elsewhere in the plan cannot elect to join one, and `joinOptionsFor` /
+  `onJoinVisit` are gone. Consequence accepted with it: the `+` applies the added procedure to the
+  HOST row's teeth, so **a visit can no longer span two entries on different teeth** — and an
+  unbundled pair cannot be re-bundled at all, it must be deleted and re-added from the host's `+`.
+- `joinSessions` is UNCHANGED and still supports merging two tagged bundles, but nothing can reach
+  that branch (the second ref is always a brand-new untagged entry). It and its two unit cases are
+  annotated as unreachable rather than deleted — do not read them as product capabilities.
+- **Leaving a visit lives in the `+` menu**, not on the row. A second ✕ beside the row's delete ✕
+  is two controls a keystroke apart meaning very different things.
+- **A bundle is drawn as a GROUP, never as a tag repeated per row.** The card groups by TOOTH, and
+  one tooth routinely spans two visits (extract + graft today, implant in four months), so "same
+  card" cannot mean "same visit" — measured: without a marker the bundled and unbundled pairs
+  render identically, for an $830 difference. The mark is a brace (`.trx-bundle::before`): one
+  continuous stroke closed top and bottom by its corner radii. **A spine-less variant — two corner
+  arcs alone — was built and rejected**; the marks drift apart as a bundle grows and stop reading
+  as one enclosure. Tuning is three values (stroke weight, arm depth, ink alpha); change those,
+  never the structure.
+- **`.trx-bundle-hd` must out-specify `.trx-card-num+.trx-card-rows .trx-row{padding-left:0}`**
+  (3 classes) or the heading keeps its 2px inset while the rows lose theirs and the two text left
+  edges disagree by 2px. Hence `.trx-card-rows .trx-bundle .trx-row` in that selector.
+- **Verify text alignment with a Range over the text nodes, never element rects.** The heading is a
+  full-width box and the row label an inline span, so comparing `getBoundingClientRect()` reports a
+  phantom 2px offset on markup that is correctly aligned.
+
+### CSS-in-JS gotcha
+
+`TRX_STYLE` / `DOCK_STYLE` are template literals. **A backtick anywhere inside them — including in
+a CSS comment — closes the string** and the build fails with a JS parse error pointing at the CSS.
+Quote identifiers in those comments with nothing, or with single quotes.
+
 ### The manual MediSave procedure (`manual-medisave`)
 - An operator-defined procedure: a name they type and a CPF table they pick, added from the `+`
   menu of any bundleable row. The entry is
