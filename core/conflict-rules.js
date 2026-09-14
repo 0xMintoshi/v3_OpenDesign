@@ -78,7 +78,16 @@ export function getConflictingTreatmentIds(txId) {
  */
 export const SESSION_SPLIT_IDS = ['implant-only', 'implant-crown', 'gbr',
                                   'simple-surgical-extraction', 'complex-surgical-extraction',
-                                  'root-stump-extraction'];
+                                  'root-stump-extraction',
+                                  // Area-scoped, added 2026-09-14. They used to merge their
+                                  // targets into one entry, which is exactly what made them
+                                  // unbundleable; the sinus and arch apply branches in
+                                  // dental-arch.jsx now push one entry per side / per arch, so
+                                  // they have the same one-apply-one-entry property as the rest.
+                                  // Read only inside the popover.mode === 'tooth' branch there,
+                                  // which these two never enter — they are on this list for what
+                                  // MEDISAVE_BUNDLE_IDS derives from it, not for that branch.
+                                  'sinus-lift', 'alveolectomy'];
 
 /**
  * MediSave treatments that may be bundled into a shared-consumable visit.
@@ -89,17 +98,12 @@ export const SESSION_SPLIT_IDS = ['implant-only', 'implant-crown', 'gbr',
  */
 export const MEDISAVE_BUNDLE_IDS = [...SESSION_SPLIT_IDS, 'implant-bridge-span'];
 
-/**
- * The MediSave treatments deliberately left out of bundling. Both merge their targets
- * into an existing entry — sinus-lift by side, alveolectomy by arch — so one entry can
- * represent several applies and cannot carry a single visit's tag honestly.
- *
- * Named rather than simply absent so the parent-side parity test can assert that
- * MEDISAVE_BUNDLE_IDS and this list together account for EVERY surgical treatment in
- * CHART_TREATMENT_MAP. Adding a surgical treatment later then fails a test instead of
- * silently arriving unbundleable.
- */
-export const MEDISAVE_MERGE_IDS = ['sinus-lift', 'alveolectomy'];
+/* MEDISAVE_MERGE_IDS was here until 2026-09-14. It held sinus-lift and alveolectomy,
+   the two MediSave treatments left out of bundling because they merged their targets
+   into one entry. They now push one entry per side / per arch like everything else, so
+   the exception list has no members and is gone: EVERY MediSave treatment is bundleable,
+   and the operator decides what shares a visit. The parent parity test now asserts
+   MEDISAVE_BUNDLE_IDS alone covers every surgical treatment in CHART_TREATMENT_MAP. */
 
 /**
  * True when this treatment can join a same-visit bundle.

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { txRef, pruneSessions, joinSessions, leaveSession, nextSessionId } from './mv-sessions.js';
-import { MEDISAVE_BUNDLE_IDS, MEDISAVE_MERGE_IDS, SESSION_SPLIT_IDS, isBundleable } from './conflict-rules.js';
+import { MEDISAVE_BUNDLE_IDS, SESSION_SPLIT_IDS, isBundleable } from './conflict-rules.js';
 
 const tx = (id, targets, session) => session
   ? { id, scope: 'tooth', targets, session }
@@ -61,10 +61,27 @@ describe('joinSessions', () => {
     expect(a[0].session).toBe('s1');
   });
 
-  it('refuses to bundle a treatment that merges its targets (sinus lift)', () => {
+  // The inverse of this test until 2026-09-14, when sinus lift merged its sides into one
+  // entry and so could not carry a visit tag honestly. It now pushes one entry per side.
+  // This is the case the change exists for: a sinus lift and an implant placed the same
+  // day share one $830 consumable, and until now each claimed its own.
+  it('bundles a sinus lift with a tooth treatment — they share one consumable', () => {
     const list = [tx('gbr', ['upper-13']), { id: 'sinus-lift', scope: 'sinus', targets: ['right'] }];
     const out = joinSessions(list, list.map(txRef));
-    expect(out.every((t) => !t.session)).toBe(true);
+    expect(out[0].session).toBe('s1');
+    expect(out[1].session).toBe('s1');
+  });
+
+  it('bundles one arch of an alveolectomy without dragging the other in', () => {
+    const list = [
+      tx('gbr', ['lower-36']),
+      { id: 'alveolectomy', scope: 'arch', targets: ['lower'] },
+      { id: 'alveolectomy', scope: 'arch', targets: ['upper'] },
+    ];
+    const out = joinSessions(list, [txRef(list[0]), txRef(list[1])]);
+    expect(out[0].session).toBe('s1');
+    expect(out[1].session).toBe('s1');
+    expect(out[2].session).toBeUndefined();
   });
 
   it('a single row cannot form a visit on its own', () => {
@@ -114,8 +131,15 @@ describe('the bundleable id lists', () => {
   it('covers every treatment that starts its own session, plus the implant bridge', () => {
     expect(MEDISAVE_BUNDLE_IDS).toEqual([...SESSION_SPLIT_IDS, 'implant-bridge-span']);
   });
-  it('excludes exactly the two treatments that merge their targets', () => {
-    expect(MEDISAVE_MERGE_IDS).toEqual(['sinus-lift', 'alveolectomy']);
-    expect(MEDISAVE_MERGE_IDS.some(isBundleable)).toBe(false);
+  // Was the inverse assertion until 2026-09-14: sinus-lift and alveolectomy were the two
+  // treatments EXCLUDED from bundling, because they merged their targets into one entry.
+  // They push one entry per side / per arch now, so the exception list is gone and the
+  // rule is uniform — every MediSave treatment can share a visit, and the operator
+  // decides which ones do.
+  it('has no exceptions left — the two area treatments bundle like everything else', () => {
+    expect(isBundleable('sinus-lift')).toBe(true);
+    expect(isBundleable('alveolectomy')).toBe(true);
+    expect(SESSION_SPLIT_IDS).toContain('sinus-lift');
+    expect(SESSION_SPLIT_IDS).toContain('alveolectomy');
   });
 });

@@ -10,6 +10,7 @@ import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggl
 import { TreatmentPanel, PanelDock } from './treatment-panel.jsx';
 import { Dock, DockDivider, DockItem, ArchIcon, StageForwardIcon, StageBackIcon, SummaryIcon, ClearIcon } from './dock.jsx';
 import { getConflictingTreatmentIds, healPresence, SESSION_SPLIT_IDS, MANUAL_MV_ID } from '../core/conflict-rules.js';
+import { addAreaEntry } from '../core/area-apply.js';
 import { txRef, chartTxKey, nextManualUid, pruneSessions, joinSessions, leaveSession } from '../core/mv-sessions.js';
 import { areContiguous } from '../core/contiguity.js';
 import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
@@ -988,26 +989,14 @@ function DentalHeroInner() {
         });
       } else if (popover.mode === 'sinus') {
         const side = popover.target.side;
-        const idx = next.findIndex((tx) => tx.id === txId && tx.scope === 'sinus');
-        if (idx >= 0) {
-          const merged = new Set([...next[idx].targets, side]);
-          next[idx] = { ...next[idx], targets: [...merged] };
-        } else {
-          next.push({ id: txId, scope: 'sinus', targets: [side] });
-        }
+        next = addAreaEntry(next, txId, 'sinus', side);
       } else if (popover.mode === 'arch') {
         const arch = popover.target.arch;
         if (scope === 'full-mouth') {
           next = next.filter((tx) => !orthoIds.includes(tx.id));
           next.push({ id: txId, scope: 'full-mouth', targets: ['both'] });
         } else {
-          const idx = next.findIndex((tx) => tx.id === txId && tx.scope === 'arch');
-          if (idx >= 0) {
-            const merged = new Set([...next[idx].targets, arch]);
-            next[idx] = { ...next[idx], targets: [...merged] };
-          } else {
-            next.push({ id: txId, scope: 'arch', targets: [arch] });
-          }
+          next = addAreaEntry(next, txId, 'arch', arch);
         }
       }
       return next;

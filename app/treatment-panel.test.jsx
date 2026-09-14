@@ -196,9 +196,15 @@ describe('TreatmentPanel — same-visit MediSave bundles', () => {
     expect(container.querySelector('.trx-add')).toBeNull();
   });
 
-  it('does NOT offer + on a treatment that merges its targets (alveolectomy)', () => {
-    const { container } = setup({ treatments: [{ id: 'alveolectomy', scope: 'arch', targets: ['upper'] }] });
-    expect(container.querySelector('.trx-add')).toBeNull();
+  // Asserted the opposite until 2026-09-14. Alveolectomy and sinus lift were the two
+  // MediSave treatments excluded from bundling because they merged their targets; they
+  // push one entry per arch / per side now, so the + is offered like anywhere else and
+  // the operator decides what shares a visit.
+  it('offers + on an area treatment — no MediSave treatment is excluded any more', () => {
+    const arch = setup({ treatments: [{ id: 'alveolectomy', scope: 'arch', targets: ['upper'] }] });
+    expect(arch.container.querySelector('.trx-add')).toBeTruthy();
+    const sinus = setup({ treatments: [{ id: 'sinus-lift', scope: 'sinus', targets: ['right'] }] });
+    expect(sinus.container.querySelector('.trx-add')).toBeTruthy();
   });
 
   it('the + menu adds a MediSave treatment to the teeth of the row it was opened on', () => {
