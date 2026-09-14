@@ -89,13 +89,20 @@ values — `npm run stroke-table` reads them from the named constants, and `?see
   `treatments.filter(t => t.scope === 'sinus')` (`app/treatments.jsx`), so **no visual appears**,
   and the summary row's location reads as a tooth number rather than a side. A same-day sinus lift
   plus implant is rare enough that Minzhe accepted this rather than spend effort on it.
-- **NOT accepted — open defect:** the reverse direction is not blocked. `isBundleable('sinus-lift')`
-  is now true, so the add button renders on an area row too, and
-  `getConflictingTreatmentIds('implant-only')` does not list `sinus-lift`, so the menu offers
-  "Dental Implant" on a sinus row. Taking it writes `targets:['right']` into a tooth-scoped entry —
-  a chargeable implant line whose location is a side, with no overlay anywhere. Money-visible, not
-  cosmetic. The cheap fix is to suppress the add button (or filter the options) when the host row's
-  scope is not `'tooth'`.
+- **FIXED the same day — the reverse direction is now blocked.** It used to be open: the add
+  button rendered on an area row, and the menu offered "Dental Implant" on a sinus row, writing
+  `targets:['right']` into a tooth-scoped entry — a chargeable implant line whose location was a
+  side, with no overlay anywhere. `addOptionsFor` now returns nothing when `row.scope !== 'tooth'`,
+  and "Add manually…" is hidden there for the same reason. The button itself survives on an area
+  row ONLY while that row is in a visit, because "Remove from this visit" lives inside the menu.
+- **Consequence, and it is the honest cost of that fix:** an area entry that was applied properly
+  (a sinus lift with a real side and its overlay) has no reachable way to join a visit at all.
+  Adding from it never worked; joining two entries that already exist was removed on 2026-09-13.
+  What area treatments have is the reverse path — added FROM a tooth row — which is what produces
+  the verified $3,340 bundle. Real joining returns with Phase 5 of
+  `docs/plans/2026-09-14-visit-record-above-both-avenues.md` (parent repo). A unit test written
+  2026-09-14 asserted the + IS offered on an area row; it pinned the affordance, not the outcome,
+  and has been rewritten to assert the rule above.
 
 ### bonePath() — upper arch orientation
 - Sub-path 1 ends at SVG-left / patient's R (near `first`)

@@ -196,15 +196,39 @@ describe('TreatmentPanel — same-visit MediSave bundles', () => {
     expect(container.querySelector('.trx-add')).toBeNull();
   });
 
-  // Asserted the opposite until 2026-09-14. Alveolectomy and sinus lift were the two
-  // MediSave treatments excluded from bundling because they merged their targets; they
-  // push one entry per arch / per side now, so the + is offered like anywhere else and
-  // the operator decides what shares a visit.
-  it('offers + on an area treatment — no MediSave treatment is excluded any more', () => {
+  /* REWRITTEN 2026-09-14, later the same day. This asserted that the + IS offered on an
+     area row, as a consequence of alveolectomy and sinus lift becoming bundleable. The
+     affordance was real and the result behind it was not: `addToVisit` builds the added
+     entry with `scope: 'tooth'` and the HOST row's targets, so adding from a sinus row
+     wrote targets:['right'] onto a tooth-scoped implant — priced by the parent, drawn
+     nowhere. The test pinned the button rather than the outcome, which is why it passed.
+
+     An area row genuinely cannot host an add: the host supplies the targets and a side is
+     not a tooth. Area treatments are still bundleable, and the reachable path is the
+     reverse one — a sinus lift added FROM an implant row, which is what produces the
+     $3,340 bundle verified on the live site. Joining two entries that ALREADY exist is
+     what an area row actually needs, and it is not reachable from either avenue today;
+     that is Phase 5 of docs/plans/2026-09-14-visit-record-above-both-avenues.md. */
+  it('does NOT offer + on an area treatment — the host cannot supply teeth', () => {
     const arch = setup({ treatments: [{ id: 'alveolectomy', scope: 'arch', targets: ['upper'] }] });
-    expect(arch.container.querySelector('.trx-add')).toBeTruthy();
+    expect(arch.container.querySelector('.trx-add')).toBeNull();
     const sinus = setup({ treatments: [{ id: 'sinus-lift', scope: 'sinus', targets: ['right'] }] });
-    expect(sinus.container.querySelector('.trx-add')).toBeTruthy();
+    expect(sinus.container.querySelector('.trx-add')).toBeNull();
+  });
+
+  it('area treatments are still bundleable — the tooth-row direction still works', () => {
+    const onAddToVisit = vi.fn();
+    const { container } = setup({
+      treatments: [{ id: 'implant-only', scope: 'tooth', targets: ['upper-13'] }],
+      onAddToVisit,
+      txLabel: { ...TX_LABEL, 'sinus-lift': 'Complex Sinus Lift' },
+    });
+    fireEvent.click(container.querySelector('.trx-add'));
+    const item = [...container.querySelectorAll('.trx-menu-it')]
+      .find((b) => b.textContent === 'Complex Sinus Lift');
+    expect(item).toBeTruthy();
+    fireEvent.click(item);
+    expect(onAddToVisit).toHaveBeenCalledWith('sinus-lift', ['upper-13'], expect.any(String));
   });
 
   it('the + menu adds a MediSave treatment to the teeth of the row it was opened on', () => {
@@ -241,6 +265,35 @@ describe('TreatmentPanel — same-visit MediSave bundles', () => {
     // visit — the Join items rendered as "Bone Graft (GBR) · Visit 1".
     const items = [...container.querySelectorAll('.trx-menu-it')].map((b) => b.textContent);
     expect(items.filter((t) => /Visit \d/.test(t))).toEqual([]);
+  });
+
+  /* An AREA row offers nothing to add, and this is a MONEY rule, not a tidiness one.
+     `addToVisit` builds the new entry with `scope: 'tooth'` and the HOST row's targets.
+     From a sinus row that means targets:['right'] on a tooth-scoped implant, which the
+     parent's CHART_TREATMENT_MAP prices by id alone: a chargeable "Dental Implant" line
+     whose location is a side, with no overlay anywhere on the chart to contradict it.
+     The supported direction is the reverse one — a sinus lift added FROM an implant row. */
+  const SINUS = { id: 'sinus-lift', scope: 'sinus', targets: ['right'] };
+
+  it('an area row offers nothing to add — no catalogue option, no manual entry', () => {
+    const { container } = setup({ treatments: [SINUS] });
+    const add = container.querySelector('.trx-add');
+    expect(add).toBeNull();
+  });
+
+  it('an area row already in a visit keeps the menu, but only to leave it', () => {
+    const { container } = setup({
+      treatments: [{ ...SINUS, session: 's1' }, { ...GBR, session: 's1' }],
+    });
+    const rows = [...container.querySelectorAll('.trx-row')];
+    const sinusRow = rows.find((r) => /Sinus/i.test(r.querySelector('.trx-row-lbl').textContent));
+    const add = sinusRow.querySelector('.trx-add');
+    expect(add).toBeTruthy();
+    fireEvent.click(add);
+    const menu = sinusRow.parentElement.querySelector('.trx-menu');
+    const items = [...menu.querySelectorAll('.trx-menu-it')].map((b) => b.textContent);
+    expect(items).toEqual(['Remove from this visit']);
+    expect(menu.querySelector('.trx-menu-none')).toBeTruthy();
   });
 
   /* The per-row "Visit 1" chip was replaced 2026-09-13 by a group marker: the members are

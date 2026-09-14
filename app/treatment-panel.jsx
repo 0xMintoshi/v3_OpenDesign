@@ -197,6 +197,12 @@ export function TreatmentPanel({
   // stripped — getConflictingTreatmentIds is the same rule the chart applies on apply,
   // so the menu cannot drift from it.
   const addOptionsFor = (row) => MEDISAVE_BUNDLE_IDS.filter((id) => {
+    // Nothing may be added from an AREA row (sinus, arch). `addToVisit` builds the new
+    // entry with `scope: 'tooth'` and the HOST's targets, so adding from a sinus row
+    // would write targets:['right'] onto a tooth-scoped implant — a chargeable summary
+    // line whose location is a side, drawn nowhere on the chart. The forward direction
+    // (a sinus lift added from an implant row) still works and is the supported one.
+    if (row.scope !== 'tooth') return false;
     if (id === row.txId) return false;
     if (getConflictingTreatmentIds(id).includes(row.txId)) return false;
     // Spans need a contiguous multi-tooth selection; a panel row cannot supply one.
@@ -254,6 +260,10 @@ export function TreatmentPanel({
                         const rowKey = `${card.key}|${row.ref}|${row.txId}`;
                         const bundleable = isBundleable(row.txId);
                         const addOpts = bundleable ? addOptionsFor(row) : [];
+                        // An area row keeps the button only while it is IN a visit, because
+                        // "Remove from this visit" lives inside this menu and would otherwise
+                        // be unreachable. It offers nothing to add.
+                        const showMenuBtn = bundleable && (row.scope === 'tooth' || !!row.session);
                         return (
                         <React.Fragment key={`${row.txId}-${i}`}>
                         <div
@@ -262,7 +272,7 @@ export function TreatmentPanel({
                           onMouseLeave={() => onHoverTargets([])}
                         >
                           <span className="trx-row-lbl">{row.label}</span>
-                          {bundleable && (
+                          {showMenuBtn && (
                             <button
                               type="button"
                               className="trx-add"
@@ -294,12 +304,17 @@ export function TreatmentPanel({
                                 onClick={() => { onAddToVisit(id, row.targets, row.ref); setMenuKey(null); }}
                               >{txLabel[id] ?? id}</button>
                             ))}
+                            {/* Hidden on an area row for the same reason as the catalogue
+                                options above: it routes through the same `onAddToVisit`
+                                and would write the host's side into a tooth-scoped entry. */}
+                            {row.scope === 'tooth' && (
                             <button
                               type="button"
                               className="trx-menu-it"
                               aria-expanded={manualKey === rowKey}
                               onClick={() => setManualKey((k) => (k === rowKey ? null : rowKey))}
                             >{manualKey === rowKey ? 'Cancel' : 'Add manually\u2026'}</button>
+                            )}
                             {manualKey === rowKey && (
                               <div className="trx-man">
                                 <input
