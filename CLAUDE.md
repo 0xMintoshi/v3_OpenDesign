@@ -60,6 +60,43 @@ values — `npm run stroke-table` reads them from the named constants, and `?see
 
 ## Locked Conventions
 
+### Every MediSave treatment is bundleable — there are no exceptions (2026-09-14)
+- `MEDISAVE_MERGE_IDS` is **deleted**, not emptied. It held `sinus-lift` and `alveolectomy`, the
+  two treatments excluded from same-visit bundling. Do not reintroduce an exception list; if a new
+  MediSave treatment cannot bundle, fix the treatment, not the list.
+- **Why they were excluded, and what changed:** both MERGED a newly applied target into an existing
+  entry of the same id, so one entry could cover both sides or both arches. An entry spanning two
+  areas cannot honestly carry one visit tag — the two may be done months apart. They now push
+  **one entry per side / per arch**, giving them the one-apply-one-entry property everything else
+  already had. That property is the ONLY thing bundling depends on.
+- **`core/area-apply.js` (`addAreaEntry`) owns this.** Both the sinus and arch branches of
+  `handleApplyTreatment` call it; it is pure so vitest can reach it, because the apply path proper
+  lives inside a React callback that the component suite mocks. Re-applying a side that already has
+  an entry is a **no-op returning the original array reference**, so React can skip the re-render.
+- Area entries never reach the tooth-run card builder in `treatment-panel-order.js`: `scope`
+  `'sinus'` and `'arch'` are handled earlier and `continue`. A scope guard was planned for that
+  line and dropped as unreachable — do not re-add it.
+- `SESSION_SPLIT_IDS` is also read inside the `popover.mode === 'tooth'` branch, which these two
+  never enter. They are on the list for what `MEDISAVE_BUNDLE_IDS` derives from it, not for that
+  branch.
+
+### "Add to this visit" makes a TOOTH entry, whatever the host row is (2026-09-14)
+- `addToVisit` in `app/dental-arch.jsx` hardcodes `scope: 'tooth'` and reuses the HOST row's
+  `targets`. That is right for tooth-on-tooth and wrong for every row whose targets are not teeth.
+- **Accepted limitation:** adding a sinus lift from an implant row produces
+  `{ id:'sinus-lift', scope:'tooth', targets:['upper-14'] }`. The money is right — the parent's
+  `CHART_TREATMENT_MAP` keys on `id` alone — but the sinus overlay is drawn from
+  `treatments.filter(t => t.scope === 'sinus')` (`app/treatments.jsx`), so **no visual appears**,
+  and the summary row's location reads as a tooth number rather than a side. A same-day sinus lift
+  plus implant is rare enough that Minzhe accepted this rather than spend effort on it.
+- **NOT accepted — open defect:** the reverse direction is not blocked. `isBundleable('sinus-lift')`
+  is now true, so the add button renders on an area row too, and
+  `getConflictingTreatmentIds('implant-only')` does not list `sinus-lift`, so the menu offers
+  "Dental Implant" on a sinus row. Taking it writes `targets:['right']` into a tooth-scoped entry —
+  a chargeable implant line whose location is a side, with no overlay anywhere. Money-visible, not
+  cosmetic. The cheap fix is to suppress the add button (or filter the options) when the host row's
+  scope is not `'tooth'`.
+
 ### bonePath() — upper arch orientation
 - Sub-path 1 ends at SVG-left / patient's R (near `first`)
 - Sub-path 2 starts at SVG-right / patient's L (near `last`)
