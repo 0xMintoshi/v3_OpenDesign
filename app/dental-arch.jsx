@@ -9,7 +9,9 @@ import { TX_GROUPS, SINUS_GROUP, ARCH_GROUPS, TX_LABEL, TreatmentLayer, BoneGraf
 import { useTweaks, TweaksPanel, TweakSection, TweakRow, TweakSlider, TweakToggle, TweakRadio, TweakSelect, TweakText, TweakNumber, TweakColor, TweakButton } from './tweaks-panel.jsx';
 import { TreatmentPanel, PanelDock } from './treatment-panel.jsx';
 import { Dock, DockDivider, DockItem, ArchIcon, StageForwardIcon, StageBackIcon, SummaryIcon, ClearIcon } from './dock.jsx';
-import { getConflictingTreatmentIds, healPresence, SESSION_SPLIT_IDS, MANUAL_MV_ID } from '../core/conflict-rules.js';
+import { getConflictingTreatmentIds, healPresence, SESSION_SPLIT_IDS, MANUAL_MV_ID,
+         ROOT_CANAL_IDS, RCT_TILE_ID } from '../core/conflict-rules.js';
+import { applyRootCanal } from '../core/root-canal-apply.js';
 import { addAreaEntry } from '../core/area-apply.js';
 import { txRef, chartTxKey, nextManualUid, pruneSessions, joinSessions, leaveSession } from '../core/mv-sessions.js';
 import { areContiguous } from '../core/contiguity.js';
@@ -42,10 +44,12 @@ function toothBaseTransform(tooth, jawFlip, yAdjust = 0) {
 // Baseline pulp-canal paint. The same geometry is filled in the treatment
 // accent when the tooth carries a root canal — one shape, two paint recipes.
 const CANAL_BASE_OPACITY = 0.30;
+const CANAL_TREATED_OPACITY = 1;
 
 function Tooth({
   tooth, jawFlip, accent, isHovered, isSelected, isInDrag,
-  presence, onHover, onSelect, onFocus, tabIndex = 0, showNumber, showCanals, stage, hasTreatment
+  presence, onHover, onSelect, onFocus, tabIndex = 0, showNumber, showCanals, stage, hasTreatment,
+  hasRootCanal
 }) {
   const { cx, h, w, type, fdi, tilt = 0, yOffset = 0 } = tooth;
 
@@ -193,17 +197,21 @@ function Tooth({
 
           }
 
-          {/* Pulp canal — root only, so it survives a root stump. Hidden on
-              implants (no root) and on missing teeth. Off by default: the canal
-              is anatomical detail most quotes never need, so it is opt-in from
-              the Tweaks panel rather than always painted. */}
-          {showCanals && !missing && !isImplant && paths.canal &&
+          {/* Pulp canal — root only, so it survives a root stump and so CrownOverlay
+              can paint over it (root canal + crown is the commonest pairing). Hidden
+              on implants (no root) and on missing teeth.
+
+              Two paint recipes, one shape. As anatomical detail it is faint and opt-in
+              from the Tweaks panel, since most quotes never need it. As a TREATMENT it
+              is solid accent and always drawn — gating that on the tweak, which is off
+              by default, would make an applied root canal invisible on a fresh chart. */}
+          {(showCanals || hasRootCanal) && !missing && !isImplant && paths.canal &&
           <path
             d={paths.canal}
-            fill={isSelected ? accent : 'var(--tooth-stroke)'}
+            fill={hasRootCanal || isSelected ? accent : 'var(--tooth-stroke)'}
             fillRule="nonzero"
             stroke="none"
-            opacity={CANAL_BASE_OPACITY}
+            opacity={hasRootCanal ? CANAL_TREATED_OPACITY : CANAL_BASE_OPACITY}
             style={{ pointerEvents: 'none' }} />
           }
         </g>
@@ -700,6 +708,16 @@ function DentalHeroInner() {
     return s;
   }, [treatments]);
 
+  // Teeth whose canals are painted in the accent rather than the faint anatomical tint.
+  // All three class ids collapse to one set: the paint is identical, only the billing differs.
+  const rootCanalTeeth = useMemo(() => {
+    const s = new Set();
+    treatments.forEach((tx) => {
+      if (tx.scope === 'tooth' && ROOT_CANAL_IDS.includes(tx.id)) tx.targets.forEach((id) => s.add(id));
+    });
+    return s;
+  }, [treatments]);
+
   const selectedTeeth = useMemo(
     () => selection.map((tid) => allTeeth.find((x) => x.id === tid)).filter(Boolean),
     [selection, allTeeth]
@@ -944,13 +962,23 @@ function DentalHeroInner() {
     setTreatments((prev) => {
       let next = [...prev];
       if (popover.mode === 'tooth') {
-        const targets = popover.target.filter(t => effectivePresence[t.id] !== 'implant').map((t) => t.id);
+        const presentTeeth = popover.target.filter(t => effectivePresence[t.id] !== 'implant');
+        const targets = presentTeeth.map((t) => t.id);
+        // A no-op for RCT_TILE_ID, which is not a stored id and so conflicts with nothing.
+        // The root canal branch below runs its own strip, per class, because the conflict
+        // set is looked up by id and the three classes are three different ids.
         const exclusive = getConflictingTreatmentIds(txId);
         next = next.map((tx) => {
           if (tx.scope !== 'tooth' || !exclusive.includes(tx.id)) return tx;
           return { ...tx, targets: tx.targets.filter((id) => !targets.includes(id)) };
         }).filter((tx) => tx.scope !== 'tooth' || tx.targets.length > 0);
-        if (txId === 'bridge-span' || txId === 'implant-bridge-span') {
+        if (txId === RCT_TILE_ID) {
+          // The one tooth treatment that fans out: ONE tile click becomes one entry per
+          // tooth class in the selection. The transform is pure and lives in
+          // core/root-canal-apply.js so vitest can reach it — this callback is mocked by
+          // the component suite.
+          next = applyRootCanal(next, presentTeeth);
+        } else if (txId === 'bridge-span' || txId === 'implant-bridge-span') {
           if (!areContiguous(targets, allTeeth)) {
             return prev; // non-contiguous or cross-jaw selection — no-op
           }
@@ -1485,7 +1513,8 @@ function DentalHeroInner() {
                     tabIndex={focusedToothId === tooth.id || isFirst ? 0 : -1}
                     showNumber={t.showNumbering} showCanals={t.showCanals}
                     stage={stage}
-                    hasTreatment={treatedTeeth.has(tooth.id)} />
+                    hasTreatment={treatedTeeth.has(tooth.id)}
+                    hasRootCanal={rootCanalTeeth.has(tooth.id)} />
                 </g>
               );
             })}
@@ -1509,7 +1538,8 @@ function DentalHeroInner() {
                   tabIndex={focusedToothId === tooth.id ? 0 : -1}
                   showNumber={t.showNumbering} showCanals={t.showCanals}
                   stage={stage}
-                  hasTreatment={treatedTeeth.has(tooth.id)} />
+                  hasTreatment={treatedTeeth.has(tooth.id)}
+                  hasRootCanal={rootCanalTeeth.has(tooth.id)} />
               </g>
             ))}
           </g>

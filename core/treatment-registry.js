@@ -8,6 +8,13 @@ export const VISUAL_REGISTRY = {
   'implant-crown':      { scope: 'tooth',      category: 'tooth',      label: 'Implant + Crown',          shapeId: 'crown-molar-upper' },
   'implant-only':       { scope: 'tooth',      category: 'tooth',      label: 'Implant Only',             shapeId: null },
   crown:                { scope: 'tooth',      category: 'tooth',      label: 'Crown',                    shapeId: 'crown-molar-upper' },
+  // Root canal — three ids, one per tooth class (see ROOT_CANAL_IDS in conflict-rules.js).
+  // shapeId is null because the geometry is not a treatment shape: it is the tooth's own
+  // pulp canal from layout/canal-data.js, repainted in the accent colour.
+  // Labels match data/chascodes.js verbatim so the chart panel and the summary row agree.
+  'root-canal-anterior': { scope: 'tooth',     category: 'tooth',      label: 'Root Canal Treatment - Anterior',  shapeId: null },
+  'root-canal-premolar': { scope: 'tooth',     category: 'tooth',      label: 'Root Canal Treatment - Pre-molar', shapeId: null },
+  'root-canal-molar':    { scope: 'tooth',     category: 'tooth',      label: 'Root Canal Treatment - Molar',     shapeId: null },
   veneer:               { scope: 'tooth',      category: 'tooth',      label: 'Porcelain Veneer',          shapeId: null },
   'socket-preservation':{ scope: 'tooth',      category: 'tooth',      label: 'Socket Preservation',      shapeId: null },
   'simultaneous-graft': { scope: 'tooth',      category: 'tooth',      label: 'Simultaneous Bone Graft',  shapeId: null },

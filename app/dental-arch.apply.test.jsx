@@ -15,7 +15,9 @@ function Wrapper({ children }) {
 // The wiring tests are integration-level; see conflict-rules.test.js and contiguity.test.js
 // for pure-logic unit coverage.
 
-import { getConflictingTreatmentIds } from '../core/conflict-rules.js';
+import { getConflictingTreatmentIds, RCT_TILE_ID } from '../core/conflict-rules.js';
+import { VISUAL_REGISTRY } from '../core/treatment-registry.js';
+import { TX_LABEL } from './treatments.jsx';
 import { areContiguous } from '../core/contiguity.js';
 import { cyclePresence } from './dental-arch.jsx';
 
@@ -335,5 +337,28 @@ describe('root-stump — claimableCrowns exclusion', () => {
     const tx = { id: 'bridge-span', targets: ['u1', 'u2'] };
     const treatments = [{ id: 'implant-only', scope: 'tooth', targets: ['u1'] }];
     expect(claimableCrowns(tx, { u1: 'missing', u2: 'missing' }, treatments)).toBe(0);
+  });
+});
+
+describe('panel labels cover every STORED treatment id', () => {
+  it('names the three root canal classes instead of printing a raw id', () => {
+    // The Treatment Plan panel reads TX_LABEL, which is built from popover ITEMS. Root
+    // canal is the only treatment whose stored ids have no item of their own — the tile
+    // fans out into them — so without an explicit fill the panel printed "root-canal-molar"
+    // at the patient. Caught on screen, not by a test, the first time this shipped.
+    expect(TX_LABEL['root-canal-anterior']).toBe('Root Canal Treatment - Anterior');
+    expect(TX_LABEL['root-canal-premolar']).toBe('Root Canal Treatment - Pre-molar');
+    expect(TX_LABEL['root-canal-molar']).toBe('Root Canal Treatment - Molar');
+  });
+
+  it('has no label for the tile token, which is never stored', () => {
+    expect(TX_LABEL[RCT_TILE_ID]).toBeUndefined();
+  });
+
+  it('every tooth-scoped registry id that can be stored has a panel label', () => {
+    Object.entries(VISUAL_REGISTRY).forEach(([id, meta]) => {
+      if (meta.scope !== 'tooth') return;
+      expect(TX_LABEL[id], `no panel label for stored id "${id}"`).toBeTruthy();
+    });
   });
 });

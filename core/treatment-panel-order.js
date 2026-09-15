@@ -86,6 +86,10 @@ export const CLINICAL_RANK = {
   'socket-preservation': 2, 'simultaneous-graft': 2, 'gbr': 2,
   'implant-only': 3, 'implant-crown': 3, 'implant-bridge-span': 3,
   'manual-medisave': 2,
+  // 3.5 so a root canal reads above the crown (4) that usually follows it on the same
+  // tooth. Its position relative to implants (3) is arbitrary — an implant tooth can never
+  // carry a root canal. Sorting is `CLINICAL_RANK[tx.id] ?? 99`, so a float is fine.
+  'root-canal-anterior': 3.5, 'root-canal-premolar': 3.5, 'root-canal-molar': 3.5,
   'crown': 4, 'bridge-span': 4,
   'complete-denture': 5, 'partial-denture-upper': 5, 'partial-denture-lower': 5,
   'ortho-brackets': 6, 'ortho-aligners': 6,

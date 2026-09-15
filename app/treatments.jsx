@@ -6,7 +6,8 @@ import { VeneerOverlay } from '../treatment-overlays/VeneerOverlay.jsx';
 import { PartialDentureOverlay } from '../treatment-overlays/PartialDentureOverlay.jsx';
 import { ClearAlignerOverlay } from '../treatment-overlays/ClearAlignerOverlay.jsx';
 import { useChartState } from '../core/chart-context.jsx';
-import { EXTRACTION_IDS } from '../core/conflict-rules.js';
+import { EXTRACTION_IDS, RCT_TILE_ID, ROOT_CANAL_IDS } from '../core/conflict-rules.js';
+import { VISUAL_REGISTRY } from '../core/treatment-registry.js';
 import { proximalExtreme } from '../core/tooth-split.js';
 import { fittedImplantCrownRatio, fittedImplantCrownPath } from '../core/implant-crown-path.js';
 import { toothPaths } from '../layout/teeth-data.jsx';
@@ -33,6 +34,19 @@ const TX_GROUPS = [
       { id: 'simple-surgical-extraction', label: 'Simple Surgical Extraction',   hint: 'surgical removal · present teeth or root stumps · SF812T',  requires: 'surgical-extractable' },
       { id: 'complex-surgical-extraction',label: 'Complex Surgical Extraction',  hint: 'complex surgical removal · present teeth or root stumps · SF813T', requires: 'surgical-extractable' },
       { id: 'root-stump-extraction',      label: 'Multiple Retained Root Surgical Extraction', hint: 'multiple retained roots · SF816T', requires: 'multi-root-stump' },
+    ],
+  },
+  {
+    // One item, and the tile applies it on the single click (applyDirect) rather than
+    // opening a one-row list. The item still carries the availability rule — availableGroups
+    // filters the whole group out when it fails, which is what hides the tile on a missing,
+    // implant or root-stump tooth. RCT_TILE_ID never reaches state: handleApplyTreatment
+    // expands it into one entry per tooth class.
+    label: 'Root Canal',
+    scope: 'tooth',
+    applyDirect: RCT_TILE_ID,
+    items: [
+      { id: RCT_TILE_ID, label: 'Root Canal Treatment', requires: 'present-tooth' },
     ],
   },
   {
@@ -103,6 +117,14 @@ const MISSING_TOOTH_REQUIRED = new Set([
   'gbr',
 ]);
 [...TX_GROUPS, SINUS_GROUP, ...ARCH_GROUPS].forEach(g => g.items.forEach(i => TX_LABEL[i.id] = i.label));
+
+// Root canal is the one treatment whose STORED ids are not popover item ids: the tile's
+// RCT_TILE_ID fans out into the three class ids on apply, so the loop above gives them no
+// label and the Treatment Plan panel falls back to printing the raw id ("root-canal-molar").
+// Taken from the visual registry rather than typed here, so the CHAS names live in one
+// place. The tile token is dropped — it is never stored, so a label for it can only mislead.
+ROOT_CANAL_IDS.forEach((id) => { TX_LABEL[id] = VISUAL_REGISTRY[id].label; });
+delete TX_LABEL[RCT_TILE_ID];
 TX_GROUPS.forEach(g => g.items.forEach(i => {
   if (MISSING_TOOTH_REQUIRED.has(i.id)) i.requires = 'missing-tooth';
 }));
@@ -1015,6 +1037,14 @@ const CAT_GLYPHS = {
       <path d="M13 5 L16 2 L19 5" stroke="var(--tooth-stroke)" strokeWidth="1.3" fill="none" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
   ),
+  'Root Canal': (
+    <svg className="baseline-glyph" aria-hidden="true" viewBox="0 0 32 38" fill="none">
+      <path d="M9 18 C9 12 12 7 16 7 C20 7 23 12 23 18 C23 22 21 27 19 32 C18 35 17 37 16 37 C15 37 14 35 13 32 C11 27 9 22 9 18 Z"
+            stroke="var(--tooth-stroke)" strokeWidth="1.3" fill="var(--tooth-fill)"/>
+      <path d="M13.4 17 C13.4 14 14.5 12 16 12 C17.5 12 18.6 14 18.6 17 C18.6 21 17.4 26 16.6 31 C16.4 32.6 16.2 33.4 16 33.4 C15.8 33.4 15.6 32.6 15.4 31 C14.6 26 13.4 21 13.4 17 Z"
+            fill="var(--tooth-stroke)" opacity="0.85"/>
+    </svg>
+  ),
   'Implant': (
     <svg className="baseline-glyph" aria-hidden="true" viewBox="0 0 32 44" fill="none">
       <path d="M10 2 C10 2 8 6 8 8 C8 9 9 10 10 10 L22 10 C23 10 24 9 24 8 C24 6 22 2 22 2 Z" stroke="var(--tooth-stroke)" strokeWidth="1.2" fill="var(--tooth-fill)"/>
@@ -1173,8 +1203,14 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
   };
 
   const availableGroups = groups.filter(g => g.items.some(isAvailable));
-  // Single-group modes (sinus) skip the category screen
-  const resolvedCategory = activeCategory ?? (availableGroups.length === 1 ? availableGroups[0].label : null);
+  // Single-group modes (sinus) skip the category screen. An applyDirect group must NOT be
+  // auto-resolved that way: doing so routes past the grid's apply-on-click and lands on the
+  // one-row list the direct tile exists to avoid. Unreachable today (a tooth that can take a
+  // root canal can always take a crown too, so Restoration is there as well), but the tile's
+  // behaviour must not rest on that coincidence.
+  const autoSkip = availableGroups.length === 1 && !availableGroups[0].applyDirect
+    ? availableGroups[0].label : null;
+  const resolvedCategory = activeCategory ?? autoSkip;
 
   // ── Category grid ────────────────────────────────────────────────────────
   if (!resolvedCategory) {
@@ -1193,7 +1229,10 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
           </div>
           <div className="baseline-options">
             {availableGroups.map(group => (
-              <button key={group.label} className="baseline-option" onClick={() => setActiveCategory(group.label)}>
+              <button key={group.label} className="baseline-option"
+                      onClick={() => group.applyDirect
+                        ? onApply(group.applyDirect, group.scope)
+                        : setActiveCategory(group.label)}>
                 {CAT_GLYPHS[group.label]}
                 <span className="baseline-option-label">
                   {group.label === 'Orthodontics · full mouth' ? 'Orthodontics' : group.label}

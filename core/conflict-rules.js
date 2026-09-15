@@ -7,6 +7,52 @@ const ALL_PROSTHETICS = [...IMPLANT_GROUP, ...NATURAL_GROUP];
 export const EXTRACTION_IDS = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction', 'root-stump-extraction'];
 
 /**
+ * Root canal, split by tooth class — the ONE tooth treatment stored as several entries
+ * from a single apply.
+ *
+ * CHAS prices an anterior, a premolar and a molar root canal as three different
+ * procedures, and Minzhe wants them separately removable: selecting #11 #12 #14 #16 and
+ * applying once must produce three treatments, not one covering all four teeth. Distinct
+ * IDs are what buy that. A treatment's identity across the iframe bridge is its id plus
+ * its teeth, and the parent's removeFromSummary deletes EVERY summary row sharing an
+ * identity — so a single shared id would mean deleting the Anterior row also deleted the
+ * Molar row and cleared its tooth.
+ *
+ * Distinct ids also mean the parent needs no special billing branch: each maps to a plain
+ * CHAS procedure in CHART_TREATMENT_MAP the way `crown` does. And the ordinary merge path
+ * in handleApplyTreatment then merges per class for free — a second anterior tooth joins
+ * the existing anterior entry, which is the wanted behaviour.
+ *
+ * These are CHAS, not MediSave: they must never join MEDISAVE_BUNDLE_IDS or
+ * SESSION_SPLIT_IDS, and a parent parity test asserts that list holds only surgical ids.
+ */
+export const ROOT_CANAL_IDS = ['root-canal-anterior', 'root-canal-premolar', 'root-canal-molar'];
+
+/**
+ * The popover's token for the single "Root Canal" tile. IT NEVER REACHES STATE — the apply
+ * handler expands it into the ROOT_CANAL_IDS above, one per tooth class present in the
+ * selection. Nothing stored, rendered or billed ever carries this string, so do not add it
+ * to the registry, the panel rank table or CHART_TREATMENT_MAP.
+ */
+export const RCT_TILE_ID = 'root-canal';
+
+/**
+ * Which root canal procedure a tooth takes, from its FDI number.
+ *
+ * Nothing existing could be reused: the extraction split in the parent breaks at
+ * `fdi % 10 <= 3` (anterior vs posterior) and the veneer rule at `fdi % 10 <= 5`, and
+ * neither is this boundary. Wisdom teeth (8) are molars.
+ *
+ * @param {number} fdi  integer FDI number, e.g. 16 — NOT the 'upper-16' id string
+ */
+export function rootCanalIdFor(fdi) {
+  const n = fdi % 10;
+  if (n <= 3) return 'root-canal-anterior';
+  if (n <= 5) return 'root-canal-premolar';
+  return 'root-canal-molar';
+}
+
+/**
  * Repair presence maps carrying an illegal 'missing'-plus-extraction-target entry.
  *
  * A tooth cannot legitimately be BOTH stored as 'missing' in baseline presence AND
@@ -62,8 +108,14 @@ export function getConflictingTreatmentIds(txId) {
   // bridge-span preserves implant-only so it can span over placed implants as abutments.
   if (txId === 'bridge-span') return ALL_PROSTHETICS.filter(id => id !== 'implant-only');
   if (NATURAL_GROUP.includes(txId)) return ALL_PROSTHETICS;
-  // Any extraction type strips prosthetics + all other extraction types (only one per tooth).
-  if (EXTRACTION_IDS.includes(txId)) return [...ALL_PROSTHETICS, ...EXTRACTION_IDS];
+  // Any extraction type strips prosthetics + all other extraction types (only one per tooth)
+  // + any root canal: you do not quote a root canal on a tooth you are taking out.
+  if (EXTRACTION_IDS.includes(txId)) return [...ALL_PROSTHETICS, ...EXTRACTION_IDS, ...ROOT_CANAL_IDS];
+  // Root canal is deliberately absent from this chain and falls through to the default
+  // [txId] below. That default strips only a duplicate of the SAME class, which is all a
+  // tooth can ever receive — its class is fixed — and it is what lets a crown or veneer sit
+  // on an endodontically treated tooth. RCT + crown is the commonest pairing there is, and
+  // the canal geometry is root-only precisely so CrownOverlay can paint over it.
   return [txId];
 }
 

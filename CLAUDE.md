@@ -246,6 +246,47 @@ Quote identifiers in those comments with nothing, or with single quotes.
   PDF never prints an entity. Every other chart label is a hardcoded constant; this is the first
   that is not.
 
+### Root canal — the one treatment stored as several entries per apply (2026-09-15)
+
+- **Three stored ids, not one:** `ROOT_CANAL_IDS` in `core/conflict-rules.js` =
+  `root-canal-anterior` / `-premolar` / `-molar`. CHAS prices the three tooth classes as three
+  different procedures and Minzhe wants them separately removable, so ONE tile click writes one
+  entry per class present in the selection. `rootCanalIdFor(fdi)` is the split: `n<=3` anterior,
+  `n===4||5` premolar, `n>=6` molar (wisdom teeth are molars). Nothing existing had that
+  boundary — the parent's extraction split breaks at 3 and the veneer rule at 5.
+- **Why not one id.** A treatment's identity across the bridge is its id plus its teeth, and the
+  parent's `removeFromSummary` deletes EVERY summary row sharing an identity. One id would have
+  meant three summary rows on one key, so deleting the Anterior row also deleted the Molar row
+  and cleared its tooth. Three ids also mean the parent needs no billing split at all — each maps
+  to a plain `nsId` in `CHART_TREATMENT_MAP` the way `crown` does.
+- **`RCT_TILE_ID` (`'root-canal'`) NEVER REACHES STATE.** It is the popover's token; the apply
+  handler expands it. Do not add it to the registry, `CLINICAL_RANK` or `CHART_TREATMENT_MAP`, and
+  do not read a grep hit for it as a stored treatment.
+- **`TX_LABEL` is built from popover ITEMS, so the three stored ids have no label of their own.**
+  `app/treatments.jsx` fills them from `VISUAL_REGISTRY` explicitly. Without that the Treatment
+  Plan panel printed the raw id — `root-canal-molar` — at the patient. Found on screen, not by a
+  test; `app/dental-arch.apply.test.jsx` now asserts every tooth-scoped registry id has a label.
+- **`applyDirect` on a TX_GROUPS entry makes the category tile apply on the single click**, with
+  no item list. It must be honoured in BOTH places the popover can resolve a category: the grid's
+  onClick and the single-available-group auto-skip. Honouring only the grid leaves a path that
+  lands on the one-row list the direct tile exists to avoid.
+- **The transform is pure, in `core/root-canal-apply.js`** (`groupByRootCanalClass`,
+  `applyRootCanal`), because `handleApplyTreatment` is a React callback the component suite mocks
+  — same reasoning as `core/area-apply.js`. Within a class it is the ordinary merge-by-id: a
+  second anterior tooth joins the existing anterior entry.
+- **Conflicts:** every extraction type strips all three (you do not quote a root canal on a tooth
+  you are removing). Root canal itself is deliberately absent from the conflict chain and falls
+  through to the default `[txId]`, which is what lets a crown or veneer sit on an endodontically
+  treated tooth — the commonest pairing there is, and the reason the canal geometry is root-only.
+- **Paint: `(showCanals || hasRootCanal)`.** The treated canal is solid `accent` at opacity 1 and
+  must NOT be gated on the Tweaks toggle, which defaults to off — gating it would make an applied
+  root canal invisible on a fresh chart. The faint anatomical version keeps `CANAL_BASE_OPACITY`.
+- **These are CHAS.** They must never join `MEDISAVE_BUNDLE_IDS` or `SESSION_SPLIT_IDS`; a parent
+  parity test asserts that list holds only ids the parent bills as surgical.
+- *Accepted:* CHAS allows 2 RCT claims a year shared across all three types, but `maxClaims: 2` is
+  read per row, so an anterior plus a molar can default to 4 claimed units. The sidebar behaves
+  the same way, and the app warns rather than enforces.
+
 ### Extraction treatment conventions
 - `autoMissing` array in `dental-arch.jsx` `handleApplyTreatment` controls which treatment IDs mark the tooth as `'missing'` (dashed) on apply — add any new extraction-type IDs here
 - `EXTRACTION_IDS = ['extraction', 'simple-surgical-extraction', 'complex-surgical-extraction']` is re-declared inline in `TreatmentLayer`; if adding more extraction types, update both this and `autoMissing`
