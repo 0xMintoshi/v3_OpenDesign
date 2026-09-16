@@ -378,13 +378,6 @@ export function TreatmentPanel({
             ))
           )}
         </div>
-        <div className="twk-ft">
-          <button
-            className="twk-collapse"
-            aria-label="Collapse Treatment Panel"
-            onClick={onClose}
-          />
-        </div>
       </div>
     </>
   );

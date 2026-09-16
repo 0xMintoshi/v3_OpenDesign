@@ -67,11 +67,15 @@ describe('TreatmentPanel', () => {
     expect(container.querySelector('.trx-pill')).toBeNull();
   });
 
-  it('clicking collapse chevron calls onClose', () => {
-    const onClose = vi.fn();
-    const { container } = setup({ onClose });
-    fireEvent.click(container.querySelector('.twk-collapse'));
-    expect(onClose).toHaveBeenCalled();
+  it('carries no close control of its own — the dock pill toggles it', () => {
+    /* The panel used to ship a footer chevron calling the same onClose the dock pill
+       already drives, so there were two controls for one behaviour about 40px apart.
+       Removed 2026-09-16. Asserting the element is ABSENT rather than not-visible:
+       a visibility assertion on a deleted node passes vacuously and would let the
+       chevron come back unnoticed. */
+    const { container } = setup({});
+    expect(container.querySelector('.twk-collapse')).toBeNull();
+    expect(container.querySelector('.twk-ft')).toBeNull();
   });
 
   it('✕ on tooth row calls onRemoveTooth with correct args', () => {

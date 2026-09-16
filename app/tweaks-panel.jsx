@@ -81,15 +81,10 @@ export const __TWEAKS_STYLE = `
     font:11.5px/1.4 var(--sans,ui-sans-serif,system-ui,-apple-system,sans-serif);overflow:hidden}
   .twk-hd{display:flex;align-items:center;justify-content:space-between;
     padding:10px 14px 10px;user-select:none}
+  /* The dock pill toggles this panel, so the panel carries no close control of its
+     own. A hidden .twk-x and a .twk-collapse chevron both used to live here and both
+     called the same dismiss(); removed 2026-09-16. */
   .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
-  .twk-x{display:none}
-  .twk-ft{display:flex;justify-content:flex-end;padding:0 0 8px}
-  .twk-collapse{appearance:none;display:grid;place-items:center;width:34px;height:24px;
-    border:.5px solid rgba(0,0,0,.08);border-radius:999px;background:rgba(0,0,0,.04);
-    color:rgba(41,38,27,.66);cursor:default}
-  .twk-collapse::before{content:"";width:7px;height:7px;border-right:1.5px solid currentColor;
-    border-bottom:1.5px solid currentColor;transform:translateY(-2px) rotate(45deg)}
-  .twk-collapse:hover{background:rgba(0,0,0,.06);color:#29261b}
   .twk-mini{position:fixed;right:40px;bottom:${PILL_BOTTOM}px;z-index:2147483646;
     appearance:none;border:.5px solid rgba(255,255,255,.7);border-radius:14px;
     height:32px;padding:0 12px;background:rgba(250,249,247,.88);color:#29261b;
@@ -306,8 +301,6 @@ function TweaksPanel({ title = 'Tweaks', noDeckControls = false, children, open:
       <div className="twk-panel" data-noncommentable="">
         <div className="twk-hd">
           <b>{title}</b>
-          <button className="twk-x" aria-label="Collapse Tweaks"
-                  onClick={dismiss}>✕</button>
         </div>
         <div className="twk-body">
           {children}
@@ -316,10 +309,6 @@ function TweaksPanel({ title = 'Tweaks', noDeckControls = false, children, open:
               <TweakToggle label="Thumbnail Rail" value={railVisible} onChange={toggleRail} />
             </TweakSection>
           )}
-        </div>
-        <div className="twk-ft">
-          <button className="twk-collapse" aria-label="Collapse Tweaks"
-                  onClick={dismiss}></button>
         </div>
       </div>
     </>
