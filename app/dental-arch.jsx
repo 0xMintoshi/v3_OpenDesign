@@ -1334,10 +1334,46 @@ function DentalHeroInner() {
       const svg = svgRef.current;
       if (!svg) { emit('CHART_SNAPSHOT', { dataUrl: null }); return; }
 
+      /* Capture on PAPER, not on whatever the screen is showing.
+
+         The anatomy is filled with the canvas colour so that only its outline reads.
+         On a dark theme that fill follows the canvas down, and a snapshot taken
+         as-seen laid dark ink over 51.2% of the page — in print and in the PDF,
+         which embeds this same image. The parent sends the paper palette with the
+         request; a parent that sends none (or the chart running standalone) captures
+         as-seen, exactly as before.
+
+         WHY IT CANNOT FLASH: set, read, restore all happen in ONE synchronous block.
+         getComputedStyle forces a style recalc but not a paint, and the browser only
+         paints between tasks — so no frame carrying these values is ever shown. That
+         is also why this must not be made async; an await here would put a paper-
+         coloured frame on screen.
+
+         WHY THE SVG AND NOT :root: syncChartTheme() writes the live tokens onto
+         .hero with !important, and a custom property set on an ancestor is shadowed
+         by .hero's own declaration for everything inside it. Setting them inline on
+         the SVG puts them below .hero, where the drawing actually reads them. */
+      const paper = msg.payload && msg.payload.paper;
+      const restore = [];
+      if (paper) {
+        for (const [k, v] of Object.entries(paper)) {
+          if (!v) continue;
+          restore.push([k, svg.style.getPropertyValue(k), svg.style.getPropertyPriority(k)]);
+          svg.style.setProperty(k, v, 'important');
+        }
+      }
+      const undoPaper = () => {
+        for (const [k, prev, prio] of restore) {
+          if (prev) svg.style.setProperty(k, prev, prio);
+          else svg.style.removeProperty(k);
+        }
+      };
+
       try {
-        // 1. Clone and inline computed styles
+        // 1. Clone and inline computed styles — reads the paper values set above
         const clone = svg.cloneNode(true);
         inlineComputedStyles(svg, clone);
+        undoPaper();   // every value we need is now baked into the clone
 
         // 2. Crop viewBox: getBBox clamped to [0,0,1600,800] to exclude out-of-viewBox labels
         const raw = svg.getBBox();
@@ -1374,6 +1410,7 @@ function DentalHeroInner() {
         };
         img.src = blobUrl;
       } catch (err) {
+        undoPaper();   // idempotent; a throw before the inline pass must not strand the paper palette
         console.error('[chart] snapshot error:', err);
         emit('CHART_SNAPSHOT', { dataUrl: null });
       }
