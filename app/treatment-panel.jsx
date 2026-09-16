@@ -15,16 +15,16 @@ const DOCK_STYLE = `
   .pnl-dock{position:fixed;right:${DOCK_RIGHT}px;bottom:${PILL_BOTTOM}px;z-index:2147483645;
     display:flex;gap:8px;transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right}
   .pnl-pill{appearance:none;display:inline-flex;align-items:center;justify-content:center;
-    border:.5px solid rgba(255,255,255,.7);border-radius:14px;
-    height:${PILL_H}px;padding:0 14px;background:rgba(250,249,247,.88);color:#29261b;
+    border:.5px solid var(--panel-border,color-mix(in oklch, var(--panel-lift,#fff) 70%, transparent));border-radius:14px;
+    height:${PILL_H}px;padding:0 14px;background:var(--panel-pill-bg,rgba(250,249,247,.88));color:var(--panel-ink,#29261b);
     -webkit-backdrop-filter:blur(18px) saturate(160%);backdrop-filter:blur(18px) saturate(160%);
-    box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 10px 28px rgba(0,0,0,.16);
+    box-shadow:0 1px 0 var(--panel-inset,rgba(255,255,255,.5)) inset,var(--panel-pill-shadow,0 10px 28px rgba(0,0,0,.16));
     font:12px/1 var(--sans,ui-sans-serif,system-ui,-apple-system,sans-serif);font-weight:600;
     cursor:default}
-  .pnl-pill:hover{background:rgba(255,255,255,.92)}
-  .pnl-pill[data-on="1"]{background:#29261b;color:#faf9f7;border-radius:14px;
-    border-color:rgba(0,0,0,.25);
-    box-shadow:0 1px 0 rgba(255,255,255,.12) inset,0 10px 28px rgba(0,0,0,.16)}
+  .pnl-pill:hover{background:var(--panel-pill-hover,color-mix(in oklch, var(--panel-lift,#fff) 92%, transparent))}
+  .pnl-pill[data-on="1"]{background:var(--panel-ink,#29261b);color:var(--panel-paper,#faf9f7);border-radius:14px;
+    border-color:var(--panel-field-focus,color-mix(in oklch, var(--panel-ink,#000) 25%, transparent));
+    box-shadow:0 1px 0 var(--panel-inset,rgba(255,255,255,.12)) inset,var(--panel-pill-shadow,0 10px 28px rgba(0,0,0,.16))}
   .pnl-pill[data-on="1"]:hover{background:#3a362a}
 `;
 
@@ -32,45 +32,45 @@ const TRX_STYLE = `
   .trx-panel{position:fixed;right:${DOCK_RIGHT}px;bottom:${PANEL_BOTTOM}px;z-index:2147483645;width:280px;
     max-height:calc(100vh - ${PANEL_BOTTOM + 16 + UNDO_CLEARANCE}px);display:flex;flex-direction:column;
     transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
-    background:rgba(250,249,247,.78);color:#29261b;
+    background:var(--panel-bg,rgba(250,249,247,.78));color:var(--panel-ink,#29261b);
     -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
-    border:.5px solid rgba(255,255,255,.6);border-radius:14px;
-    box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
+    border:.5px solid var(--panel-border,color-mix(in oklch, var(--panel-lift,#fff) 60%, transparent));border-radius:14px;
+    box-shadow:0 1px 0 var(--panel-inset,rgba(255,255,255,.5)) inset,var(--panel-shadow,0 12px 40px rgba(0,0,0,.18));
     font:11.5px/1.4 var(--sans,ui-sans-serif,system-ui,-apple-system,sans-serif);overflow:hidden}
   .trx-sect{display:flex;align-items:center;gap:8px;
     font-size:9.5px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;
-    color:rgba(41,38,27,.38);padding:12px 2px 7px}
-  .trx-sect::after{content:"";flex:1;height:.5px;background:rgba(41,38,27,.16)}
+    color:color-mix(in oklch, var(--panel-ink,#29261b) 38%, transparent);padding:12px 2px 7px}
+  .trx-sect::after{content:"";flex:1;height:.5px;background:color-mix(in oklch, var(--panel-ink,#29261b) 16%, transparent)}
   .trx-sect:first-child{padding-top:2px}
   .trx-card{display:flex;align-items:flex-start;
-    background:rgba(255,255,255,.45);border:.5px solid rgba(0,0,0,.07);border-radius:9px;
+    background:color-mix(in oklch, var(--panel-lift,#fff) 45%, transparent);border:.5px solid color-mix(in oklch, var(--panel-ink,#000) 7.000000000000001%, transparent);border-radius:9px;
     overflow:hidden;margin-bottom:4px}
   .trx-card:last-child{margin-bottom:0}
   .trx-card-num{flex:0 0 auto;min-width:26px;padding:5px 6px 5px 10px;
     font-size:11px;font-weight:700;line-height:1.4;
-    color:rgba(41,38,27,.55);font-variant-numeric:tabular-nums;white-space:nowrap}
+    color:color-mix(in oklch, var(--panel-ink,#29261b) 55.00000000000001%, transparent);font-variant-numeric:tabular-nums;white-space:nowrap}
   .trx-card-rows{flex:1;min-width:0;display:flex;flex-direction:column}
   .trx-row{display:flex;align-items:center;justify-content:space-between;
     padding:5px 10px;gap:8px}
   .trx-card-num+.trx-card-rows .trx-row{padding-left:0}
-  .trx-row+.trx-row{border-top:.5px solid rgba(0,0,0,.05)}
-  .trx-row:hover{background:rgba(0,0,0,.03)}
+  .trx-row+.trx-row{border-top:.5px solid color-mix(in oklch, var(--panel-ink,#000) 5%, transparent)}
+  .trx-row:hover{background:color-mix(in oklch, var(--panel-ink,#000) 3%, transparent)}
   .trx-row-lbl{flex:1;min-width:0;font-size:11px;line-height:1.4;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .trx-rmv{appearance:none;border:0;background:transparent;padding:2px 4px;
-    color:rgba(41,38,27,.35);font-size:13px;line-height:1;cursor:default;border-radius:4px}
-  .trx-rmv:hover{background:rgba(0,0,0,.07);color:#29261b}
+    color:color-mix(in oklch, var(--panel-ink,#29261b) 35%, transparent);font-size:13px;line-height:1;cursor:default;border-radius:4px}
+  .trx-rmv:hover{background:color-mix(in oklch, var(--panel-ink,#000) 7.000000000000001%, transparent);color:#29261b}
   .trx-empty{padding:22px 16px;text-align:center;color:var(--ink-muted);font-size:12px;line-height:1.5}
   .trx-add{appearance:none;border:0;background:transparent;padding:2px 4px;
-    color:rgba(41,38,27,.35);font-size:13px;line-height:1;cursor:default;border-radius:4px}
-  .trx-add:hover{background:rgba(0,0,0,.07);color:#29261b}
-  .trx-add[data-on="1"]{background:rgba(0,0,0,.07);color:#29261b}
+    color:color-mix(in oklch, var(--panel-ink,#29261b) 35%, transparent);font-size:13px;line-height:1;cursor:default;border-radius:4px}
+  .trx-add:hover{background:color-mix(in oklch, var(--panel-ink,#000) 7.000000000000001%, transparent);color:#29261b}
+  .trx-add[data-on="1"]{background:color-mix(in oklch, var(--panel-ink,#000) 7.000000000000001%, transparent);color:#29261b}
   .trx-chev{display:inline-block;width:6px;height:6px;border-right:1.5px solid currentColor;
     border-bottom:1.5px solid currentColor;transform:translateY(1px) rotate(-135deg)}
   .trx-man{display:flex;flex-direction:column;gap:4px;padding:4px 8px 7px}
   .trx-man-add{appearance:none;width:100%;height:24px;border:0;border-radius:5px;
-    background:rgba(41,38,27,.86);color:#faf9f7;font-size:11px;font-weight:600;cursor:default}
-  .trx-man-add:disabled{background:rgba(41,38,27,.18);color:rgba(41,38,27,.5)}
+    background:color-mix(in oklch, var(--panel-ink,#29261b) 86%, transparent);color:#faf9f7;font-size:11px;font-weight:600;cursor:default}
+  .trx-man-add:disabled{background:color-mix(in oklch, var(--panel-ink,#29261b) 18%, transparent);color:color-mix(in oklch, var(--panel-ink,#29261b) 50%, transparent)}
   /* A visit is drawn as a GROUP, not as a tag repeated on every row: a card groups by
      tooth, and one tooth routinely spans two visits (extract + graft today, implant in
      four months), so the rows that share the $830 have to be visibly set apart from the
@@ -84,24 +84,24 @@ const TRX_STYLE = `
   .trx-card:has(.trx-bundle) .trx-card-num{display:flex;align-items:center;padding-right:0}
   .trx-bundle{position:relative;margin:6px 6px 6px 8px;padding-left:13px}
   .trx-bundle::before{content:"";position:absolute;left:0;top:3px;bottom:3px;width:9px;
-    border:1.5px solid rgba(41,38,27,.36);border-right:0;border-radius:5px 0 0 5px}
+    border:1.5px solid color-mix(in oklch, var(--panel-ink,#29261b) 36%, transparent);border-right:0;border-radius:5px 0 0 5px}
   /* Must out-specify the .trx-card-num+.trx-card-rows .trx-row padding-left:0 rule above
      (3 classes), or the heading keeps its 2px inset while the rows lose theirs and the
      two text left edges disagree by 2px. Hence .trx-card-rows in this selector. */
   .trx-card-rows .trx-bundle .trx-row{padding:4px 2px}
-  .trx-bundle .trx-row+.trx-row{border-top:.5px solid rgba(41,38,27,.06)}
+  .trx-bundle .trx-row+.trx-row{border-top:.5px solid color-mix(in oklch, var(--panel-ink,#29261b) 6%, transparent)}
   .trx-bundle-hd{padding:0 0 4px 2px;font-size:8px;font-weight:700;
-    letter-spacing:.1em;text-transform:uppercase;color:rgba(41,38,27,.42)}
+    letter-spacing:.1em;text-transform:uppercase;color:color-mix(in oklch, var(--panel-ink,#29261b) 42%, transparent)}
   .trx-menu{margin:0 10px 6px;padding:5px 0;border-radius:8px;
-    background:rgba(255,255,255,.72);border:.5px solid rgba(0,0,0,.08)}
+    background:color-mix(in oklch, var(--panel-lift,#fff) 72%, transparent);border:.5px solid color-mix(in oklch, var(--panel-ink,#000) 8%, transparent)}
   .trx-card-num+.trx-card-rows .trx-menu{margin-left:0}
   .trx-menu-hd{padding:4px 9px 3px;font-size:8.5px;font-weight:700;letter-spacing:.09em;
-    text-transform:uppercase;color:rgba(41,38,27,.38)}
+    text-transform:uppercase;color:color-mix(in oklch, var(--panel-ink,#29261b) 38%, transparent)}
   .trx-menu-it{display:block;width:100%;text-align:left;appearance:none;border:0;
     background:transparent;padding:4px 9px;font:inherit;font-size:10.5px;line-height:1.35;
-    color:#29261b;cursor:default;border-radius:5px}
-  .trx-menu-it:hover{background:rgba(0,0,0,.06)}
-  .trx-menu-none{padding:4px 9px;font-size:10px;color:rgba(41,38,27,.4);line-height:1.35}
+    color:var(--panel-ink,#29261b);cursor:default;border-radius:5px}
+  .trx-menu-it:hover{background:color-mix(in oklch, var(--panel-ink,#000) 6%, transparent)}
+  .trx-menu-none{padding:4px 9px;font-size:10px;color:color-mix(in oklch, var(--panel-ink,#29261b) 40%, transparent);line-height:1.35}
 `;
 
 // Bottom-right pill dock. Owns both pills so they sit side by side in one flex
