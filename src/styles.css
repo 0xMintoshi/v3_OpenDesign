@@ -343,7 +343,10 @@
   }
   .tx-item-main { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; }
   .tx-item-label { font-size: 12px; font-weight: 500; }
-  .tx-item-hint { font-size: 10px; color: var(--ink-faint); letter-spacing: 0.04em; margin-top: 1px; }
+  /* Uppercase to match every other small faint label in this file (.baseline-eyebrow,
+     the panel's SAME VISIT). This class was styled like them but missed the transform —
+     it had no users until the arch popover's hints, so nothing surfaced it. */
+  .tx-item-hint { font-size: 10px; color: var(--ink-faint); letter-spacing: 0.04em; margin-top: 1px; text-transform: uppercase; }
   .tx-item-arrow { color: var(--ink-faint); font-size: 12px; flex-shrink: 0; }
   .tx-item:hover:not(.disabled) .tx-item-arrow { color: var(--ink); }
 
