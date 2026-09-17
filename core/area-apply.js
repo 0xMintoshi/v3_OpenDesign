@@ -40,3 +40,37 @@ export function addAreaEntry(list, txId, scope, target) {
   if (already) return list;
   return [...list, { id: txId, scope, targets: [target] }];
 }
+
+
+/**
+ * Applies an arch treatment to BOTH arches as one declared visit.
+ *
+ * Two entries, one per arch, sharing a `session` — never one entry spanning both.
+ * That distinction is the whole reason this module exists (see the header): an entry
+ * covering two areas cannot honestly carry a visit tag, because the two areas may be
+ * treated months apart. What makes the tag legitimate here is that the operator asked
+ * for both in a SINGLE action, which is precisely the declaration `session` records.
+ *
+ * An arch that already carries this treatment is left completely alone — not tagged.
+ * Tagging it would sweep work applied earlier, possibly on another day, into a visit
+ * the operator never declared for it, and silently claim one consumable across both.
+ *
+ * Lives here rather than inline in the apply callback so vitest can reach it; the
+ * callback itself is mocked by the component suite.
+ *
+ * @param {Array<{id:string, scope:string, targets:string[], session?:string}>} list
+ * @param {string} txId
+ * @param {string} session  the session id to tag newly created entries with
+ * @returns {Array} the list, with up to two tagged entries appended
+ */
+export function addBothArchEntries(list, txId, session) {
+  let next = list;
+  for (const arch of ['upper', 'lower']) {
+    const before = next;
+    next = addAreaEntry(next, txId, 'arch', arch);
+    if (next !== before) {
+      next = next.map((tx, i) => (i === next.length - 1 ? { ...tx, session } : tx));
+    }
+  }
+  return next;
+}

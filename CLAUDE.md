@@ -105,6 +105,58 @@ values — `npm run stroke-table` reads them from the named constants, and `?see
   2026-09-14 asserted the + IS offered on an area row; it pinned the affordance, not the outcome,
   and has been rewritten to assert the rule above.
 
+### Panel card collapse — TWO thresholds, deliberately (2026-09-17)
+
+- `COLLAPSE_MIN` in `core/treatment-panel-order.js` is **4**, and governs NON-MediSave
+  entries only. MediSave entries (and `AREA_IDS`) still collapse at **2**. **Do not
+  unify them.** The MediSave threshold is a BILLING statement — one entry is one claim,
+  so two cards assert two procedures about something CPF pays for once. The other is
+  tidiness, and nothing is misstated either way. Raising MediSave to 4 would split a
+  two-tooth surgical extraction back into two cards and reintroduce the exact
+  misstatement the collapse rule was written to prevent; a test pins that.
+- **There was never a "more than 3 teeth" rule.** The old condition was
+  `isBundleable(tx.id) && tx.targets.length > 1` — gated on bundleability, a billing
+  property, for what is a display concern. A whole-arch plain `extraction` is ONE entry
+  with 16 targets (it takes the merge path) and printed 16 cards. Measured 2026-09-17.
+- A collapsed non-MediSave card's ✕ removes the WHOLE entry, like a MediSave one.
+  Accepted cost: per-tooth removal is gone at 4+ teeth. The chart is the per-tooth
+  surface, and Ctrl+Z undoes it.
+
+### Alveolectomy is NOT gated on an edentulous arch (2026-09-17)
+
+- `requires: 'edentulous-arch'` was removed from the `alveolectomy` item in
+  `ARCH_GROUPS`. An alveolectomy is performed on arches that still carry teeth, so the
+  gate was clinically wrong. **Complete Denture keeps the gate** — a denture on a
+  dentate arch is a different claim. `app/treatments.arch-gate.test.js` pins both.
+- Selection only. The overlay draws the same ridge band on any arch; verified in the
+  browser on a fully dentate mandible.
+
+### "Both arches" — the only way an area treatment declares a visit (2026-09-17)
+
+- The arch popover renders a SECOND tile for any **bundleable** arch item, hinted
+  "both arches · one visit". Gated on `isBundleable(item.id)`, never on the id by name,
+  so a future bundleable arch treatment inherits it and Complete Denture — not MediSave,
+  and whose tag `pruneSessions` would strip — never offers it.
+- `addBothArchEntries` in `core/area-apply.js` does the work: **two entries, one per
+  arch, sharing a session — never one entry spanning both.** The one-entry-per-area rule
+  is untouched; what makes the tag honest is that the operator asked for both in a
+  SINGLE action, and that action is what declares the visit.
+- **A pre-existing arch entry is left alone and NOT tagged.** It may have been applied on
+  another day; sweeping it in would claim one $830 across two appointments. Mutation-
+  tested both ways.
+- **No parent change was needed.** `main.js`'s bundle branch is scope-agnostic; two arch
+  members bundle exactly as two tooth members do. Pinned by "both arches of an
+  alveolectomy in one visit claim ONE consumable" in the parent's
+  `tests/mv-session-v3.test.js`. `splitByArch` at `main.js:3658` is now near-dead — every
+  alveolectomy entry has one target since 2026-09-14 — but still catches legacy restored
+  data holding both arches in one entry. Leave it.
+- **The "no Join" rule above is written broader than the decision behind it.** Commit
+  `b72f7c5` removed joining two existing entries because the *cross-avenue* visit-record
+  plan was shelved — a decision about the chart and the sidebar. It does not settle the
+  within-chart case, and should not be cited as if it does. This feature did not need
+  joining, so nothing was changed; if joining two chart entries is ever wanted, that is
+  an open question, not a closed one.
+
 ### bonePath() — upper arch orientation
 - Sub-path 1 ends at SVG-left / patient's R (near `first`)
 - Sub-path 2 starts at SVG-right / patient's L (near `last`)

@@ -6,7 +6,7 @@ import { VeneerOverlay } from '../treatment-overlays/VeneerOverlay.jsx';
 import { PartialDentureOverlay } from '../treatment-overlays/PartialDentureOverlay.jsx';
 import { ClearAlignerOverlay } from '../treatment-overlays/ClearAlignerOverlay.jsx';
 import { useChartState } from '../core/chart-context.jsx';
-import { EXTRACTION_IDS, RCT_TILE_ID, ROOT_CANAL_IDS } from '../core/conflict-rules.js';
+import { EXTRACTION_IDS, RCT_TILE_ID, ROOT_CANAL_IDS, isBundleable } from '../core/conflict-rules.js';
 import { VISUAL_REGISTRY } from '../core/treatment-registry.js';
 import { proximalExtreme } from '../core/tooth-split.js';
 import { fittedImplantCrownRatio, fittedImplantCrownPath } from '../core/implant-crown-path.js';
@@ -84,13 +84,20 @@ const SINUS_GROUP = {
   items: [{ id: 'sinus-lift', label: 'Complex Sinus Lift', hint: 'elevate membrane · dense graft' }],
 };
 
+/* Exported at the foot of this file. Which arch items require an edentulous arch is
+   a clinical rule, and this data IS the gate — `isAvailable` reads nothing else.
+   See app/treatments.arch-gate.test.js. */
 const ARCH_GROUPS = [
   {
     label: 'Arch',
     scope: 'arch',
     items: [
-      { id: 'alveolectomy',     label: 'Alveolectomy',     hint: 'reduce ridge bone',
-        requires: 'edentulous-arch' },
+      // No `requires`: an alveolectomy is performed on arches that still carry teeth,
+      // so gating it on an edentulous arch was clinically wrong. Removed 2026-09-17.
+      // Selection only — the overlay draws the same ridge band on any arch.
+      // Complete Denture below KEEPS the gate; a denture on a dentate arch is a
+      // different claim.
+      { id: 'alveolectomy',     label: 'Alveolectomy',     hint: 'reduce ridge bone' },
       { id: 'complete-denture',      label: 'Complete Denture',       hint: 'full prosthesis on this arch',
         requires: 'edentulous-arch' },
     ],
@@ -1267,16 +1274,39 @@ function TreatmentPopover({ open, anchor, mode, target, archEdentulous, allPrese
           <button className="info-close" onClick={onClose} aria-label="close">×</button>
         </div>
         <div className="tx-popover-body">
-          {activeItems.map(item => (
-            <button key={item.id}
-                    className="tx-item"
-                    onClick={() => onApply(item.id, activeGroup.scope)}>
-              <div className="tx-item-main">
-                <span className="tx-item-label">{item.label}</span>
-              </div>
-              <span className="tx-item-arrow">→</span>
-            </button>
-          ))}
+          {activeItems.map(item => {
+            /* A second tile, not a toggle: the choice is which of two applies to run,
+               and a tile the operator reads and clicks cannot be left in the wrong
+               position by mistake. Offered for any BUNDLEABLE arch treatment rather
+               than for 'alveolectomy' by name, so a future one inherits it — and so
+               Complete Denture never offers it, since it is not MediSave and
+               pruneSessions would strip the tag on the next render anyway.
+               Both tiles reuse .tx-item and .tx-item-hint, which already exist in
+               every theme; no new visual property means no token to add. */
+            const offersBoth = activeGroup.scope === 'arch' && isBundleable(item.id);
+            return (
+              <React.Fragment key={item.id}>
+                <button className="tx-item"
+                        onClick={() => onApply(item.id, activeGroup.scope)}>
+                  <div className="tx-item-main">
+                    <span className="tx-item-label">{item.label}</span>
+                    {offersBoth && <span className="tx-item-hint">this arch</span>}
+                  </div>
+                  <span className="tx-item-arrow">→</span>
+                </button>
+                {offersBoth && (
+                  <button className="tx-item"
+                          onClick={() => onApply(item.id, activeGroup.scope, true)}>
+                    <div className="tx-item-main">
+                      <span className="tx-item-label">{item.label}</span>
+                      <span className="tx-item-hint">both arches · one visit</span>
+                    </div>
+                    <span className="tx-item-arrow">→</span>
+                  </button>
+                )}
+              </React.Fragment>
+            );
+          })}
         </div>
       </div>
     </>

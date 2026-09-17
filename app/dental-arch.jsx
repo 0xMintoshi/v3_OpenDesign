@@ -12,8 +12,8 @@ import { Dock, DockDivider, DockItem, ArchIcon, StageForwardIcon, StageBackIcon,
 import { getConflictingTreatmentIds, healPresence, SESSION_SPLIT_IDS, MANUAL_MV_ID,
          ROOT_CANAL_IDS, RCT_TILE_ID } from '../core/conflict-rules.js';
 import { applyRootCanal } from '../core/root-canal-apply.js';
-import { addAreaEntry } from '../core/area-apply.js';
-import { txRef, chartTxKey, nextManualUid, pruneSessions, joinSessions, leaveSession } from '../core/mv-sessions.js';
+import { addAreaEntry, addBothArchEntries } from '../core/area-apply.js';
+import { txRef, chartTxKey, nextManualUid, nextSessionId, pruneSessions, joinSessions, leaveSession } from '../core/mv-sessions.js';
 import { areContiguous } from '../core/contiguity.js';
 import { ChartStateProvider, useChartState } from '../core/chart-context.jsx';
 import { emit } from '../core/iframe-bridge.js';
@@ -952,7 +952,9 @@ function DentalHeroInner() {
   }, [stage, presence, scaledUpper, scaledLower, archEdentulous]);
 
   // ---- Apply treatment ----
-  const handleApplyTreatment = useCallback((txId, scope) => {
+  // `bothArches` comes from the arch popover's second tile. It is only ever true for a
+  // bundleable arch treatment; every other caller passes two arguments and gets false.
+  const handleApplyTreatment = useCallback((txId, scope, bothArches = false) => {
     const orthoIds = ['ortho-brackets', 'ortho-aligners'];
     if (scope === 'full-mouth' && orthoIds.includes(txId) && fullyEdentulous) {
       setPopover(null);
@@ -1023,6 +1025,8 @@ function DentalHeroInner() {
         if (scope === 'full-mouth') {
           next = next.filter((tx) => !orthoIds.includes(tx.id));
           next.push({ id: txId, scope: 'full-mouth', targets: ['both'] });
+        } else if (bothArches) {
+          next = addBothArchEntries(next, txId, nextSessionId(next));
         } else {
           next = addAreaEntry(next, txId, 'arch', arch);
         }

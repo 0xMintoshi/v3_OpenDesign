@@ -8,6 +8,23 @@ import { isBundleable, MANUAL_MV_ID } from './conflict-rules.js';
 // this they would regress to one card per tooth.
 const AREA_IDS = new Set(['simultaneous-graft']);
 
+/**
+ * How many teeth a NON-MediSave entry needs before its card collapses.
+ *
+ * MediSave entries collapse at two and never consult this. The two thresholds exist
+ * for two different reasons and must not be unified: collapsing a MediSave entry is a
+ * BILLING statement — one entry is one claim, so two cards would assert two procedures
+ * about something CPF pays for once — while collapsing anything else is only tidiness,
+ * since nothing is misstated either way. Raising the MediSave threshold to this number
+ * would split a two-tooth surgical extraction back into two cards and reintroduce the
+ * exact misstatement the collapse rule was written to prevent.
+ *
+ * Set at 4 by Minzhe, 2026-09-17: below it, individual rows are still useful for
+ * per-tooth removal; above it the panel was printing sixteen identical lines for one
+ * apply.
+ */
+export const COLLAPSE_MIN = 4;
+
 // One run's heading. spanHeading renders a single-tooth run as '#21–21', which reads
 // as a range of one; a lone tooth gets the plain '#21' form instead.
 function runHeading(runTeeth) {
@@ -175,7 +192,8 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
     // scope === 'tooth' — may be a span (multiple targets) or single-tooth
     if (tx.targets.length === 0) continue;
 
-    // ONE CARD PER ENTRY for every MediSave treatment applied to more than one tooth.
+    // ONE CARD PER ENTRY — for every MediSave treatment on more than one tooth, and
+    // for anything else at COLLAPSE_MIN teeth or more.
     //
     // One apply = one entry = one claim (the operation and the consumable are both
     // claimed once for the line), so one entry must read as one row. Listing three
@@ -195,7 +213,10 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
     // Split per jaw because sections are Maxilla/Mandible. A cross-jaw entry therefore
     // yields two cards sharing one ref — which is exactly why rowKey in
     // treatment-panel.jsx is card-scoped.
-    if ((isBundleable(tx.id) || AREA_IDS.has(tx.id)) && tx.targets.length > 1) {
+    // MediSave (and the AREA_IDS that bill like it) collapse at two teeth; everything
+    // else waits for COLLAPSE_MIN. See that constant for why the two differ.
+    const billsAsOne = isBundleable(tx.id) || AREA_IDS.has(tx.id);
+    if (tx.targets.length >= (billsAsOne ? 2 : COLLAPSE_MIN)) {
       const byJaw = new Map();
       for (const runTeeth of splitRuns(tx.targets, allTeeth)) {
         if (runTeeth.length === 0) continue;

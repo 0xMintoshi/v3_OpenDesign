@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { buildPanelSections, CLINICAL_RANK, spanHeading } from './treatment-panel-order.js';
+import { buildPanelSections, CLINICAL_RANK, spanHeading, COLLAPSE_MIN } from './treatment-panel-order.js';
 
 // Minimal tooth fixtures matching the real allTeeth shape.
 const mkTooth = (jaw, fdi, cx) => ({ id: `${jaw}-${fdi}`, jaw, fdi, cx });
@@ -238,6 +238,56 @@ describe('buildPanelSections', () => {
     ];
     const sections = buildPanelSections(treatments, ALL_TEETH, TX_LABEL);
     expect(sections.map((s) => s.key)).toEqual(['upper', 'lower']);
+  });
+});
+
+/*
+ * Two collapse thresholds, on purpose.
+ *
+ * A MediSave entry collapses at TWO teeth because one entry is one claim, and
+ * drawing it as two cards states two procedures about something CPF pays for once.
+ * Everything else collapses at COLLAPSE_MIN because sixteen identical rows is noise
+ * — a display concern with no billing statement attached either way.
+ *
+ * The surgical-extraction case below is the regression guard: raising the MediSave
+ * threshold to COLLAPSE_MIN would split a two-tooth entry back into two cards and
+ * reintroduce exactly the misstatement the collapse rule exists to prevent.
+ */
+describe('collapse thresholds', () => {
+  const upperIds = (n) => UPPER_TEETH.slice(0, n).map((t) => t.id);
+  const cardsFor = (id, n) =>
+    buildPanelSections([{ id, scope: 'tooth', targets: upperIds(n) }], ALL_TEETH, TX_LABEL)
+      .flatMap((s) => s.cards);
+
+  it('leaves a non-MediSave entry below the threshold as one card per tooth', () => {
+    expect(cardsFor('extraction', COLLAPSE_MIN - 1)).toHaveLength(COLLAPSE_MIN - 1);
+  });
+
+  it('collapses a non-MediSave entry at the threshold', () => {
+    const cards = cardsFor('extraction', COLLAPSE_MIN);
+    expect(cards).toHaveLength(1);
+    expect(cards[0].rows[0].collapse).toBe(true);
+  });
+
+  it('collapses a whole-arch extraction to one card with a quadrant-split heading', () => {
+    const cards = cardsFor('extraction', 16);
+    expect(cards).toHaveLength(1);
+    expect(cards[0].heading).toBe('#11–18, #21–28');
+    expect(cards[0].toothIds).toHaveLength(16);
+  });
+
+  it('still collapses a TWO-tooth MediSave entry — its threshold did not move', () => {
+    expect(cardsFor('simple-surgical-extraction', 2)).toHaveLength(1);
+  });
+
+  it('applies the threshold to any non-MediSave treatment, not just extractions', () => {
+    expect(cardsFor('crown', COLLAPSE_MIN)).toHaveLength(1);
+    expect(cardsFor('crown', COLLAPSE_MIN - 1)).toHaveLength(COLLAPSE_MIN - 1);
+  });
+
+  it('gives a collapsed non-MediSave row every target, so removing it removes the entry', () => {
+    const cards = cardsFor('extraction', COLLAPSE_MIN);
+    expect(cards[0].rows[0].targets).toEqual(upperIds(COLLAPSE_MIN));
   });
 });
 
