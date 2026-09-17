@@ -167,6 +167,29 @@ values — `npm run stroke-table` reads them from the named constants, and `?see
 - The two avenues still do not mix: chart bundles are chart-owned, and a sidebar
   treatment can never join one.
 
+### A visit spanning both arches is ONE card in Full Mouth (2026-09-17)
+
+- Two arch entries sharing a session collapse into a single card headed **"Both Arches"**,
+  placed in the existing **Full Mouth** section. Drawing one card per arch put a single
+  appointment into two jaw sections with a divider between them and a SAME VISIT brace on
+  each — it read as two appointments.
+- **The test is two ARCHES, not two members.** A visit can only ever hold one entry per
+  arch (`addAreaEntry` is a no-op on a repeat), and one arch is not both. `buildPanelSections`
+  computes `bothArchSessions` in a pre-pass.
+- **The arch moves onto the ROW** (`row.archLabel`, rendered as `.trx-row-loc`). Every other
+  card is headed by the one place its contents apply to; this card covers two, so naming one
+  of them in the heading would be false. Each row keeps its own `ref`, so one arch can be
+  removed without the other.
+- `_archOrder` forces Upper above Lower. The two rows tie on rank AND label — same treatment,
+  same rank — so without it their order falls out of the treatments array.
+- **`finalizeCard` now runs on full-mouth cards.** It did not before: every full-mouth card
+  held exactly one row (orthodontics), so there was nothing to sort. Do not remove it.
+- **Display only.** Still two entries, one per arch, sharing a session. The data rule is
+  untouched — see `core/area-apply.js`.
+- `.trx-card:has(.trx-row-loc) .trx-card-num` lets that heading wrap. "Both Arches" on one
+  line costs 71px of a 251px card and ellipsised the treatment name to "Alveolect…"; the card
+  is two rows tall, so it has vertical room no other card has. Measured, not guessed.
+
 ### bonePath() — upper arch orientation
 - Sub-path 1 ends at SVG-left / patient's R (near `first`)
 - Sub-path 2 starts at SVG-right / patient's L (near `last`)

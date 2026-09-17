@@ -124,9 +124,32 @@ export function spanHeading(fdis) {
 //   session — the same-visit bundle tag, when the owning entry carries one
 //   ref     — addresses the owning treatment entry; a single-tooth row's `targets`
 //             holds only its own tooth and so cannot identify a multi-tooth entry
+/** 'upper-arch' and 'upper' are the same arch; the stored form has varied. */
+function archOf(target) {
+  return (target === 'upper' || target === 'upper-arch') ? 'upper' : 'lower';
+}
+
 export function buildPanelSections(treatments, allTeeth, txLabel) {
   // Index teeth by id for fast lookup
   const teethById = Object.fromEntries(allTeeth.map((t) => [t.id, t]));
+
+  /* Visits whose ARCH members cover both arches.
+     Such a visit belongs to neither jaw, so drawing it as one card per jaw put a
+     single appointment in two sections with a divider between them and a SAME VISIT
+     brace on each — it read as two appointments. Those collapse into one "Both Arches"
+     card in the Full Mouth section instead.
+     Two arches is the test, not two members: a visit could only ever hold one entry
+     per arch (addAreaEntry is a no-op on a repeat), and one arch is not both. */
+  const archesPerSession = new Map();
+  for (const tx of treatments) {
+    if (tx.scope !== 'arch' || !tx.session) continue;
+    if (!archesPerSession.has(tx.session)) archesPerSession.set(tx.session, new Set());
+    for (const target of tx.targets || []) archesPerSession.get(tx.session).add(archOf(target));
+  }
+  const bothArchSessions = new Set(
+    [...archesPerSession].filter(([, arches]) => arches.size > 1).map(([sess]) => sess)
+  );
+  const bothArchCards = new Map();  // session -> the one card
 
   // Build cards map keyed by a stable string; group rows within a card.
   // upper FDI cards, lower FDI cards, upper non-FDI, lower non-FDI, full-mouth
@@ -173,6 +196,27 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
     }
 
     if (tx.scope === 'arch') {
+      if (tx.session && bothArchSessions.has(tx.session)) {
+        let card = bothArchCards.get(tx.session);
+        if (!card) {
+          card = { key: `visit-${tx.session}`, heading: 'Both Arches', toothIds: [], rows: [] };
+          bothArchCards.set(tx.session, card);
+          fullMouthCards.push(card);
+        }
+        for (const target of tx.targets) {
+          const isUpper = archOf(target) === 'upper';
+          card.rows.push({
+            txId: tx.id, label: rowLabel, scope: tx.scope, targets: [target],
+            // The arch moves onto the ROW because the card heading can no longer carry
+            // it. Every other card is headed by the one place its contents apply to;
+            // this card covers two, so naming one of them in the heading would be false.
+            archLabel: isUpper ? 'Upper' : 'Lower',
+            _archOrder: isUpper ? 0 : 1,
+            rank, session: tx.session, ref: txRef(tx),
+          });
+        }
+        continue;
+      }
       for (const target of tx.targets) {
         const isUpper = target === 'upper' || target === 'upper-arch';
         const heading = isUpper ? 'Upper Arch' : 'Lower Arch';
@@ -319,8 +363,12 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
   const sortByCx = (a, b) => a._cx - b._cx;
 
   // Sort rows within each card by rank then label
+  /* _archOrder puts Upper above Lower in a Both Arches card. Without it the two rows
+     tie on rank AND label — same treatment, same rank — so their order would fall out
+     of however the entries happen to sit in the treatments array. */
   const sortRows = (rows) =>
-    [...rows].sort((a, b) => a.rank - b.rank || a.label.localeCompare(b.label));
+    [...rows].sort((a, b) =>
+      a.rank - b.rank || (a._archOrder ?? 0) - (b._archOrder ?? 0) || a.label.localeCompare(b.label));
 
   const finalizeCard = (card) => ({ ...card, rows: sortRows(card.rows) });
 
@@ -336,6 +384,12 @@ export function buildPanelSections(treatments, allTeeth, txLabel) {
   const sections = [];
   if (upperCards.length > 0) sections.push({ key: 'upper', label: 'Maxilla', cards: upperCards });
   if (lowerCards.length > 0) sections.push({ key: 'lower', label: 'Mandible', cards: lowerCards });
-  if (fullMouthCards.length > 0) sections.push({ key: 'full-mouth', label: 'Full Mouth', cards: fullMouthCards });
+  /* finalizeCard was not applied here before: every full-mouth card held exactly one
+     row (orthodontics), so there was nothing to sort. A Both Arches card holds two,
+     and without this its rows keep whatever order the treatments array happened to
+     have — Lower above Upper if the lower arch was applied first. */
+  if (fullMouthCards.length > 0) {
+    sections.push({ key: 'full-mouth', label: 'Full Mouth', cards: fullMouthCards.map(finalizeCard) });
+  }
   return sections;
 }

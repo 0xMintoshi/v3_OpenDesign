@@ -291,6 +291,62 @@ describe('collapse thresholds', () => {
   });
 });
 
+/*
+ * Both arches in one visit.
+ *
+ * The two entries are on different areas, so before this they landed in two cards in
+ * two different jaw sections, each drawing its own SAME VISIT brace — one appointment
+ * that read as two. They now collapse into ONE card headed "Both Arches", which belongs
+ * to neither jaw and therefore sits in the existing Full Mouth section.
+ *
+ * Display only. The data is unchanged: still two entries, one per arch, sharing a
+ * session. See core/area-apply.js.
+ */
+describe('a visit spanning both arches', () => {
+  const upper = (session) => ({ id: 'alveolectomy', scope: 'arch', targets: ['upper'], ...(session ? { session } : {}) });
+  const lower = (session) => ({ id: 'alveolectomy', scope: 'arch', targets: ['lower'], ...(session ? { session } : {}) });
+  const build = (txs) => buildPanelSections(txs, ALL_TEETH, TX_LABEL);
+
+  it('draws one card in the Full Mouth section, not one per jaw', () => {
+    const sections = build([upper('s1'), lower('s1')]);
+    expect(sections.map((x) => x.key)).toEqual(['full-mouth']);
+    expect(sections[0].cards).toHaveLength(1);
+    expect(sections[0].cards[0].heading).toBe('Both Arches');
+  });
+
+  it('keeps both arches as separate rows, each naming its arch, upper first', () => {
+    const rows = build([lower('s1'), upper('s1')])[0].cards[0].rows;
+    expect(rows.map((r) => r.archLabel)).toEqual(['Upper', 'Lower']);
+    expect(rows.map((r) => r.label)).toEqual(['Alveolectomy', 'Alveolectomy']);
+  });
+
+  it('gives the rows one shared session, so the panel draws a single brace', () => {
+    const rows = build([upper('s1'), lower('s1')])[0].cards[0].rows;
+    expect(new Set(rows.map((r) => r.session))).toEqual(new Set(['s1']));
+  });
+
+  it('gives each row its own ref, so one arch can be removed without the other', () => {
+    const rows = build([upper('s1'), lower('s1')])[0].cards[0].rows;
+    expect(rows[0].ref).not.toBe(rows[1].ref);
+    expect(rows.map((r) => r.targets)).toEqual([['upper'], ['lower']]);
+  });
+
+  it('leaves UNBUNDLED arch entries exactly where they were', () => {
+    const sections = build([upper(), lower()]);
+    expect(sections.map((x) => x.key)).toEqual(['upper', 'lower']);
+    expect(sections[0].cards[0].heading).toBe('Upper Arch');
+    expect(sections[1].cards[0].heading).toBe('Lower Arch');
+  });
+
+  it('leaves a single bundled arch alone — one arch is not both arches', () => {
+    // pruneSessions would strip a lone tag upstream; this asserts the panel does not
+    // invent a Both Arches card from one member if one ever reaches it.
+    const sections = build([upper('s1')]);
+    expect(sections.map((x) => x.key)).toEqual(['upper']);
+    expect(sections[0].cards[0].heading).toBe('Upper Arch');
+  });
+});
+
 describe('spanHeading', () => {
   it('formats min–max with en-dash', () => {
     expect(spanHeading([13, 11, 12])).toBe('#11–13');

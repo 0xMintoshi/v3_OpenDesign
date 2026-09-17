@@ -57,6 +57,18 @@ const TRX_STYLE = `
   .trx-row:hover{background:color-mix(in oklch, var(--panel-ink,#000) 3%, transparent)}
   .trx-row-lbl{flex:1;min-width:0;font-size:11px;line-height:1.4;
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  /* Which arch this row is. Only a Both Arches card sets it: that card covers two
+     places, so its heading cannot name one and the arch has to sit on the row. Same
+     small-uppercase idiom as .trx-sect and .trx-bundle-hd. */
+  .trx-row-loc{flex:0 0 auto;min-width:34px;font-size:9px;font-weight:700;
+    letter-spacing:.07em;text-transform:uppercase;
+    color:color-mix(in oklch, var(--panel-ink,#29261b) 42%, transparent)}
+  /* "Both Arches" on one line costs 71px of a 251px card, and with an arch column
+     beside it the treatment name ellipsised to "Alveolect…". This card is two rows
+     tall, so it has vertical room no other card has — spend that instead. Keyed on
+     the arch column rather than on a data flag, matching .trx-card:has(.trx-bundle)
+     above. */
+  .trx-card:has(.trx-row-loc) .trx-card-num{white-space:normal;max-width:52px;line-height:1.25}
   .trx-rmv{appearance:none;border:0;background:transparent;padding:2px 4px;
     color:color-mix(in oklch, var(--panel-ink,#29261b) 35%, transparent);font-size:13px;line-height:1;cursor:default;border-radius:4px}
   .trx-rmv:hover{background:color-mix(in oklch, var(--panel-ink,#000) 7.000000000000001%, transparent);color:#29261b}
@@ -271,6 +283,9 @@ export function TreatmentPanel({
                           onMouseEnter={() => onHoverTargets(card.toothIds.length > 0 ? card.toothIds : row.targets)}
                           onMouseLeave={() => onHoverTargets([])}
                         >
+                          {row.archLabel && (
+                            <span className="trx-row-loc">{row.archLabel}</span>
+                          )}
                           <span className="trx-row-lbl">{row.label}</span>
                           {showMenuBtn && (
                             <button
