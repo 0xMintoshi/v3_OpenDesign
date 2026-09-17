@@ -136,6 +136,22 @@ describe('addBothArchEntries', () => {
     expect(pruneSessions(out).every((tx) => tx.session === 's1')).toBe(true);
   });
 
+  /*
+   * The no-retro-bundling rule, end to end. Minzhe, 2026-09-17: a visit is declared when
+   * the work is created and never afterwards.
+   *
+   * So when one arch already exists, "both arches" adds the other, tags only the new one,
+   * and pruneSessions — which the component runs over every render — then strips that tag
+   * because a bundle of one is not a bundle. The net result is NO visit, which is the
+   * correct outcome: the pre-existing entry may be from another day, and nothing may
+   * retro-join it. The operator sees no SAME VISIT brace, which is the honest feedback.
+   */
+  it('forms NO visit when one arch already existed — bundling is never retrofitted', () => {
+    const out = pruneSessions(addBothArchEntries([arch('upper')], 'alveolectomy', 's1'));
+    expect(out).toHaveLength(2);
+    expect(out.every((tx) => tx.session === undefined)).toBe(true);
+  });
+
   it('gives the two entries distinct refs, so the panel can address each', () => {
     const out = addBothArchEntries([], 'alveolectomy', 's1');
     expect(txRef(out[0])).not.toBe(txRef(out[1]));

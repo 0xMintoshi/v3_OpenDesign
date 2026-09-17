@@ -119,14 +119,17 @@ Two independent blocks:
    applying a procedure to the host's own teeth. Two arches are different areas
    by definition, so host-and-guest can never express them.
 
-**A note on the standing rule.** `v3/chart/CLAUDE.md` says joining two existing
-entries is "NOT coming back", and commit `b72f7c5` gives the reason: the plan
-that would have restored it was shelved when cross-avenue bundling was ruled
-out on 2026-09-14. That decision was about a visit record spanning **the chart
-and the sidebar**. This request is two chart entries — one avenue. The rule as
-written is broader than the decision that produced it. It is not being changed
-here, because the chosen option does not need joining, but it should not be
-cited as settling the within-chart case.
+**A note on the standing rule — raised, then closed the same day.** It was
+observed here that `v3/chart/CLAUDE.md`'s "joining two existing entries is NOT
+coming back" came from a narrower decision (commit `b72f7c5` shelved the
+*cross-avenue* plan), and so might not settle the within-chart case.
+
+**Minzhe ruled on 2026-09-17 that the broad rule is intended.** A visit is
+declared when the work is created and never retrofitted, inside the chart or
+across avenues, and the two avenues do not mix. The observation is retired; the
+rule stands as written. Nothing in this plan depended on it either way — the
+"both arches" tile bundles at creation time, which is the only mechanism the
+rule permits.
 
 ### Decided
 

@@ -150,12 +150,22 @@ values — `npm run stroke-table` reads them from the named constants, and `?see
   `tests/mv-session-v3.test.js`. `splitByArch` at `main.js:3658` is now near-dead — every
   alveolectomy entry has one target since 2026-09-14 — but still catches legacy restored
   data holding both arches in one entry. Leave it.
-- **The "no Join" rule above is written broader than the decision behind it.** Commit
-  `b72f7c5` removed joining two existing entries because the *cross-avenue* visit-record
-  plan was shelved — a decision about the chart and the sidebar. It does not settle the
-  within-chart case, and should not be cited as if it does. This feature did not need
-  joining, so nothing was changed; if joining two chart entries is ever wanted, that is
-  an open question, not a closed one.
+- **A VISIT IS DECLARED AT CREATION AND NEVER AFTERWARDS. Ruled by Minzhe 2026-09-17,
+  and this closes a question raised the same day.** The "no Join" rule stands in its
+  BROAD form: nothing may join two entries that already exist, inside the chart or
+  across avenues. It was briefly noted here that commit `b72f7c5` removed joining for a
+  narrower reason (the shelved *cross-avenue* plan) and so might not settle the
+  within-chart case. **That reading is retired.** The rule is intended as written, not an
+  accident of its provenance. Bundling always happens together, at the moment the work is
+  created — which is exactly what the "both arches" tile does.
+- **The visible consequence, which is correct rather than a gap.** When one arch already
+  has the treatment, "both arches" adds the other, tags only the new entry, and
+  `pruneSessions` (run over every render at `dental-arch.jsx:616`) strips that tag because
+  a bundle of one is not a bundle. Net result: **no visit at all**, and no SAME VISIT
+  brace. To bundle them the operator deletes and re-applies with "both arches". Pinned by
+  "forms NO visit when one arch already existed" in `core/area-apply.test.js`.
+- The two avenues still do not mix: chart bundles are chart-owned, and a sidebar
+  treatment can never join one.
 
 ### bonePath() — upper arch orientation
 - Sub-path 1 ends at SVG-left / patient's R (near `first`)
